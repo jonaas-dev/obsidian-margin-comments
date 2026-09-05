@@ -164,8 +164,18 @@ def main() -> int:
 
     try:
         problems = scan(args.rng)
-    except subprocess.CalledProcessError:
-        return 0  # not a git context / nothing staged
+    except subprocess.CalledProcessError as exc:
+        # Without a range this is the pre-commit path, where "not a git context"
+        # is a legitimate no-op. With one, git failing means the range never got
+        # scanned — staying silent would turn the CI job into a vacuous pass,
+        # which is exactly the failure this scanner exists to prevent.
+        if args.rng:
+            print(
+                f"\n\033[31m✖ could not scan {args.rng}: git exited {exc.returncode}\033[0m\n",
+                file=sys.stderr,
+            )
+            return 2
+        return 0
     if not problems:
         return 0
     where = f"in {args.rng}" if args.rng else "in the staged diff"
