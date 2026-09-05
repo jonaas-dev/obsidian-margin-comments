@@ -57,6 +57,40 @@ confirmed false positive by appending `# pragma: allowlist secret` or
 
 Once the toolchain lands (#1), extend `.githooks/pre-commit` with lint and typecheck.
 
+## Proving a check works
+
+**A check is not verified until you have watched it fail on bad input.** Confirming it
+passes on good input proves nothing: a check that always passes also passes.
+
+This is not a general principle someone wrote down here for tidiness. Three of the
+checks in this repo's own verification setup shipped green and inert, and every one was
+caught only by feeding it something that should have failed:
+
+| What it looked like | What it did |
+|---------------------|-------------|
+| `except CalledProcessError: return 0` | Any git failure meant the leak scan reported success without scanning |
+| `x=$(cmd \| filter \|\| true)` | Actions runs `bash -e` without `pipefail`, so a failing `cmd` was indistinguishable from a clean result |
+| `git diff A..B` | Compares two tips, not the merge base: lines `main` deleted read as additions by the branch |
+| Ignored CLI argument | `--range` was silently dropped and the scan fell back to an empty index, exiting 0 |
+
+The shape they share: **the failure path produces the same output as success.** When
+writing or reviewing a guard, ask what it does when its own machinery breaks — not when
+the code it inspects is bad, but when git errors, an argument is wrong, or a pipe stage
+dies. If that answer is "passes", it is decorative.
+
+So, for every check added here:
+
+1. Run it against input that must fail. Watch it fail.
+2. Run it against input that must pass. Watch it pass.
+3. Break the check's own dependency — bad range, missing file, wrong argument — and
+   confirm it reports an error rather than success.
+
+Record the negative case in the commit message or the test, so the next person does not
+have to rediscover that it bites.
+
+**Known gap**: the CI leak and identity jobs have only been exercised locally. Neither
+has been observed failing inside a real pull request.
+
 ## Architecture
 
 ```
