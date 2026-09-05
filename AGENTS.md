@@ -88,8 +88,17 @@ So, for every check added here:
 Record the negative case in the commit message or the test, so the next person does not
 have to rediscover that it bites.
 
-**Known gap**: the CI leak and identity jobs have only been exercised locally. Neither
-has been observed failing inside a real pull request.
+Both CI gates have been through this, in #42, each isolated:
+
+| Input | Result |
+|-------|--------|
+| Fake home path + fake email in the diff | Scan failed with correct `file:line` over the three-dot range |
+| Non-noreply author address, clean diff | Identity guard failed, naming the address |
+
+Isolating them was not pedantry. The first run tripped the scan, and because job steps
+stop at the first failure the identity guard was reported as `skipped` — a single
+combined test would have looked like proof of both while proving one. Both commits used
+`--no-verify`, which is the bypass these jobs exist to cover.
 
 ## Architecture
 
@@ -119,6 +128,37 @@ runtime, never persisted.
 | `npm run build` | production build |
 | `npm test` | vitest |
 | `npx tsc --noEmit` | type check |
+
+## Destructive git operations
+
+Two ways work has already been lost in this repo. Both are silent.
+
+**Never rewrite a branch's base while a pull request is open against it.** GitHub
+detaches the PR: its head freezes at a commit that no longer exists, `mergeable` stays
+null forever, and once closed it cannot be reopened — the API refuses with
+`state cannot be changed. The <branch> branch was force-pushed or recreated`. The
+commits survive on the branch; the PR, its review threads and its CI history do not
+come back. This cost PR #40, which had to be replaced by #41.
+
+Fix history *before* opening the PR. If one is already open and the rewrite cannot
+wait, expect to close it and open a replacement, linking the two so the review stays
+findable.
+
+A rewrite also invalidates green CI on that branch — the checks ran against the old
+commits. Before merging anything that was rebased or force-pushed, confirm the run's
+`head_sha` is what you are about to merge:
+
+```sh
+gh api repos/<owner>/<repo>/commits/<sha>/check-runs \
+  --jq '.check_runs[] | "\(.name): \(.conclusion) (\(.head_sha[0:7]))"'
+```
+
+**`git reset --hard` discards uncommitted changes to tracked files**, including edits
+made minutes earlier for a different purpose than the reset. This happened twice here,
+both times cleaning up after a throwaway experiment, and both times it silently reverted
+a real fix that had not been committed yet — once caught only because the test that
+followed exercised the reverted code. Commit or stash before resetting, and when a reset
+follows an experiment, check `git status` first to see what else is riding along.
 
 ## Task tracking
 
