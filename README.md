@@ -18,6 +18,10 @@ Add inline comments to your Obsidian notes with threaded replies, resolve/unreso
 
 Comments are stored as JSON files in `.inline-comments/` at the vault root. Markdown files are never modified, so comments are safe with any sync service (Git, iCloud, Dropbox, Obsidian Sync), survive Obsidian updates, and are trivial to back up or migrate.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup.
+
 ## License
 
 [MIT](LICENSE)
