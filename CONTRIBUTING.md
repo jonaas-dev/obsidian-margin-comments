@@ -19,6 +19,17 @@ sh ops/install-hooks.sh
 does not travel with the repository, so a fresh clone has no pre-commit protection
 until you run it. See the hooks section of [AGENTS.md](AGENTS.md) for what it blocks.
 
+**If you are not the maintainer**, tell the hook which address to expect before your
+first commit, otherwise it rejects every one of them:
+
+```sh
+git config hooks.expectedEmail "$(git config user.email)"
+```
+
+The check exists so the published history never carries a personal inbox. Use your
+own GitHub noreply address (`ID+username@users.noreply.github.com`, shown in GitHub
+under Settings → Emails) rather than a real one.
+
 ## Development vault
 
 **Never develop against a vault you care about.** This plugin writes to a
@@ -56,8 +67,9 @@ Run the watcher:
 npm run dev
 ```
 
-Saving a source file rebuilds `main.js` and Obsidian reloads the plugin. Changes to
-`manifest.json` and `styles.css` are **not** picked up — restart Obsidian for those.
+Saving a source file rebuilds `main.js` and Obsidian reloads the plugin. Hot-Reload
+watches `styles.css` too, so stylesheet edits land the same way. Only `manifest.json`
+needs a full Obsidian restart.
 
 ## Commands
 
@@ -90,5 +102,5 @@ Common problems:
 |---------|-------|
 | Changes not appearing | Stale build — check `npm run dev` is still running |
 | Plugin missing after a manifest edit | `manifest.json` needs a full Obsidian restart |
-| Styles unchanged | `styles.css` needs a full Obsidian restart |
+| Every commit rejected on identity | `hooks.expectedEmail` not set for your address |
 | Handlers firing after disable | An event registered without `registerEvent()` |
