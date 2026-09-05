@@ -3,7 +3,6 @@
   "version": "0.1.0",
   "description": "Add inline comments to your Obsidian notes with threaded replies, resolve/unresolve, and a sidebar panel.",
   "main": "main.js",
-  "type": "module",
   "scripts": {
     "dev": "node esbuild.config.mjs",
     "build": "tsc --noEmit && node esbuild.config.mjs production",
