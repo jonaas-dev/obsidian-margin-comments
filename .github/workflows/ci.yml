@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The leak checks diff against the base branch, which needs history.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: node esbuild.config.mjs production
+
+      - name: Verify the build produced the release assets
+        run: test -f main.js && test -f manifest.json && test -f styles.css
+
+  leaks:
+    # The pre-commit hook covers the same ground locally, but it is opt-in
+    # (core.hooksPath) and --no-verify skips it. This job is the enforced copy.
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Scan for secrets and personal data
+        run: |
+          python3 ops/check-secrets.py \
+            --range "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+
+      - name: Verify committer identity
+        run: |
+          range="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          bad=$(git log --format='%ae%n%ce' "$range" | sort -u | grep -v 'users\.noreply\.github\.com$' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::Commits carry a non-noreply address, which would be published with the history:"
+            printf '%s\n' "$bad"
+            exit 1
+          fi
