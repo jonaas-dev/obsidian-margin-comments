@@ -1,0 +1,10 @@
+{
+	"id": "inline-comments",
+	"name": "Inline Comments",
+	"version": "0.1.0",
+	"minAppVersion": "1.5.0",
+	"description": "Add inline comments to your notes with threaded replies, resolve/unresolve, and a sidebar panel.",
+	"author": "jonaas-dev",
+	"authorUrl": "https://github.com/jonaas-dev",
+	"isDesktopOnly": false
+}
