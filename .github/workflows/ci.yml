@@ -49,15 +49,21 @@ jobs:
         with:
           fetch-depth: 0
 
+      # Expressions go through env rather than straight into run: a ${{ }} is
+      # substituted textually before the shell sees it, which is a script
+      # injection vector the moment one of these values is not a commit SHA.
       - name: Scan for secrets and personal data
-        run: |
-          python3 ops/check-secrets.py \
-            --range "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: python3 ops/check-secrets.py --range "$BASE_SHA..$HEAD_SHA"
 
       - name: Verify committer identity
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          range="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
-          bad=$(git log --format='%ae%n%ce' "$range" | sort -u | grep -v 'users\.noreply\.github\.com$' || true)
+          bad=$(git log --format='%ae%n%ce' "$BASE_SHA..$HEAD_SHA" | sort -u | grep -v 'users\.noreply\.github\.com$' || true)
           if [ -n "$bad" ]; then
             echo "::error::Commits carry a non-noreply address, which would be published with the history:"
             printf '%s\n' "$bad"
