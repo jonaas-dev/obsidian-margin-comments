@@ -31,6 +31,28 @@ vault root.
   tear everything down in `onunload()`.
 - No `console.log` left in shipped code.
 
+## Pre-commit hooks
+
+Run `sh ops/install-hooks.sh` once after cloning — `core.hooksPath` is local config
+and does not travel with the repo, so a fresh clone has no protection until you do.
+
+The hook blocks three things, because this repo goes public at 1.0 carrying its whole
+history and a leak there is permanent:
+
+1. **Wrong committer identity** — commits must be authored under the GitHub noreply
+   address, never a real inbox. Override for a fork with
+   `git config hooks.expectedEmail <address>`.
+2. **Secrets** — env/key files being added, and added lines matching known credential
+   patterns.
+3. **Personal data** — home directory paths, personal email addresses, local hostnames.
+   The likely source is docs or screenshots written against a real vault.
+
+Only added lines in the staged diff are scanned, so the hook stays fast. Escape a
+confirmed false positive by appending `# pragma: allowlist secret` or
+`# pragma: allowlist personal` to the line. `--no-verify` exists but defeats the point.
+
+Once the toolchain lands (#1), extend `.githooks/pre-commit` with lint and typecheck.
+
 ## Architecture
 
 ```
