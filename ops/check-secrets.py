@@ -19,10 +19,15 @@ Placeholders (``change-me``, ``localhost``, ``${...}``, ``os.getenv`` …) are
 ignored automatically for the secret patterns.
 
 Run standalone:  python3 ops/check-secrets.py
+Scan a range:    python3 ops/check-secrets.py --range origin/main..HEAD
+
+The range form is what CI uses: a pull request has nothing staged, so a scanner
+locked to the index would pass vacuously and the protection would be local-only.
 """
 
 from __future__ import annotations
 
+import argparse
 import re
 import subprocess
 import sys
@@ -96,18 +101,22 @@ def _git(*args: str) -> str:
     return subprocess.run(["git", *args], capture_output=True, text=True, check=True).stdout
 
 
-def blocked_files() -> list[str]:
-    out = _git("diff", "--cached", "--name-only", "--diff-filter=A")
+def _diff_args(rng: str | None) -> list[str]:
+    return [rng] if rng else ["--cached"]
+
+
+def blocked_files(rng: str | None) -> list[str]:
+    out = _git("diff", *_diff_args(rng), "--name-only", "--diff-filter=A")
     return [p for p in out.splitlines() if BLOCKED_FILE.search(p) and not ALLOWED_FILE.search(p)]
 
 
-def added_lines() -> list[tuple[str, int, str]]:
-    """Every added line in the staged diff, as (path, line number in the new file, text).
+def added_lines(rng: str | None) -> list[tuple[str, int, str]]:
+    """Every added line in the diff, as (path, line number in the new file, text).
 
     The hunk header carries the starting line in the post-image, so a finding can
     point at a real location instead of an offset into the concatenated diff.
     """
-    diff = _git("diff", "--cached", "--unified=0")
+    diff = _git("diff", *_diff_args(rng), "--unified=0")
     results: list[tuple[str, int, str]] = []
     path, lineno = "?", 0
     for raw in diff.splitlines():
@@ -121,13 +130,13 @@ def added_lines() -> list[tuple[str, int, str]]:
     return results
 
 
-def scan() -> list[str]:
+def scan(rng: str | None = None) -> list[str]:
     problems: list[str] = []
 
-    for path in blocked_files():
+    for path in blocked_files(rng):
         problems.append(f"{path}: secret file must not be committed (use .env.example)")
 
-    for path, lineno, line in added_lines():
+    for path, lineno, line in added_lines(rng):
         if ALLOWED_FILE.search(path):
             continue
         snippet = line.strip()[:100]
@@ -149,13 +158,18 @@ def scan() -> list[str]:
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Scan for secrets and personal data.")
+    parser.add_argument("--range", dest="rng", help="git range to scan, e.g. origin/main..HEAD")
+    args = parser.parse_args()
+
     try:
-        problems = scan()
+        problems = scan(args.rng)
     except subprocess.CalledProcessError:
         return 0  # not a git context / nothing staged
     if not problems:
         return 0
-    print("\n\033[31m✖ pre-commit: secrets or personal data in the staged diff\033[0m\n", file=sys.stderr)
+    where = f"in {args.rng}" if args.rng else "in the staged diff"
+    print(f"\n\033[31m✖ secrets or personal data {where}\033[0m\n", file=sys.stderr)
     for p in problems:
         print(f"   • {p}", file=sys.stderr)
     print(
