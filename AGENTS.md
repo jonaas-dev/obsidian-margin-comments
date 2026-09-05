@@ -6,10 +6,14 @@ WHY-only comments).
 
 ## Language
 
-**All repo content is in English**: source code, identifiers, code comments, docstrings,
-CSS classes, file names, README, issues and PR titles/bodies. Commit messages follow
-Conventional Commits — the type prefix is English, the subject may be Spanish per the
-cross-repo convention.
+**Everything in this repository is in English, with no exceptions**: source code,
+identifiers, code comments, docstrings, CSS classes, file names, README, issues, pull
+request titles and bodies, and **commit messages**.
+
+Commit messages follow Conventional Commits, written in English: `feat: add threaded
+replies`, never `feat: añadir respuestas en hilo`. This overrides the Spanish-subject
+convention in `~/Repos/AGENTS.md` — that rule assumes a private repo, and this history
+gets published in full at 1.0, where a bilingual log is noise for every reader.
 
 ## What this is
 
