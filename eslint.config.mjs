@@ -1,4 +1,5 @@
 import js from "@eslint/js";
+import globals from "globals";
 import tseslint from "@typescript-eslint/eslint-plugin";
 import tsparser from "@typescript-eslint/parser";
 
@@ -11,6 +12,9 @@ export default [
 		languageOptions: {
 			parser: tsparser,
 			parserOptions: { ecmaVersion: "latest", sourceType: "module" },
+			// Obsidian plugins run inside Electron's renderer, so the browser
+			// globals are the right set: console, document, setTimeout, HTMLElement.
+			globals: { ...globals.browser },
 		},
 		plugins: { "@typescript-eslint": tseslint },
 		rules: {
