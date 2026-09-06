@@ -1,5 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { describeDeletion, wasEdited, withEditedContent, withResolved } from "../../src/ui/comment-actions";
+import {
+	describeDeletion,
+	describeResolveAll,
+	openRoots,
+	wasEdited,
+	withEditedContent,
+	withResolved,
+} from "../../src/ui/comment-actions";
 import { createAnchor } from "../../src/anchor";
 import type { Comment } from "../../src/types";
 
@@ -113,5 +120,32 @@ describe("describeDeletion", () => {
 
 	it("treats deleting a reply as deleting one comment", () => {
 		expect(describeDeletion(reply, [root, reply])).toBe("Delete this reply?");
+	});
+});
+
+describe("openRoots", () => {
+	const root = (id: string, resolved: boolean): Comment => ({ ...base, id, resolved });
+	const reply = (id: string, parentId: string): Comment => ({ ...base, id, parentId });
+
+	it("keeps only unresolved roots", () => {
+		const comments = [root("a", false), root("b", true), root("c", false)];
+		expect(openRoots(comments).map((c) => c.id)).toEqual(["a", "c"]);
+	});
+
+	it("ignores replies, which carry no resolved state of their own", () => {
+		// A reply has resolved: false by default. Counting them would offer to
+		// resolve threads that are already resolved.
+		const comments = [root("a", true), reply("r", "a")];
+		expect(openRoots(comments)).toEqual([]);
+	});
+});
+
+describe("describeResolveAll", () => {
+	it("names how many threads the action covers", () => {
+		expect(describeResolveAll(3)).toBe("Resolve 3 open threads in this note?");
+	});
+
+	it("stays grammatical for one", () => {
+		expect(describeResolveAll(1)).toBe("Resolve 1 open thread in this note?");
 	});
 });

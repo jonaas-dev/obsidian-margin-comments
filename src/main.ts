@@ -1,4 +1,4 @@
-import { MarkdownView, Platform, Plugin } from "obsidian";
+import { MarkdownView, Notice, Platform, Plugin } from "obsidian";
 import type { EditorView } from "@codemirror/view";
 import { CommentStorage } from "./storage";
 import { createAnchor } from "./anchor";
@@ -14,8 +14,23 @@ import { toSortOrder } from "./ui/panel-sort";
 import { ThreadPopover } from "./ui/thread-popover";
 import { buildThreads, type Thread } from "./ui/threads";
 import { createReply } from "./ui/replies";
-import { describeDeletion, withEditedContent, withResolved } from "./ui/comment-actions";
+import {
+	describeDeletion,
+	describeResolveAll,
+	openRoots,
+	withEditedContent,
+	withResolved,
+} from "./ui/comment-actions";
+import { findAdjacentLine, type Direction } from "./editor/comment-navigation";
 import { ConfirmModal } from "./ui/confirm-modal";
+
+/** Put the cursor on a 1-based line and scroll it into view. */
+function goToLine(view: MarkdownView, line: number): void {
+	const position = { line: line - 1, ch: 0 };
+	view.editor.setCursor(position);
+	view.editor.scrollIntoView({ from: position, to: position }, true);
+	view.editor.focus();
+}
 
 export default class InlineCommentsPlugin extends Plugin {
 	storage!: CommentStorage;
@@ -76,10 +91,32 @@ export default class InlineCommentsPlugin extends Plugin {
 		this.addCommand({
 			id: "add-comment",
 			name: "Add comment to selection",
+			// Mod+Shift+M is free in a default Obsidian, and every binding here is
+			// a default: Obsidian's hotkey settings override all of them.
+			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "M" }],
 			editorCallback: (_editor, ctx) => {
 				const view = (ctx as MarkdownView).editor as unknown as { cm?: EditorView };
 				if (view.cm) this.openComposer(view.cm, view.cm.state.doc.lineAt(view.cm.state.selection.main.head).number);
 			},
+		});
+
+		// Editor-scoped, so they grey out anywhere that is not a note.
+		this.addCommand({
+			id: "next-comment",
+			name: "Go to next comment",
+			editorCallback: (_editor, ctx) => void this.jumpToComment(ctx as MarkdownView, "next"),
+		});
+
+		this.addCommand({
+			id: "previous-comment",
+			name: "Go to previous comment",
+			editorCallback: (_editor, ctx) => void this.jumpToComment(ctx as MarkdownView, "previous"),
+		});
+
+		this.addCommand({
+			id: "resolve-all-comments",
+			name: "Resolve all comments in this note",
+			editorCallback: (_editor, ctx) => this.confirmResolveAll(ctx as MarkdownView),
 		});
 
 		this.registerEvent(
@@ -187,12 +224,61 @@ export default class InlineCommentsPlugin extends Plugin {
 		const file = this.app.workspace.getActiveFile();
 		const view = file ? this.markdownViewFor(file.path) : null;
 		if (!view || thread.line === null) return;
-		view.editor.setCursor({ line: thread.line - 1, ch: 0 });
-		view.editor.scrollIntoView(
-			{ from: { line: thread.line - 1, ch: 0 }, to: { line: thread.line - 1, ch: 0 } },
-			true,
-		);
-		view.editor.focus();
+		goToLine(view, thread.line);
+	}
+
+	/** Move the cursor to the next or previous commented line in this note. */
+	private async jumpToComment(view: MarkdownView, direction: Direction): Promise<void> {
+		if (!view.file) return;
+
+		const comments = await this.storage.getCommentsForFile(view.file.path);
+		const threads = buildThreads(view.editor.getValue(), comments);
+		// Orphans have no line to jump to. Skipping them silently is right: the
+		// panel is where a lost comment gets dealt with, not the editor.
+		const lines = threads
+			.map((thread) => thread.line)
+			.filter((line): line is number => line !== null);
+
+		const target = findAdjacentLine(lines, view.editor.getCursor().line + 1, direction);
+		if (target === null) {
+			new Notice("No comments in this note.");
+			return;
+		}
+		goToLine(view, target);
+	}
+
+	/**
+	 * Resolve every open thread in the note, after saying how many.
+	 *
+	 * Confirmed even though resolving is reversible: this is the one action here
+	 * that touches comments the user is not looking at.
+	 */
+	private confirmResolveAll(view: MarkdownView): void {
+		void (async () => {
+			if (!view.file) return;
+			const filePath = view.file.path;
+			const open = openRoots(await this.storage.getCommentsForFile(filePath));
+			if (open.length === 0) {
+				new Notice("No open comments in this note.");
+				return;
+			}
+
+			new ConfirmModal(
+				this.app,
+				describeResolveAll(open.length),
+				async () => {
+					for (const root of open) {
+						await this.storage.updateComment(withResolved(root, true));
+					}
+					await this.refresh();
+				},
+				{
+					confirmLabel: "Resolve",
+					note: "Every thread can be reopened afterwards.",
+					destructive: false,
+				},
+			).open();
+		})();
 	}
 
 	private async refreshPanel(): Promise<void> {
