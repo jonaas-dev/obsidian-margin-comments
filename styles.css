@@ -1,2 +1,23 @@
-/* Every colour must come from Obsidian's theme variables so the plugin works in
-   any theme. See the "Theme integration" section of the design document. */
+/* Colours come from Obsidian's theme variables so the plugin works in any theme. */
+
+.inline-comment-gutter {
+	/* Narrow enough not to crowd line numbers or the fold gutter. */
+	min-width: 1.4em;
+	cursor: pointer;
+}
+
+.inline-comment-marker {
+	font-size: 0.75em;
+	line-height: inherit;
+	opacity: 0.35;
+	transition: opacity 100ms ease-in-out;
+}
+
+.inline-comment-marker:hover {
+	opacity: 1;
+}
+
+/* A line that already carries an open comment stays visible without hover. */
+.inline-comment-marker-active {
+	opacity: 0.9;
+}
