@@ -139,21 +139,91 @@ describe("CommentStorage", () => {
 	});
 
 	describe("index", () => {
-		it("records the note path so the all-files view can find it", async () => {
+		it("records the note path and its thread counts", async () => {
 			const adapter = new MemoryAdapter();
 			await new CommentStorage(adapter).saveComment(makeComment());
 			const index = JSON.parse(adapter.snapshot()[`${STORAGE_DIR}/${INDEX_FILE}`]);
-			expect(index["notes/meeting.md"]).toBe(hashString("notes/meeting.md"));
+			expect(index["notes/meeting.md"]).toEqual({
+				hash: hashString("notes/meeting.md"),
+				threads: 1,
+				open: 1,
+			});
 		});
 
-		it("drops an entry whose sidecar no longer exists", async () => {
-			// The index is a cache, not the source of truth: a stale entry left by a
-			// half-synced device must not surface a note with no comments.
+		it("counts threads, not comments", async () => {
+			// The panel lists threads, so a reply must not inflate the count beside
+			// a note that has one conversation on it.
+			const adapter = new MemoryAdapter();
+			const storage = new CommentStorage(adapter);
+			await storage.saveComment(makeComment());
+			await storage.saveComment({ ...makeComment(), id: "c2", parentId: "c1" });
+
+			const [summary] = await storage.getCommentSummaries();
+			expect(summary).toEqual({ filePath: "notes/meeting.md", threads: 1, open: 1 });
+		});
+
+		it("follows a thread being resolved and reopened", async () => {
+			const adapter = new MemoryAdapter();
+			const storage = new CommentStorage(adapter);
+			await storage.saveComment(makeComment());
+
+			await storage.updateComment({ ...makeComment(), resolved: true });
+			expect((await storage.getCommentSummaries())[0]).toEqual({
+				filePath: "notes/meeting.md",
+				threads: 1,
+				open: 0,
+			});
+
+			await storage.updateComment({ ...makeComment(), resolved: false });
+			expect((await storage.getCommentSummaries())[0].open).toBe(1);
+		});
+
+		it("summarises the whole vault without opening a single sidecar", async () => {
+			// The point of the counts living in the index: opening the all-files
+			// view on a vault with hundreds of commented notes must not read them.
+			const adapter = new MemoryAdapter();
+			const storage = new CommentStorage(adapter);
+			await storage.saveComment(makeComment());
+			await storage.saveComment({ ...makeComment(), id: "c9", filePath: "other.md" });
+
+			const fresh = new CommentStorage(adapter);
+			adapter.reads.length = 0;
+			const summaries = await fresh.getCommentSummaries();
+
+			expect(summaries.map((s) => s.filePath).sort()).toEqual(["notes/meeting.md", "other.md"]);
+			expect(adapter.reads).toEqual([`${STORAGE_DIR}/${INDEX_FILE}`]);
+		});
+
+		it("drops an entry once the note turns out to have no sidecar", async () => {
+			// A stale entry survives a half-finished sync. It is cleared the first
+			// time anything asks for that note, rather than by an existence check
+			// per entry on every summary.
 			const adapter = new MemoryAdapter({
-				[`${STORAGE_DIR}/${INDEX_FILE}`]: JSON.stringify({ "gone.md": "deadbeefdeadbeef" }),
+				[`${STORAGE_DIR}/${INDEX_FILE}`]: JSON.stringify({
+					"gone.md": { hash: "deadbeefdeadbeef", threads: 2, open: 2 },
+				}),
 			});
 			const storage = new CommentStorage(adapter);
-			expect(await storage.getCommentedFiles()).toEqual([]);
+
+			expect(await storage.getCommentsForFile("gone.md")).toEqual([]);
+			expect(await storage.getCommentSummaries()).toEqual([]);
+		});
+
+		it("rebuilds an index written by an older version", async () => {
+			// 0.1 stored a bare hash per note. Counting it as zero threads would
+			// show every existing vault an empty all-files view.
+			const adapter = new MemoryAdapter();
+			const storage = new CommentStorage(adapter);
+			await storage.saveComment(makeComment());
+			await adapter.write(
+				`${STORAGE_DIR}/${INDEX_FILE}`,
+				JSON.stringify({ "notes/meeting.md": hashString("notes/meeting.md") }),
+			);
+
+			const fresh = new CommentStorage(adapter);
+			expect(await fresh.getCommentSummaries()).toEqual([
+				{ filePath: "notes/meeting.md", threads: 1, open: 1 },
+			]);
 		});
 
 		it("rebuilds itself by scanning when the index is missing", async () => {
@@ -161,7 +231,17 @@ describe("CommentStorage", () => {
 			await new CommentStorage(adapter).saveComment(makeComment());
 			await adapter.remove(`${STORAGE_DIR}/${INDEX_FILE}`);
 			const fresh = new CommentStorage(adapter);
-			expect(await fresh.getCommentedFiles()).toEqual(["notes/meeting.md"]);
+			expect((await fresh.getCommentSummaries()).map((s) => s.filePath)).toEqual([
+				"notes/meeting.md",
+			]);
+		});
+
+		it("forgets a note whose last comment was deleted", async () => {
+			const adapter = new MemoryAdapter();
+			const storage = new CommentStorage(adapter);
+			await storage.saveComment(makeComment());
+			await storage.deleteComment("notes/meeting.md", "c1");
+			expect(await storage.getCommentSummaries()).toEqual([]);
 		});
 	});
 });
