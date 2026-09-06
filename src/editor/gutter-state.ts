@@ -1,4 +1,4 @@
-import { matchByContext, matchByHash } from "../anchor";
+import { matchAnchor } from "../anchor";
 import type { Comment } from "../types";
 
 /** Pixels from the gutter's left edge that count as "at the edge". */
@@ -32,7 +32,8 @@ export function linesWithOpenComments(doc: string, comments: Comment[]): Set<num
 	const lines = new Set<number>();
 	for (const comment of comments) {
 		if (comment.resolved || comment.parentId !== null) continue;
-		const match = matchByHash(doc, comment.anchor) ?? matchByContext(doc, comment.anchor);
+		// Stages 1 and 2 only: this runs on every keystroke.
+		const match = matchAnchor(doc, comment.anchor);
 		if (match) lines.add(lineNumberAt(doc, match.from));
 	}
 	return lines;
