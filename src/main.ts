@@ -4,6 +4,14 @@ import { CommentStorage } from "./storage";
 import { createAnchor } from "./anchor";
 import { movesFor } from "./note-moves";
 import { HIGHLIGHT_VARIABLE, highlightOverride } from "./appearance";
+import { InlineCommentsSettingTab, type SettingsHost } from "./settings";
+import {
+	toAuthor,
+	toFuzzyThreshold,
+	toHighlightColor,
+	toOrphanedBehavior,
+	toPanelPosition,
+} from "./settings-values";
 import { DeletedNotes, describeNoteDeletion, describeNoteRestore } from "./deleted-notes";
 import { commentGutter, updateCommentedLines, updateGutterEnabled } from "./editor/hover-gutter";
 import { linesWithOpenComments } from "./editor/gutter-state";
@@ -43,7 +51,7 @@ function goToLine(view: MarkdownView, line: number): void {
 	view.editor.focus();
 }
 
-export default class InlineCommentsPlugin extends Plugin {
+export default class InlineCommentsPlugin extends Plugin implements SettingsHost {
 	storage!: CommentStorage;
 	settings: PluginSettings = DEFAULT_SETTINGS;
 	private composer: FloatingComposer | null = null;
@@ -63,6 +71,23 @@ export default class InlineCommentsPlugin extends Plugin {
 		this.settings.panelFilter = toThreadFilter(this.settings.panelFilter);
 		this.settings.sortOrder = toSortOrder(this.settings.sortOrder);
 		this.settings.panelScope = toPanelScope(this.settings.panelScope);
+		this.settings.author = toAuthor(this.settings.author, DEFAULT_SETTINGS.author);
+		this.settings.fuzzyThreshold = toFuzzyThreshold(
+			this.settings.fuzzyThreshold,
+			DEFAULT_SETTINGS.fuzzyThreshold,
+		);
+		this.settings.highlightColor = toHighlightColor(
+			this.settings.highlightColor,
+			DEFAULT_SETTINGS.highlightColor,
+		);
+		this.settings.orphanedBehavior = toOrphanedBehavior(
+			this.settings.orphanedBehavior,
+			DEFAULT_SETTINGS.orphanedBehavior,
+		);
+		this.settings.panelPosition = toPanelPosition(
+			this.settings.panelPosition,
+			DEFAULT_SETTINGS.panelPosition,
+		);
 		this.storage = new CommentStorage(this.app.vault.adapter);
 		this.popover = new ThreadPopover(this.app, {
 			addReply: (root, content) => this.addReply(root, content),
@@ -96,6 +121,8 @@ export default class InlineCommentsPlugin extends Plugin {
 					notifyOrphans: (count) => this.announceOrphans(count),
 				}),
 		);
+
+		this.addSettingTab(new InlineCommentsSettingTab(this.app, this));
 
 		this.addRibbonIcon("message-square", "Toggle comments panel", () => void this.togglePanel());
 		this.addCommand({
@@ -191,18 +218,41 @@ export default class InlineCommentsPlugin extends Plugin {
 		else document.body.style.setProperty(HIGHLIGHT_VARIABLE, override);
 	}
 
-	private async togglePanel(): Promise<void> {
-		const existing = this.app.workspace.getLeavesOfType(COMMENT_PANEL_VIEW);
-		if (existing.length > 0) {
-			this.app.workspace.detachLeavesOfType(COMMENT_PANEL_VIEW);
-			return;
-		}
+	/** Persist the settings object as it now stands. Part of SettingsHost. */
+	save(): Promise<void> {
+		return this.saveData(this.settings);
+	}
+
+	/**
+	 * Move an open panel to the configured side.
+	 *
+	 * Detach and reopen rather than nudge: a leaf belongs to the sidebar it was
+	 * created in, and there is no supported way to hand it to the other one. A
+	 * closed panel is left closed — opening one because a setting changed would
+	 * be an odd thing for a dropdown to do.
+	 */
+	async movePanel(): Promise<void> {
+		if (this.app.workspace.getLeavesOfType(COMMENT_PANEL_VIEW).length === 0) return;
+		this.app.workspace.detachLeavesOfType(COMMENT_PANEL_VIEW);
+		await this.openPanel();
+	}
+
+	private async openPanel(): Promise<void> {
 		const leaf =
 			this.settings.panelPosition === "left"
 				? this.app.workspace.getLeftLeaf(false)
 				: this.app.workspace.getRightLeaf(false);
 		await leaf?.setViewState({ type: COMMENT_PANEL_VIEW, active: true });
 		if (leaf) this.app.workspace.revealLeaf(leaf);
+	}
+
+	private async togglePanel(): Promise<void> {
+		const existing = this.app.workspace.getLeavesOfType(COMMENT_PANEL_VIEW);
+		if (existing.length > 0) {
+			this.app.workspace.detachLeavesOfType(COMMENT_PANEL_VIEW);
+			return;
+		}
+		await this.openPanel();
 	}
 
 	/**
@@ -476,7 +526,8 @@ export default class InlineCommentsPlugin extends Plugin {
 		}
 	}
 
-	private async refresh(): Promise<void> {
+	/** Redraw markers, highlights and the panel. Part of SettingsHost. */
+	async refresh(): Promise<void> {
 		await this.refreshMarkers();
 		await this.refreshPanel();
 	}
