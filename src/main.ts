@@ -4,6 +4,7 @@ import { CommentStorage } from "./storage";
 import { createAnchor } from "./anchor";
 import { commentGutter, updateCommentedLines } from "./editor/hover-gutter";
 import { linesWithOpenComments } from "./editor/gutter-state";
+import { highlightRanges, lineHighlights, updateHighlights } from "./editor/line-highlight";
 import { FloatingComposer } from "./editor/floating-comment";
 import { DEFAULT_SETTINGS, type Comment, type PluginSettings } from "./types";
 
@@ -16,6 +17,7 @@ export default class InlineCommentsPlugin extends Plugin {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 		this.storage = new CommentStorage(this.app.vault.adapter);
 
+		this.registerEditorExtension(lineHighlights());
 		this.registerEditorExtension(
 			commentGutter({
 				alwaysVisible: Platform.isMobile,
@@ -107,11 +109,14 @@ export default class InlineCommentsPlugin extends Plugin {
 		if (!markdownView || !file) return;
 
 		const comments = await this.storage.getCommentsForFile(file.path);
-		const lines = linesWithOpenComments(markdownView.editor.getValue(), comments);
+		const doc = markdownView.editor.getValue();
 
 		// Obsidian exposes the CodeMirror view here but does not declare it, and
 		// it is absent in the legacy editor, so this stays defensive.
 		const view = (markdownView.editor as unknown as { cm?: EditorView }).cm;
-		if (view) updateCommentedLines(view, lines);
+		if (!view) return;
+
+		updateCommentedLines(view, linesWithOpenComments(doc, comments));
+		updateHighlights(view, this.settings.showLineHighlights ? highlightRanges(doc, comments) : []);
 	}
 }
