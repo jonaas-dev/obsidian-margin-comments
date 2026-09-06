@@ -88,6 +88,8 @@ describe("comment panel", () => {
 		const replyInput = page.locator(".inline-comment-replybox-input").first();
 		await replyInput.click();
 		await replyInput.fill("a reply from the test");
+		// The send button rather than Enter: the harness cannot hold focus in a
+		// textarea, so a keydown never reaches it. keyIntent covers that decision.
 		await page.locator(".inline-comment-send").first().click();
 		await page.waitForTimeout(1500);
 
@@ -178,7 +180,51 @@ describe("comment panel", () => {
 		expect(await page.locator(".inline-comment-active-line").count()).toBe(1);
 	});
 
+	it("selects the thread in the panel when its marker is clicked", async () => {
+		// Clicking a marker asks "which comment is this?" — the panel has to answer.
+		const gutters = await page.locator(".cm-gutters").boundingBox();
+		const line = await page.locator(".cm-line").nth(1).boundingBox();
+		await page.mouse.click(gutters.x + gutters.width / 2, line.y + line.height / 2);
+		await page.waitForTimeout(800);
+
+		expect(await page.locator(".inline-comment-card.is-selected").count()).toBe(1);
+		// With the panel open there is no popover: everything stays in one place.
+		expect(await page.locator(".inline-comment-popover").count()).toBe(0);
+	});
+
+	it("closes from the panel's own close button", async () => {
+		await page.locator('[aria-label="Close comments panel"]').click();
+		await page.waitForTimeout(600);
+		expect(await page.locator(".inline-comment-panel").count()).toBe(0);
+	});
+
+	it("opens a popover beside the line when the panel is closed", async () => {
+		const gutters = await page.locator(".cm-gutters").boundingBox();
+		const line = await page.locator(".cm-line").nth(1).boundingBox();
+		await page.mouse.click(gutters.x + gutters.width / 2, line.y + line.height / 2);
+		await page.waitForSelector(".inline-comment-popover", { timeout: 5000 });
+
+		expect(await page.locator(".inline-comment-popover .inline-comment-body").count()).toBeGreaterThan(0);
+		// Beside the line, not over it.
+		const box = await page.locator(".inline-comment-popover").boundingBox();
+		expect(box.x).toBeGreaterThan(gutters.x);
+	});
+
+	it("closes the popover with Escape", async () => {
+		await page.keyboard.press("Escape");
+		await page.waitForTimeout(400);
+		expect(await page.locator(".inline-comment-popover").count()).toBe(0);
+	});
+
 	it("asks before deleting and names how many replies go with it", async () => {
+		// The popover tests above close the panel; the delete actions live in it.
+		await page.evaluate(async () => {
+			if (window.app.workspace.getLeavesOfType("inline-comments-panel").length === 0) {
+				await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			}
+		});
+		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
+
 		await page.locator(".inline-comment-card").first().hover();
 		await page.locator('[aria-label="Delete"]').first().click();
 		await page.waitForSelector(".modal", { timeout: 5000 });
@@ -209,36 +255,4 @@ describe("comment panel", () => {
 		expect(await page.locator(".inline-comment-empty").count()).toBe(1);
 	});
 
-	it("shows the comments when the gutter marker of a commented line is clicked", async () => {
-		// The gap reported from real use: clicking a marked line opened an empty
-		// composer instead of showing what was already there. Re-created here
-		// because the delete tests above leave the note with no comments.
-		const gutters0 = await page.locator(".cm-gutters").boundingBox();
-		const line0 = await page.locator(".cm-line").nth(1).boundingBox();
-		await page.mouse.move(gutters0.x + gutters0.width / 2, line0.y + line0.height / 2);
-		await page.waitForSelector(".inline-comment-marker", { timeout: 5000 });
-		await page.mouse.click(gutters0.x + gutters0.width / 2, line0.y + line0.height / 2);
-		await page.waitForSelector(".inline-comment-composer", { timeout: 5000 });
-		await page.locator(".inline-comment-composer-input").click();
-		await page.locator(".inline-comment-composer-input").fill("recreated for this test");
-		await page.locator(".inline-comment-composer .mod-cta").click();
-		await page.waitForTimeout(1500);
-
-		await page.evaluate(() => window.app.workspace.detachLeavesOfType("inline-comments-panel"));
-		await page.waitForTimeout(300);
-		expect(await page.locator(".inline-comment-panel").count()).toBe(0);
-
-		const gutters = await page.locator(".cm-gutters").boundingBox();
-		const line = await page.locator(".cm-line").nth(1).boundingBox();
-		await page.mouse.click(gutters.x + gutters.width / 2, line.y + line.height / 2);
-
-		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
-		expect(await page.locator(".inline-comment-composer").count()).toBe(0);
-		// Assert against what is stored rather than a literal: earlier tests in
-		// this file edit the body, and hardcoding it couples them by order.
-		const stored = readSidecar().comments.find((c: Comment) => c.parentId === null)!;
-		expect(await page.locator(".inline-comment-body").first().innerText()).toContain(
-			stored.content,
-		);
-	});
 });
