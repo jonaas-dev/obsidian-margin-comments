@@ -11,6 +11,8 @@ export class MemoryAdapter {
 	private dirs = new Set<string>();
 	/** Every path ever written to, in order. */
 	readonly writes: string[] = [];
+	/** Every path ever read, in order. Proves what a call did *not* touch. */
+	readonly reads: string[] = [];
 
 	constructor(seed: Record<string, string> = {}) {
 		for (const [path, content] of Object.entries(seed)) {
@@ -27,6 +29,7 @@ export class MemoryAdapter {
 	}
 
 	async read(path: string): Promise<string> {
+		this.reads.push(path);
 		const content = this.files.get(path);
 		if (content === undefined) throw new Error(`ENOENT: ${path}`);
 		return content;
