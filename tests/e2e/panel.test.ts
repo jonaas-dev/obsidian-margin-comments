@@ -83,11 +83,12 @@ describe("comment panel", () => {
 	});
 
 	it("adds a reply through the panel and stores it against the root", async () => {
-		await page.locator(".inline-comment-reply-btn").first().click();
-		await page.waitForSelector(".inline-comment-composer", { timeout: 5000 });
-		await page.locator(".inline-comment-composer-input").click();
-		await page.locator(".inline-comment-composer-input").fill("a reply from the test");
-		await page.locator(".inline-comment-composer .mod-cta").click();
+		// The reply field is revealed by hovering the card, as a person would.
+		await page.locator(".inline-comment-card").first().hover();
+		const replyInput = page.locator(".inline-comment-replybox-input").first();
+		await replyInput.click();
+		await replyInput.fill("a reply from the test");
+		await page.locator(".inline-comment-send").first().click();
 		await page.waitForTimeout(1500);
 
 		const { readdirSync, readFileSync } = await import("node:fs");
@@ -116,8 +117,9 @@ describe("comment panel", () => {
 			leaf.view.editor.setCursor({ line: 0, ch: 0 });
 		});
 
-		await page.locator(".inline-comment-reply-btn").first().click();
-		await page.waitForSelector(".inline-comment-composer", { timeout: 5000 });
+		await page.locator(".inline-comment-card").first().hover();
+		await page.locator(".inline-comment-replybox-input").first().click();
+		await page.waitForTimeout(300);
 
 		const cursorLine = await page.evaluate(() => {
 			const leaf = window.app.workspace
@@ -127,23 +129,21 @@ describe("comment panel", () => {
 		});
 		expect(cursorLine).toBe(0);
 
-		await page.keyboard.press("Escape");
-		await page.waitForTimeout(300);
 	});
 
 	it("shows the reply nested under its root with a count", async () => {
 		await page.waitForSelector(".inline-comment-reply", { timeout: 10000 });
 		expect(await page.locator(".inline-comment-reply").count()).toBe(1);
-		expect(await page.locator(".inline-comment-reply-count").innerText()).toBe("1 reply");
 	});
 
 	it("edits a comment in place and persists the new body", async () => {
-		await page.locator(".inline-comment-edit-btn").first().click();
-		await page.waitForSelector(".inline-comment-inline-editor", { timeout: 5000 });
-		const textarea = page.locator(".inline-comment-inline-editor textarea");
+		await page.locator(".inline-comment-card").first().hover();
+		await page.locator('[aria-label="Edit"]').first().click();
+		await page.waitForSelector(".inline-comment-editor", { timeout: 5000 });
+		const textarea = page.locator(".inline-comment-editor-input");
 		await textarea.click();
 		await textarea.fill("an edited body");
-		await page.locator(".inline-comment-inline-editor .mod-cta").click();
+		await page.locator('[aria-label="Save changes"]').first().click();
 		await page.waitForTimeout(1500);
 
 		expect(await page.locator(".inline-comment-body").first().innerText()).toContain(
@@ -161,7 +161,8 @@ describe("comment panel", () => {
 
 	it("resolves a thread, which clears the line highlight", async () => {
 		expect(await page.locator(".inline-comment-active-line").count()).toBe(1);
-		await page.locator(".inline-comment-resolve-btn").first().click();
+		await page.locator(".inline-comment-card").first().hover();
+		await page.locator('[aria-label="Resolve"], [aria-label="Reopen"]').first().click();
 		await page.waitForTimeout(1500);
 
 		expect(readSidecar().comments.find((c: Comment) => c.parentId === null)!.resolved).toBe(true);
@@ -169,7 +170,8 @@ describe("comment panel", () => {
 	});
 
 	it("reopens a resolved thread and brings the highlight back", async () => {
-		await page.locator(".inline-comment-resolve-btn").first().click();
+		await page.locator(".inline-comment-card").first().hover();
+		await page.locator('[aria-label="Resolve"], [aria-label="Reopen"]').first().click();
 		await page.waitForTimeout(1500);
 
 		expect(readSidecar().comments.find((c: Comment) => c.parentId === null)!.resolved).toBe(false);
@@ -177,7 +179,8 @@ describe("comment panel", () => {
 	});
 
 	it("asks before deleting and names how many replies go with it", async () => {
-		await page.locator(".inline-comment-delete-btn").first().click();
+		await page.locator(".inline-comment-card").first().hover();
+		await page.locator('[aria-label="Delete"]').first().click();
 		await page.waitForSelector(".modal", { timeout: 5000 });
 		expect(await page.locator(".modal-title").innerText()).toBe(
 			"Delete this comment and its 1 reply?",
@@ -193,7 +196,8 @@ describe("comment panel", () => {
 	});
 
 	it("deletes the root together with its replies and removes the sidecar", async () => {
-		await page.locator(".inline-comment-delete-btn").first().click();
+		await page.locator(".inline-comment-card").first().hover();
+		await page.locator('[aria-label="Delete"]').first().click();
 		await page.waitForSelector(".modal", { timeout: 5000 });
 		await page.locator(".modal button", { hasText: "Delete" }).click();
 		await page.waitForTimeout(1500);

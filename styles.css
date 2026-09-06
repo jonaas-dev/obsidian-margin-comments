@@ -59,55 +59,102 @@
 	box-shadow: inset 2px 0 0 0 var(--text-accent);
 }
 
+/* ---- Comment panel ----------------------------------------------------
+   Colours and type come from the active Obsidian theme; only structure,
+   rhythm and hierarchy are decided here. A spacing scale keeps the card
+   from drifting into arbitrary margins. */
+
 .inline-comment-panel {
-	padding: 0.5em;
+	--ic-gap-xs: 0.25em;
+	--ic-gap-sm: 0.5em;
+	--ic-gap-md: 0.75em;
+	--ic-gap-lg: 1em;
+
+	padding: var(--ic-gap-sm);
 	font-size: var(--font-ui-small);
 }
 
 .inline-comment-panel-header {
 	display: flex;
-	justify-content: space-between;
 	align-items: baseline;
-	padding: 0 0.2em 0.5em;
+	justify-content: space-between;
+	gap: var(--ic-gap-sm);
+	padding: var(--ic-gap-xs) var(--ic-gap-sm) var(--ic-gap-md);
+}
+
+.inline-comment-panel-title {
+	overflow: hidden;
 	color: var(--text-muted);
-	border-bottom: 1px solid var(--background-modifier-border);
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .inline-comment-panel-count {
-	padding: 0 0.4em;
+	flex: none;
+	min-width: 1.5em;
+	padding: 0 var(--ic-gap-xs);
 	border-radius: var(--radius-s);
 	background-color: var(--background-modifier-border);
+	color: var(--text-muted);
+	font-size: var(--font-smallest);
+	text-align: center;
 }
 
 .inline-comment-empty {
-	padding: 1.5em 0.5em;
-	text-align: center;
+	padding: var(--ic-gap-lg) var(--ic-gap-md);
 	color: var(--text-faint);
+	line-height: 1.5;
+	text-align: center;
 }
 
+/* ---- Card ---- */
+
 .inline-comment-card {
-	padding: 0.6em 0.4em;
-	border-bottom: 1px solid var(--background-modifier-border);
+	padding: var(--ic-gap-md) var(--ic-gap-sm);
+	border-radius: var(--radius-s);
 	cursor: pointer;
+}
+
+.inline-comment-card + .inline-comment-card {
+	border-top: 1px solid var(--background-modifier-border);
 }
 
 .inline-comment-card:hover {
 	background-color: var(--background-modifier-hover);
 }
 
-/* The commented text, so a card is identifiable without jumping to the note. */
+/* The commented text, so a card is identifiable without opening the note. */
 .inline-comment-quote {
-	margin-bottom: 0.35em;
-	padding-left: 0.5em;
+	display: flex;
+	align-items: flex-start;
+	gap: var(--ic-gap-xs);
+	margin-bottom: var(--ic-gap-sm);
+	padding-left: var(--ic-gap-sm);
 	border-left: 2px solid var(--text-accent);
 	color: var(--text-muted);
-	font-style: italic;
+	font-size: var(--font-smallest);
+	line-height: 1.4;
 	overflow-wrap: anywhere;
 }
 
+.inline-comment-quote-icon {
+	display: flex;
+	flex: none;
+	margin-top: 0.1em;
+}
+
+.inline-comment-quote-icon .svg-icon {
+	width: 0.9em;
+	height: 0.9em;
+}
+
+/* ---- Comment ---- */
+
 .inline-comment-meta {
 	display: flex;
-	gap: 0.5em;
+	align-items: center;
+	gap: var(--ic-gap-sm);
+	min-height: 1.6em;
 	color: var(--text-faint);
 	font-size: var(--font-smallest);
 }
@@ -117,96 +164,212 @@
 	font-weight: var(--font-medium);
 }
 
+.inline-comment-edited {
+	font-style: italic;
+}
+
 .inline-comment-body {
 	color: var(--text-normal);
+	line-height: 1.5;
 	overflow-wrap: anywhere;
 }
 
 .inline-comment-body > :first-child {
-	margin-top: 0.2em;
+	margin-top: var(--ic-gap-xs);
 }
 
 .inline-comment-body > :last-child {
 	margin-bottom: 0;
 }
 
-.inline-comment-reply {
-	margin-top: 0.4em;
-	padding-left: 0.7em;
-	border-left: 1px solid var(--background-modifier-border);
+/* ---- Actions ----
+   Hidden until the card is hovered. Four always-visible buttons per comment
+   turn a reading list into a control panel. Keyboard focus reveals them too,
+   so they stay reachable without a pointer. */
+
+.inline-comment-actions {
+	display: flex;
+	gap: var(--ic-gap-xs);
+	margin-left: auto;
+	opacity: 0;
+	transition: opacity 120ms ease-out;
 }
 
-.inline-comment-reply-count {
-	margin-top: 0.3em;
-	color: var(--text-faint);
-	font-size: var(--font-smallest);
+.inline-comment-card:hover .inline-comment-actions,
+.inline-comment-actions:focus-within {
+	opacity: 1;
 }
 
-.inline-comment-orphaned .inline-comment-quote {
-	border-left-color: var(--text-error);
-	color: var(--text-error);
-}
-
-.inline-comment-resolved .inline-comment-body {
-	color: var(--text-faint);
-}
-
-.inline-comment-card-footer {
+.inline-comment-action {
 	display: flex;
 	align-items: center;
-	justify-content: space-between;
-	gap: 0.5em;
-	margin-top: 0.4em;
-}
-
-.inline-comment-reply-btn {
-	padding: 0.1em 0.6em;
-	font-size: var(--font-smallest);
-}
-
-.inline-comment-edit-btn,
-.inline-comment-resolve-btn {
-	padding: 0 0.4em;
-	font-size: var(--font-smallest);
+	justify-content: center;
+	width: 1.7em;
+	height: 1.7em;
+	padding: 0;
+	border: none;
+	border-radius: var(--radius-s);
 	background: transparent;
 	box-shadow: none;
 	color: var(--text-faint);
+	cursor: pointer;
 }
 
-.inline-comment-edit-btn:hover {
+.inline-comment-action .svg-icon {
+	width: 0.95em;
+	height: 0.95em;
+}
+
+.inline-comment-action:hover {
+	background-color: var(--background-modifier-border);
 	color: var(--text-normal);
 }
 
-.inline-comment-resolve-btn {
+.inline-comment-action-resolve:hover,
+.inline-comment-action-save:hover {
 	color: var(--text-success);
 }
 
-.inline-comment-edited {
-	font-style: italic;
+.inline-comment-action-delete:hover {
+	color: var(--text-error);
 }
 
-.inline-comment-inline-editor {
-	margin: 0.3em 0;
+/* ---- Replies ----
+   One continuous rule down the thread rather than a border per reply: the
+   conversation is one object, not a stack of separate ones. */
+
+.inline-comment-reply {
+	margin-top: var(--ic-gap-sm);
+	padding-left: var(--ic-gap-md);
+	border-left: 1px solid var(--background-modifier-border);
 }
 
-/* A resolved thread stays legible but visibly settled. */
-.inline-comment-resolved .inline-comment-quote {
+/* ---- Reply box ---- */
+
+.inline-comment-replybox {
+	display: none;
+	align-items: flex-end;
+	gap: var(--ic-gap-xs);
+	margin-top: var(--ic-gap-sm);
+}
+
+/* Shown on hover, on keyboard focus, and while it holds a draft — so a
+   half-written reply cannot vanish because the pointer moved away. */
+.inline-comment-card:hover .inline-comment-replybox,
+.inline-comment-replybox:focus-within,
+.inline-comment-replybox.is-active {
+	display: flex;
+}
+
+.inline-comment-replybox-input {
+	flex: 1;
+	min-height: 1.9em;
+	max-height: 12em;
+	padding: var(--ic-gap-xs) var(--ic-gap-sm);
+	border: 1px solid transparent;
+	border-radius: var(--radius-s);
+	background-color: var(--background-modifier-form-field);
+	color: var(--text-normal);
+	font-family: inherit;
+	font-size: var(--font-smallest);
+	line-height: 1.4;
+	resize: none;
+	overflow-y: auto;
+}
+
+.inline-comment-replybox-input:focus {
+	border-color: var(--background-modifier-border-focus);
+	box-shadow: none;
+}
+
+/* The send button appears once there is something to send. */
+.inline-comment-replybox-actions {
+	display: none;
+}
+
+.inline-comment-replybox.is-active .inline-comment-replybox-actions {
+	display: flex;
+}
+
+.inline-comment-send {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.9em;
+	height: 1.9em;
+	padding: 0;
+	border: none;
+	border-radius: var(--radius-s);
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	cursor: pointer;
+}
+
+.inline-comment-send .svg-icon {
+	width: 0.95em;
+	height: 0.95em;
+}
+
+.inline-comment-send:hover {
+	background-color: var(--interactive-accent-hover);
+}
+
+/* ---- Inline editor ---- */
+
+.inline-comment-editor {
+	display: flex;
+	align-items: flex-end;
+	gap: var(--ic-gap-xs);
+	margin-top: var(--ic-gap-xs);
+}
+
+.inline-comment-editor-input {
+	flex: 1;
+	min-height: 3.5em;
+	padding: var(--ic-gap-xs) var(--ic-gap-sm);
+	border: 1px solid var(--background-modifier-border-focus);
+	border-radius: var(--radius-s);
+	background-color: var(--background-modifier-form-field);
+	color: var(--text-normal);
+	font-family: inherit;
+	font-size: var(--font-ui-small);
+	line-height: 1.5;
+	resize: vertical;
+}
+
+.inline-comment-editor-actions {
+	display: flex;
+	flex-direction: column;
+	gap: var(--ic-gap-xs);
+}
+
+/* ---- States ---- */
+
+.inline-comment-card.is-resolved .inline-comment-quote {
 	border-left-color: var(--text-faint);
+	color: var(--text-faint);
 	text-decoration: line-through;
 }
 
-.inline-comment-delete-btn {
-	padding: 0 0.4em;
-	font-size: var(--font-smallest);
-	background: transparent;
-	box-shadow: none;
+.inline-comment-card.is-resolved .inline-comment-body {
 	color: var(--text-faint);
 }
 
-.inline-comment-delete-btn:hover {
+.inline-comment-card.is-orphaned {
+	cursor: default;
+}
+
+.inline-comment-card.is-orphaned .inline-comment-quote {
+	border-left-color: var(--text-error);
 	color: var(--text-error);
 }
 
 .inline-comment-confirm-note {
 	color: var(--text-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.inline-comment-actions {
+		transition: none;
+	}
 }
