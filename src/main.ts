@@ -78,6 +78,7 @@ export default class InlineCommentsPlugin extends Plugin {
 					setFilter: (filter) => this.setPanelFilter(filter),
 					sortOrder: () => this.settings.sortOrder,
 					setSortOrder: (order) => this.setSortOrder(order),
+					fuzzyThreshold: () => this.settings.fuzzyThreshold,
 					scope: () => this.settings.panelScope,
 					setScope: (scope) => this.setPanelScope(scope),
 					loadVault: () => this.loadVault(),
@@ -369,7 +370,10 @@ export default class InlineCommentsPlugin extends Plugin {
 		filePath: string,
 	): Promise<void> {
 		const comments = await this.storage.getCommentsForFile(filePath);
-		const threads = buildThreads(view.state.doc.toString(), comments);
+		const threads = buildThreads(view.state.doc.toString(), comments, {
+			fuzzy: true,
+			threshold: this.settings.fuzzyThreshold,
+		});
 		const thread = threads.find((candidate) => candidate.line === line);
 		if (!thread) {
 			this.compose(view, line, filePath);
