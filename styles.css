@@ -194,3 +194,19 @@
 	border-left-color: var(--text-faint);
 	text-decoration: line-through;
 }
+
+.inline-comment-delete-btn {
+	padding: 0 0.4em;
+	font-size: var(--font-smallest);
+	background: transparent;
+	box-shadow: none;
+	color: var(--text-faint);
+}
+
+.inline-comment-delete-btn:hover {
+	color: var(--text-error);
+}
+
+.inline-comment-confirm-note {
+	color: var(--text-muted);
+}

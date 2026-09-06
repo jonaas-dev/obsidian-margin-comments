@@ -10,7 +10,8 @@ import { DEFAULT_SETTINGS, type Comment, type PluginSettings } from "./types";
 import { COMMENT_PANEL_VIEW, CommentPanelView } from "./ui/comment-panel";
 import { buildThreads, type Thread } from "./ui/threads";
 import { createReply } from "./ui/replies";
-import { withEditedContent, withResolved } from "./ui/comment-actions";
+import { describeDeletion, withEditedContent, withResolved } from "./ui/comment-actions";
+import { ConfirmModal } from "./ui/confirm-modal";
 
 export default class InlineCommentsPlugin extends Plugin {
 	storage!: CommentStorage;
@@ -30,6 +31,7 @@ export default class InlineCommentsPlugin extends Plugin {
 					replyTo: (target, near) => this.openReplyComposer(target, near),
 					editComment: (comment, content) => this.editComment(comment, content),
 					setResolved: (root, resolved) => this.setResolved(root, resolved),
+					deleteComment: (comment) => this.confirmDelete(comment),
 				}),
 		);
 
@@ -122,6 +124,16 @@ export default class InlineCommentsPlugin extends Plugin {
 	private async setResolved(root: Comment, resolved: boolean): Promise<void> {
 		await this.storage.updateComment(withResolved(root, resolved));
 		await this.refresh();
+	}
+
+	private confirmDelete(comment: Comment): void {
+		void (async () => {
+			const all = await this.storage.getCommentsForFile(comment.filePath);
+			new ConfirmModal(this.app, describeDeletion(comment, all), async () => {
+				await this.storage.deleteComment(comment.filePath, comment.id);
+				await this.refresh();
+			}).open();
+		})();
 	}
 
 	private async loadActive(): Promise<{

@@ -15,6 +15,8 @@ export interface PanelHost {
 	editComment(comment: Comment, content: string): Promise<void>;
 	/** Resolve or reopen a thread root. */
 	setResolved(root: Comment, resolved: boolean): Promise<void>;
+	/** Confirm, then delete the comment and any replies it owns. */
+	deleteComment(comment: Comment): void;
 }
 
 export class CommentPanelView extends ItemView {
@@ -136,6 +138,14 @@ export class CommentPanelView extends ItemView {
 		const edit = meta.createEl("button", {
 			cls: "inline-comment-btn inline-comment-edit-btn",
 			text: "Edit",
+		});
+		const remove = meta.createEl("button", {
+			cls: "inline-comment-btn inline-comment-delete-btn",
+			text: "Delete",
+		});
+		remove.addEventListener("click", (event) => {
+			event.stopPropagation();
+			this.host.deleteComment(comment);
 		});
 
 		const body = parent.createDiv({ cls: "inline-comment-body" });

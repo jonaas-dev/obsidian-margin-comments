@@ -176,9 +176,50 @@ describe("comment panel", () => {
 		expect(await page.locator(".inline-comment-active-line").count()).toBe(1);
 	});
 
+	it("asks before deleting and names how many replies go with it", async () => {
+		await page.locator(".inline-comment-delete-btn").first().click();
+		await page.waitForSelector(".modal", { timeout: 5000 });
+		expect(await page.locator(".modal-title").innerText()).toBe(
+			"Delete this comment and its 1 reply?",
+		);
+	});
+
+	it("keeps the comment when the dialog is cancelled", async () => {
+		const before = readSidecar().comments.length;
+		await page.locator(".modal button", { hasText: "Cancel" }).click();
+		await page.waitForTimeout(800);
+		expect(readSidecar().comments).toHaveLength(before);
+		expect(await page.locator(".modal").count()).toBe(0);
+	});
+
+	it("deletes the root together with its replies and removes the sidecar", async () => {
+		await page.locator(".inline-comment-delete-btn").first().click();
+		await page.waitForSelector(".modal", { timeout: 5000 });
+		await page.locator(".modal button", { hasText: "Delete" }).click();
+		await page.waitForTimeout(1500);
+
+		// Last comment gone means the sidecar itself should be gone, not left empty.
+		const dir = `${vault.path}/.inline-comments`;
+		expect(readdirSync(dir).filter((f) => f !== "_index.json")).toHaveLength(0);
+		expect(await page.locator(".inline-comment-active-line").count()).toBe(0);
+		expect(await page.locator(".inline-comment-empty").count()).toBe(1);
+	});
+
 	it("shows the comments when the gutter marker of a commented line is clicked", async () => {
 		// The gap reported from real use: clicking a marked line opened an empty
-		// composer instead of showing what was already there.
+		// composer instead of showing what was already there. Re-created here
+		// because the delete tests above leave the note with no comments.
+		const gutters0 = await page.locator(".cm-gutters").boundingBox();
+		const line0 = await page.locator(".cm-line").nth(1).boundingBox();
+		await page.mouse.move(gutters0.x + gutters0.width / 2, line0.y + line0.height / 2);
+		await page.waitForSelector(".inline-comment-marker", { timeout: 5000 });
+		await page.mouse.click(gutters0.x + gutters0.width / 2, line0.y + line0.height / 2);
+		await page.waitForSelector(".inline-comment-composer", { timeout: 5000 });
+		await page.locator(".inline-comment-composer-input").click();
+		await page.locator(".inline-comment-composer-input").fill("recreated for this test");
+		await page.locator(".inline-comment-composer .mod-cta").click();
+		await page.waitForTimeout(1500);
+
 		await page.evaluate(() => window.app.workspace.detachLeavesOfType("inline-comments-panel"));
 		await page.waitForTimeout(300);
 		expect(await page.locator(".inline-comment-panel").count()).toBe(0);

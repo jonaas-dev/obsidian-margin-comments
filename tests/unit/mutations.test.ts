@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { withEditedContent, withResolved } from "../../src/ui/comment-actions";
+import { describeDeletion, withEditedContent, withResolved } from "../../src/ui/comment-actions";
 import { createAnchor } from "../../src/anchor";
 import type { Comment } from "../../src/types";
 
@@ -61,5 +61,36 @@ describe("withResolved", () => {
 	it("does not mutate the original", () => {
 		withResolved(base, true, 2000);
 		expect(base.resolved).toBe(false);
+	});
+});
+
+describe("describeDeletion", () => {
+	const root = { ...base, id: "root" };
+	const reply = { ...base, id: "r1", parentId: "root" };
+
+	it("names a lone comment plainly", () => {
+		expect(describeDeletion(root, [root])).toBe("Delete this comment?");
+	});
+
+	it("warns how many replies go with a thread root", () => {
+		// The count is the whole point: deleting a root silently taking three
+		// replies with it is the surprise this dialog exists to prevent.
+		expect(describeDeletion(root, [root, reply, { ...reply, id: "r2" }])).toBe(
+			"Delete this comment and its 2 replies?",
+		);
+	});
+
+	it("uses the singular for one reply", () => {
+		expect(describeDeletion(root, [root, reply])).toBe("Delete this comment and its 1 reply?");
+	});
+
+	it("does not count another thread's replies", () => {
+		const other = { ...base, id: "other" };
+		const otherReply = { ...base, id: "r9", parentId: "other" };
+		expect(describeDeletion(root, [root, other, otherReply])).toBe("Delete this comment?");
+	});
+
+	it("treats deleting a reply as deleting one comment", () => {
+		expect(describeDeletion(reply, [root, reply])).toBe("Delete this reply?");
 	});
 });
