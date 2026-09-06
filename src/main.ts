@@ -20,6 +20,7 @@ import { toThreadFilter, type ThreadFilter } from "./ui/panel-filter";
 import { toSortOrder } from "./ui/panel-sort";
 import { ThreadPopover } from "./ui/thread-popover";
 import { buildThreads, type Thread } from "./ui/threads";
+import { OrphanNotice, orphanCount } from "./ui/orphans";
 import { createReply } from "./ui/replies";
 import {
 	describeDeletion,
@@ -46,6 +47,9 @@ export default class InlineCommentsPlugin extends Plugin {
 	private popover: ThreadPopover | null = null;
 	/** Note the open popover belongs to, so a genuine note switch closes it. */
 	private popoverFile: string | null = null;
+	/** Owned by the plugin, not the panel: the panel is rebuilt on every close
+	 *  and reopen, and the notice has to stay silent across both. */
+	private orphanNotice = new OrphanNotice();
 
 	async onload(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -84,6 +88,7 @@ export default class InlineCommentsPlugin extends Plugin {
 					loadVault: () => this.loadVault(),
 					loadNote: (filePath) => this.loadNote(filePath),
 					openThreadInNote: (filePath, thread) => void this.openThreadInNote(filePath, thread),
+					notifyOrphans: (count) => this.announceOrphans(count),
 				}),
 		);
 
@@ -140,10 +145,14 @@ export default class InlineCommentsPlugin extends Plugin {
 				const path = this.app.workspace.getActiveFile()?.path ?? null;
 				if (path !== this.popoverFile) this.popover?.close();
 				void this.refresh();
+				void this.checkOrphans();
 			}),
 		);
 		this.registerEvent(this.app.workspace.on("editor-change", () => void this.refresh()));
-		this.app.workspace.onLayoutReady(() => void this.refresh());
+		this.app.workspace.onLayoutReady(() => {
+			void this.refresh();
+			void this.checkOrphans();
+		});
 	}
 
 	onunload(): void {
@@ -179,6 +188,35 @@ export default class InlineCommentsPlugin extends Plugin {
 			if (view instanceof MarkdownView && view.file?.path === path) return view;
 		}
 		return null;
+	}
+
+	/**
+	 * Look for lost anchors in the note just opened, once a session.
+	 *
+	 * Deliberately not wired to editor-change: this is the only path outside the
+	 * panel that runs the fuzzy stage, and paying for it per keystroke is the
+	 * cost that stage was bounded to avoid. Arriving at a note is both cheap
+	 * enough and the moment the news is actually new.
+	 *
+	 * Skipped entirely once the announcement is spent, so the pass costs nothing
+	 * for the rest of the session rather than running to be thrown away.
+	 */
+	private async checkOrphans(): Promise<void> {
+		if (this.orphanNotice.spent) return;
+
+		const active = await this.loadActive();
+		if (!active) return;
+		const threads = buildThreads(active.doc, active.comments, {
+			fuzzy: true,
+			threshold: this.settings.fuzzyThreshold,
+		});
+		this.announceOrphans(orphanCount(threads));
+	}
+
+	/** Say once that comments lost their anchor; the panel shows which. */
+	private announceOrphans(count: number): void {
+		const message = this.orphanNotice.take(count);
+		if (message !== null) new Notice(message);
 	}
 
 	private async setPanelFilter(filter: ThreadFilter): Promise<void> {
