@@ -180,6 +180,55 @@ describe("comment panel", () => {
 		expect(await page.locator(".inline-comment-active-line").count()).toBe(1);
 	});
 
+	it("shows a filter segment per bucket, with counts matching the list", async () => {
+		const counts = await page.locator(".inline-comment-filter-count").allInnerTexts();
+		expect(counts).toEqual(["1", "1", "0"]);
+		expect(await page.locator(".inline-comment-card").count()).toBe(1);
+		expect(await page.locator(".inline-comment-filter.is-active").innerText()).toContain("All");
+	});
+
+	it("hides the thread under a filter it does not belong to", async () => {
+		await page.locator(".inline-comment-filter", { hasText: "Resolved" }).click();
+		await page.waitForTimeout(600);
+
+		expect(await page.locator(".inline-comment-card").count()).toBe(0);
+		// A message about this filter, not a generic "nothing here".
+		expect(await page.locator(".inline-comment-empty").innerText()).toContain(
+			"No resolved comments yet",
+		);
+	});
+
+	it("keeps the chosen filter when the panel is closed and reopened", async () => {
+		await page.locator('[aria-label="Close comments panel"]').click();
+		await page.waitForTimeout(600);
+		await page.evaluate(async () => {
+			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+		});
+		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
+
+		expect(await page.locator(".inline-comment-filter.is-active").innerText()).toContain(
+			"Resolved",
+		);
+	});
+
+	it("stores the filter in data.json, so it survives a restart", async () => {
+		const { readFileSync } = await import("node:fs");
+		const data = JSON.parse(
+			readFileSync(`${vault.path}/.obsidian/plugins/inline-comments/data.json`, "utf8"),
+		);
+		expect(data.panelFilter).toBe("resolved");
+	});
+
+	it("drops the filter rather than hiding a thread the marker points at", async () => {
+		const gutters = await page.locator(".cm-gutters").boundingBox();
+		const line = await page.locator(".cm-line").nth(1).boundingBox();
+		await page.mouse.click(gutters.x + gutters.width / 2, line.y + line.height / 2);
+		await page.waitForTimeout(800);
+
+		expect(await page.locator(".inline-comment-filter.is-active").innerText()).toContain("All");
+		expect(await page.locator(".inline-comment-card.is-selected").count()).toBe(1);
+	});
+
 	it("selects the thread in the panel when its marker is clicked", async () => {
 		// Clicking a marker asks "which comment is this?" — the panel has to answer.
 		const gutters = await page.locator(".cm-gutters").boundingBox();
