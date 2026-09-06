@@ -88,6 +88,18 @@ So, for every check added here:
 Record the negative case in the commit message or the test, so the next person does not
 have to rediscover that it bites.
 
+Two of this repo's own tests passed while proving nothing, and both were caught only
+by breaking the code they covered:
+
+| What it looked like | What it did |
+|---------------------|-------------|
+| "keeps the section open after resolving" | Asserted the section was still expanded, not that its cards were current. It passed against a build that never re-read the note. |
+| "stores the scope in data.json" | Read the file after a filter had been clicked. Every setter saves the whole settings object, so the value was there whoever wrote it — the test passed against a plugin that never saved the scope. |
+
+Both share the shape above: **the failure path produces the same output as success.** For
+persisted state, read the file before anything else can write it; for a redraw, assert on
+data that only a fresh read could produce.
+
 Both CI gates have been through this, in #42, each isolated:
 
 | Input | Result |
@@ -99,6 +111,35 @@ Isolating them was not pedantry. The first run tripped the scan, and because job
 stop at the first failure the identity guard was reported as `skipped` — a single
 combined test would have looked like proof of both while proving one. Both commits used
 `--no-verify`, which is the bypass these jobs exist to cover.
+
+## The E2E harness
+
+`tests/e2e/` drives a real Obsidian over the remote debugging port. Four things about it
+have already cost an afternoon each.
+
+**The vault symlinks this repo in as the plugin.** So `data.json` is written to the repo
+root and outlives the throwaway vault: a setting one test chose was still there on the
+next run, and the suite started against state no fresh install would have. It showed up
+as 16 unrelated failures. `createTempVault` now deletes it; do not reintroduce state that
+lives outside the vault.
+
+**Obsidian's `Menu` never attaches here.** The click handler runs, the instance is
+constructed, and `dom.isConnected` stays `false` after both `showAtMouseEvent` and
+`showAtPosition` — with the window visible, focused, and `requestAnimationFrame` firing.
+That is why sort and scope are native `<select class="dropdown">` controls: a control that
+cannot be proved to open is not a control. Check this again before reaching for `Menu`.
+
+**Open notes in the active leaf**, `getLeaf(false)`, not a new tab. A second tab leaves the
+first note's editor in the DOM but hidden, and `.cm-editor` selectors go on matching it —
+which surfaces as a 30-second timeout, not as a wrong element. Wait on
+`.workspace-leaf.mod-active .cm-editor`.
+
+**The harness cannot hold focus in a textarea**, so a keydown never reaches a composer or
+reply field. Click the button instead; `keyIntent` is where the Enter/Escape decision is
+tested.
+
+Notices stack: a `.notice` from an earlier assertion may still be on screen, so match
+`.last()`.
 
 ## Architecture
 
@@ -120,13 +161,27 @@ Replies are **flat**: a reply is a `Comment` whose `parentId` points at the thre
 Roots have `parentId: null`. Never nest deeper than one level — the tree is derived at
 runtime, never persisted.
 
+`resolved` is meaningful only on a root: resolving a root resolves its thread, and replies
+carry no state of their own. Anything counting open threads therefore counts roots.
+
+`_index.json` maps each commented note to `{ hash, threads, open }`. It is a derived cache
+— rebuildable from the sidecars, and rebuilt when it is missing, corrupt, or written by a
+version that stored a bare hash. The counts are what lets the all-notes view draw every row
+without opening a single sidecar, so keep them in step with every write, and never make the
+vault view read a sidecar it was not asked to open.
+
+Panel state that has to survive a restart — filter, sort order, scope — lives in
+`data.json` alongside the settings, validated on load rather than trusted.
+
 ## Commands
 
 | Command | Purpose |
 |---------|---------|
 | `npm run dev` | esbuild watch |
 | `npm run build` | production build |
-| `npm test` | vitest |
+| `npm test` | vitest, unit only |
+| `npm run test:e2e` | vitest against a real Obsidian; needs the app installed |
+| `npm run lint` | eslint over src and tests |
 | `npx tsc --noEmit` | type check |
 
 ## Destructive git operations
