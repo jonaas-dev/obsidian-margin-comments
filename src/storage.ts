@@ -29,7 +29,33 @@ interface Sidecar {
 	comments: Comment[];
 }
 
-type Index = Record<string, string>;
+/** What the index remembers about one note, so the vault view needs no sidecar. */
+interface IndexEntry {
+	hash: string;
+	/** Thread roots, not comments: the panel lists threads. */
+	threads: number;
+	/** Roots still unresolved, so the filter can count without reading. */
+	open: number;
+}
+
+type Index = Record<string, IndexEntry>;
+
+/** One note's line in the all-files view. */
+export interface CommentSummary {
+	filePath: string;
+	threads: number;
+	open: number;
+}
+
+function summarise(comments: Comment[]): { threads: number; open: number } {
+	const roots = comments.filter((comment) => comment.parentId === null);
+	return { threads: roots.length, open: roots.filter((root) => !root.resolved).length };
+}
+
+function isEntry(value: unknown): value is IndexEntry {
+	const entry = value as IndexEntry | null;
+	return typeof entry?.hash === "string" && typeof entry.threads === "number";
+}
 
 export class CommentStorage {
 	private cache = new Map<string, Comment[]>();
@@ -63,7 +89,13 @@ export class CommentStorage {
 		if (cached) return cached;
 
 		const path = this.sidecarPath(filePath);
-		if (!(await this.adapter.exists(path))) return [];
+		if (!(await this.adapter.exists(path))) {
+			// A stale index entry survives a half-finished sync. Clearing it here,
+			// where the miss is already paid for, keeps getCommentSummaries free of
+			// an existence check per note — which is the whole point of the index.
+			await this.forgetIfIndexed(filePath);
+			return [];
+		}
 
 		const sidecar = await this.readSidecar(path);
 		const comments = sidecar?.comments ?? [];
@@ -123,7 +155,7 @@ export class CommentStorage {
 			await this.adapter.write(path, JSON.stringify(sidecar, null, 2));
 			this.cache.set(filePath, comments);
 			await this.updateIndex((index) => {
-				index[filePath] = hashString(filePath);
+				index[filePath] = { hash: hashString(filePath), ...summarise(comments) };
 			});
 		});
 	}
@@ -133,14 +165,28 @@ export class CommentStorage {
 		if (!(await this.adapter.exists(dir))) await this.adapter.mkdir(dir);
 	}
 
-	/** Note paths that currently have comments, verified against what is on disk. */
-	async getCommentedFiles(): Promise<string[]> {
+	/**
+	 * Every note carrying comments, with its counts, read from the index alone.
+	 *
+	 * No sidecar is opened and no path is stat-ed: a vault with hundreds of
+	 * commented notes would otherwise pay that round trip before the view could
+	 * draw its first row.
+	 */
+	async getCommentSummaries(): Promise<CommentSummary[]> {
 		const index = await this.loadIndex();
-		const present: string[] = [];
-		for (const filePath of Object.keys(index)) {
-			if (await this.adapter.exists(this.sidecarPath(filePath))) present.push(filePath);
-		}
-		return present;
+		return Object.entries(index).map(([filePath, entry]) => ({
+			filePath,
+			threads: entry.threads,
+			open: entry.open,
+		}));
+	}
+
+	private async forgetIfIndexed(filePath: string): Promise<void> {
+		const index = await this.loadIndex();
+		if (!(filePath in index)) return;
+		await this.updateIndex((current) => {
+			delete current[filePath];
+		});
 	}
 
 	private async loadIndex(): Promise<Index> {
@@ -148,7 +194,13 @@ export class CommentStorage {
 
 		try {
 			const raw = await this.adapter.read(this.indexPath());
-			this.index = JSON.parse(raw) as Index;
+			const parsed = JSON.parse(raw) as Record<string, unknown>;
+			// 0.1 stored a bare hash per note. Reading those as zero threads would
+			// show every existing vault an empty all-files view, so the counts are
+			// recovered the only way they can be: from the sidecars.
+			this.index = Object.values(parsed).every(isEntry)
+				? (parsed as Index)
+				: await this.rebuildIndex();
 		} catch {
 			// The index is a derived cache, never the source of truth. Rebuilding from
 			// the sidecars themselves is always correct, so a missing or corrupt index
@@ -167,7 +219,11 @@ export class CommentStorage {
 		for (const path of files) {
 			if (path.endsWith(INDEX_FILE) || !path.endsWith(".json")) continue;
 			const sidecar = await this.readSidecar(path);
-			if (sidecar?.filePath) index[sidecar.filePath] = hashString(sidecar.filePath);
+			if (!sidecar?.filePath) continue;
+			index[sidecar.filePath] = {
+				hash: hashString(sidecar.filePath),
+				...summarise(sidecar.comments),
+			};
 		}
 		return index;
 	}
