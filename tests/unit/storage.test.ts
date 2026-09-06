@@ -190,7 +190,10 @@ describe("CommentStorage", () => {
 			adapter.reads.length = 0;
 			const summaries = await fresh.getCommentSummaries();
 
-			expect(summaries.map((s) => s.filePath).sort()).toEqual(["notes/meeting.md", "other.md"]);
+			expect(summaries.map((s) => s.filePath).sort()).toEqual([
+				"notes/meeting.md",
+				"other.md",
+			]);
 			expect(adapter.reads).toEqual([`${STORAGE_DIR}/${INDEX_FILE}`]);
 		});
 
@@ -243,5 +246,126 @@ describe("CommentStorage", () => {
 			await storage.deleteComment("notes/meeting.md", "c1");
 			expect(await storage.getCommentSummaries()).toEqual([]);
 		});
+	});
+});
+
+describe("moveComments", () => {
+	it("finds the comments again under the new path", async () => {
+		const storage = new CommentStorage(new MemoryAdapter());
+		await storage.saveComment(makeComment());
+		await storage.moveComments("notes/meeting.md", "notes/standup.md");
+
+		expect(await storage.getCommentsForFile("notes/standup.md")).toHaveLength(1);
+	});
+
+	it("leaves nothing behind at the old path", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment());
+		await storage.moveComments("notes/meeting.md", "notes/standup.md");
+
+		expect(await storage.getCommentsForFile("notes/meeting.md")).toEqual([]);
+		expect(Object.keys(adapter.snapshot())).not.toContain(sidecarFor("notes/meeting.md"));
+	});
+
+	it("rewrites filePath on every comment, so a rebuild does not undo the move", async () => {
+		// The index is a derived cache; when it is gone the sidecar's own
+		// filePath is what says where the comments belong.
+		const storage = new CommentStorage(new MemoryAdapter());
+		await storage.saveComment(makeComment({ id: "root" }));
+		await storage.saveComment(makeComment({ id: "reply", parentId: "root" }));
+		await storage.moveComments("notes/meeting.md", "notes/standup.md");
+
+		const moved = await storage.getCommentsForFile("notes/standup.md");
+		expect(moved.map((c) => c.filePath)).toEqual(["notes/standup.md", "notes/standup.md"]);
+	});
+
+	it("moves the index entry, so the all-notes view lists the new path", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment());
+		await storage.moveComments("notes/meeting.md", "notes/standup.md");
+
+		expect((await storage.getCommentSummaries()).map((s) => s.filePath)).toEqual([
+			"notes/standup.md",
+		]);
+	});
+
+	it("keeps the counts the index promised", async () => {
+		const storage = new CommentStorage(new MemoryAdapter());
+		await storage.saveComment(makeComment({ id: "open" }));
+		await storage.saveComment(makeComment({ id: "done", resolved: true }));
+		await storage.moveComments("notes/meeting.md", "notes/standup.md");
+
+		expect(await storage.getCommentSummaries()).toEqual([
+			{ filePath: "notes/standup.md", threads: 2, open: 1 },
+		]);
+	});
+
+	it("does nothing for a note that has no comments", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter);
+		await storage.moveComments("notes/empty.md", "notes/still-empty.md");
+
+		expect(adapter.writes).toEqual([]);
+	});
+
+	it("keeps comments already at the target rather than overwriting them", async () => {
+		// Obsidian will not rename onto an existing note, so a sidecar at the
+		// target belongs to a note that is already gone. Its comments are
+		// orphaned, which is not the same as disposable.
+		const storage = new CommentStorage(new MemoryAdapter());
+		await storage.saveComment(makeComment({ id: "moving" }));
+		await storage.saveComment(makeComment({ id: "stranded", filePath: "notes/standup.md" }));
+		await storage.moveComments("notes/meeting.md", "notes/standup.md");
+
+		const landed = await storage.getCommentsForFile("notes/standup.md");
+		expect(landed.map((c) => c.id).sort()).toEqual(["moving", "stranded"]);
+	});
+
+	it("does not duplicate when a second move starts mid-way through the first", async () => {
+		// Obsidian emits a folder rename for the folder and again for every
+		// descendant, so the same note really does arrive twice. The window is
+		// between the target being written and the source being removed: the
+		// second mover reads the comments off the still-present source and
+		// appends them to the target it just found them in. Without the guard
+		// this lands two copies of the thread.
+		class SlowRemove extends MemoryAdapter {
+			gate: (() => void) | null = null;
+			async remove(path: string): Promise<void> {
+				if (this.gate) {
+					const open = this.gate;
+					this.gate = null;
+					open();
+					await new Promise((r) => setTimeout(r, 20));
+				}
+				return super.remove(path);
+			}
+		}
+		const adapter = new SlowRemove();
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment());
+
+		const reached = new Promise<void>((resolve) => {
+			adapter.gate = resolve;
+		});
+		const first = storage.moveComments("notes/meeting.md", "notes/standup.md");
+		await reached;
+		await storage.moveComments("notes/meeting.md", "notes/standup.md");
+		await first;
+
+		expect(await storage.getCommentsForFile("notes/standup.md")).toHaveLength(1);
+	});
+
+	it("refuses to move a note onto itself", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment());
+		const writesBefore = adapter.writes.length;
+
+		await storage.moveComments("notes/meeting.md", "notes/meeting.md");
+
+		expect(await storage.getCommentsForFile("notes/meeting.md")).toHaveLength(1);
+		expect(adapter.writes.length).toBe(writesBefore);
 	});
 });

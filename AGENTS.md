@@ -141,6 +141,26 @@ tested.
 Notices stack: a `.notice` from an earlier assertion may still be on screen, so match
 `.last()`.
 
+## Vault events
+
+`vault.on('rename')` fires for a renamed **folder and for every descendant**,
+folders included, outermost first — measured, not assumed, because the opposite
+was assumed first and the folder-cascade test passed against code that did not
+cascade. Renaming `notes` to `archive` emits:
+
+```
+notes -> archive
+notes/a.md -> archive/a.md
+notes/deep -> archive/deep
+notes/deep/b.md -> archive/deep/b.md
+```
+
+Two consequences. The per-file events alone would move every sidecar today, so a
+test over a folder rename proves nothing about folder handling; the unit tests on
+`movedPath` are what cover it. And the same note arrives twice, from overlapping
+async handlers that each read the index before they write — which lands its
+comments twice unless rename handling is serialised, as it is in `followRename`.
+
 ## Architecture
 
 ```
