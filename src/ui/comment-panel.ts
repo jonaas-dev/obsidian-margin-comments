@@ -1,6 +1,14 @@
 import { ItemView, setIcon, type WorkspaceLeaf } from "obsidian";
 import type { Comment } from "../types";
 import { buildThreads, type Thread } from "./threads";
+import {
+	THREAD_FILTERS,
+	countThreads,
+	emptyStateMessage,
+	filterLabel,
+	filterThreads,
+	type ThreadFilter,
+} from "./panel-filter";
 import { renderThreadCard, type ThreadActions } from "./thread-card";
 
 export const COMMENT_PANEL_VIEW = "inline-comments-panel";
@@ -12,6 +20,10 @@ export interface PanelHost extends ThreadActions {
 	revealThread(thread: Thread): void;
 	/** Close the panel. */
 	closePanel(): void;
+	/** The filter chosen last, restored from plugin data on startup. */
+	filter(): ThreadFilter;
+	/** Persist a new filter choice. */
+	setFilter(filter: ThreadFilter): Promise<void>;
 }
 
 export class CommentPanelView extends ItemView {
@@ -46,6 +58,12 @@ export class CommentPanelView extends ItemView {
 	async select(rootId: string): Promise<void> {
 		this.pendingSelection = rootId;
 		if (!this.cards.has(rootId)) await this.render();
+		// Arriving from a marker beats the filter: pointing at a resolved thread
+		// while the panel shows only open ones would answer with an empty list.
+		if (!this.cards.has(rootId) && this.host.filter() !== "all") {
+			await this.host.setFilter("all");
+			await this.render();
+		}
 		this.applySelection();
 	}
 
@@ -69,20 +87,20 @@ export class CommentPanelView extends ItemView {
 		const header = container.createDiv({ cls: "inline-comment-panel-header" });
 
 		if (!active) {
-			this.renderHeaderControls(header, "", 0);
+			this.renderHeaderControls(header, "");
 			this.renderEmpty(container, "Open a note to see its comments.");
 			return;
 		}
 
-		const threads = buildThreads(active.doc, active.comments);
-		this.renderHeaderControls(
-			header,
-			active.filePath.replace(/\.md$/, "").split("/").pop() ?? "",
-			threads.length,
-		);
+		this.renderHeaderControls(header, active.filePath.replace(/\.md$/, "").split("/").pop() ?? "");
 
+		const all = buildThreads(active.doc, active.comments);
+		const filter = this.host.filter();
+		this.renderFilters(container, all, filter);
+
+		const threads = filterThreads(all, filter);
 		if (threads.length === 0) {
-			this.renderEmpty(container, "Hover the left edge of a line to add the first comment.");
+			this.renderEmpty(container, emptyStateMessage(filter));
 			return;
 		}
 
@@ -98,11 +116,8 @@ export class CommentPanelView extends ItemView {
 		this.applySelection();
 	}
 
-	private renderHeaderControls(header: HTMLElement, title: string, count: number): void {
+	private renderHeaderControls(header: HTMLElement, title: string): void {
 		header.createSpan({ cls: "inline-comment-panel-title", text: title });
-		if (count > 0) {
-			header.createSpan({ cls: "inline-comment-panel-count", text: `${count}` });
-		}
 		// A close control on the panel itself: the ribbon icon toggles it, but a
 		// panel with no visible way out reads as stuck.
 		const close = header.createEl("button", {
@@ -111,6 +126,32 @@ export class CommentPanelView extends ItemView {
 		});
 		setIcon(close, "x");
 		close.addEventListener("click", () => this.host.closePanel());
+	}
+
+	/**
+	 * The filter bar, each segment carrying the count it would render.
+	 *
+	 * Counts come from the same thread list the cards do, so a segment can never
+	 * promise results the filter does not produce.
+	 */
+	private renderFilters(container: HTMLElement, all: Thread[], selected: ThreadFilter): void {
+		const counts = countThreads(all);
+		const bar = container.createDiv({ cls: "inline-comment-filters", attr: { role: "group" } });
+
+		for (const filter of THREAD_FILTERS) {
+			const button = bar.createEl("button", {
+				cls: `inline-comment-filter${filter === selected ? " is-active" : ""}`,
+				attr: { "aria-pressed": String(filter === selected) },
+			});
+			button.createSpan({ text: filterLabel(filter) });
+			button.createSpan({ cls: "inline-comment-filter-count", text: `${counts[filter]}` });
+			button.addEventListener("click", () => {
+				void (async () => {
+					await this.host.setFilter(filter);
+					await this.render();
+				})();
+			});
+		}
 	}
 
 	private renderEmpty(container: HTMLElement, message: string): void {

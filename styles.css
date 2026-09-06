@@ -89,14 +89,48 @@
 	white-space: nowrap;
 }
 
-.inline-comment-panel-count {
-	flex: none;
+/* Segmented filter. Flat and quiet until selected: it sits above the reading
+   list and must not compete with it for attention. */
+.inline-comment-filters {
+	display: flex;
+	gap: var(--ic-gap-xs);
+	padding: 0 var(--ic-gap-sm) var(--ic-gap-md);
+}
+
+.inline-comment-filter {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	justify-content: center;
+	gap: var(--ic-gap-xs);
+	height: auto;
+	padding: var(--ic-gap-xs) var(--ic-gap-sm);
+	border: none;
+	border-radius: var(--radius-s);
+	background-color: transparent;
+	box-shadow: none;
+	color: var(--text-muted);
+	font-size: var(--font-smallest);
+	cursor: pointer;
+}
+
+.inline-comment-filter:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
+.inline-comment-filter.is-active {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+	font-weight: var(--font-medium);
+}
+
+.inline-comment-filter-count {
 	min-width: 1.5em;
 	padding: 0 var(--ic-gap-xs);
 	border-radius: var(--radius-s);
 	background-color: var(--background-modifier-border);
 	color: var(--text-muted);
-	font-size: var(--font-smallest);
 	text-align: center;
 }
 

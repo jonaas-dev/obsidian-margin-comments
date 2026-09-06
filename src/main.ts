@@ -9,6 +9,7 @@ import { FloatingComposer } from "./editor/floating-comment";
 import type { AnchorRect } from "./editor/floating-position";
 import { DEFAULT_SETTINGS, type Comment, type PluginSettings } from "./types";
 import { COMMENT_PANEL_VIEW, CommentPanelView } from "./ui/comment-panel";
+import { toThreadFilter, type ThreadFilter } from "./ui/panel-filter";
 import { ThreadPopover } from "./ui/thread-popover";
 import { buildThreads, type Thread } from "./ui/threads";
 import { createReply } from "./ui/replies";
@@ -25,6 +26,9 @@ export default class InlineCommentsPlugin extends Plugin {
 
 	async onload(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		// data.json survives across versions and can be hand-edited, so the stored
+		// filter is validated rather than trusted.
+		this.settings.panelFilter = toThreadFilter(this.settings.panelFilter);
 		this.storage = new CommentStorage(this.app.vault.adapter);
 		this.popover = new ThreadPopover(this.app, {
 			addReply: (root, content) => this.addReply(root, content),
@@ -45,6 +49,8 @@ export default class InlineCommentsPlugin extends Plugin {
 					setResolved: (root, resolved) => this.setResolved(root, resolved),
 					deleteComment: (comment) => this.confirmDelete(comment),
 					closePanel: () => this.app.workspace.detachLeavesOfType(COMMENT_PANEL_VIEW),
+					filter: () => this.settings.panelFilter,
+					setFilter: (filter) => this.setPanelFilter(filter),
 				}),
 		);
 
@@ -118,6 +124,11 @@ export default class InlineCommentsPlugin extends Plugin {
 			if (view instanceof MarkdownView && view.file?.path === path) return view;
 		}
 		return null;
+	}
+
+	private async setPanelFilter(filter: ThreadFilter): Promise<void> {
+		this.settings.panelFilter = filter;
+		await this.saveData(this.settings);
 	}
 
 	private async addReply(root: Comment, content: string): Promise<void> {
