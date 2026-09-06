@@ -146,6 +146,74 @@
 	text-align: center;
 }
 
+/* ---- Vault sections ----
+   One row per commented note, collapsed. The row is the control, so it takes
+   the whole width and reads as a list item rather than a button. */
+
+.inline-comment-scope {
+	flex: none;
+	height: auto;
+	padding: var(--ic-gap-xs) var(--ic-gap-sm);
+	font-size: var(--font-smallest);
+}
+
+.inline-comment-section-head {
+	display: flex;
+	align-items: center;
+	gap: var(--ic-gap-xs);
+	width: 100%;
+	padding: var(--ic-gap-xs) var(--ic-gap-sm);
+	border: none;
+	border-radius: var(--radius-s);
+	background: transparent;
+	box-shadow: none;
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+	text-align: left;
+	cursor: pointer;
+}
+
+.inline-comment-section-head:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.inline-comment-section-chevron {
+	display: flex;
+	flex: none;
+	color: var(--text-faint);
+}
+
+.inline-comment-section-chevron .svg-icon {
+	width: 0.9em;
+	height: 0.9em;
+}
+
+/* The tail of the path is what identifies the note, so that is the end kept. */
+.inline-comment-section-path {
+	overflow: hidden;
+	flex: 1;
+	direction: rtl;
+	text-align: left;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.inline-comment-section-missing {
+	flex: none;
+	color: var(--text-error);
+	font-size: var(--font-smallest);
+}
+
+.inline-comment-section.is-missing .inline-comment-section-path {
+	color: var(--text-muted);
+}
+
+.inline-comment-section-body {
+	padding-left: var(--ic-gap-sm);
+	border-left: 1px solid var(--background-modifier-border);
+	margin: var(--ic-gap-xs) 0 var(--ic-gap-md) var(--ic-gap-sm);
+}
+
 .inline-comment-empty {
 	padding: var(--ic-gap-lg) var(--ic-gap-md);
 	color: var(--text-faint);

@@ -1,4 +1,4 @@
-import { MarkdownView, Notice, Platform, Plugin } from "obsidian";
+import { MarkdownView, Notice, Platform, Plugin, TFile } from "obsidian";
 import type { EditorView } from "@codemirror/view";
 import { CommentStorage } from "./storage";
 import { createAnchor } from "./anchor";
@@ -7,8 +7,15 @@ import { linesWithOpenComments } from "./editor/gutter-state";
 import { highlightRanges, lineHighlights, updateHighlights } from "./editor/line-highlight";
 import { FloatingComposer } from "./editor/floating-comment";
 import type { AnchorRect } from "./editor/floating-position";
-import { DEFAULT_SETTINGS, type Comment, type PluginSettings, type SortOrder } from "./types";
-import { COMMENT_PANEL_VIEW, CommentPanelView } from "./ui/comment-panel";
+import {
+	DEFAULT_SETTINGS,
+	type Comment,
+	type PanelScope,
+	type PluginSettings,
+	type SortOrder,
+} from "./types";
+import { COMMENT_PANEL_VIEW, CommentPanelView, type NoteData } from "./ui/comment-panel";
+import { buildSections, toPanelScope, type VaultSection } from "./ui/vault-sections";
 import { toThreadFilter, type ThreadFilter } from "./ui/panel-filter";
 import { toSortOrder } from "./ui/panel-sort";
 import { ThreadPopover } from "./ui/thread-popover";
@@ -46,6 +53,7 @@ export default class InlineCommentsPlugin extends Plugin {
 		// filter is validated rather than trusted.
 		this.settings.panelFilter = toThreadFilter(this.settings.panelFilter);
 		this.settings.sortOrder = toSortOrder(this.settings.sortOrder);
+		this.settings.panelScope = toPanelScope(this.settings.panelScope);
 		this.storage = new CommentStorage(this.app.vault.adapter);
 		this.popover = new ThreadPopover(this.app, {
 			addReply: (root, content) => this.addReply(root, content),
@@ -70,6 +78,11 @@ export default class InlineCommentsPlugin extends Plugin {
 					setFilter: (filter) => this.setPanelFilter(filter),
 					sortOrder: () => this.settings.sortOrder,
 					setSortOrder: (order) => this.setSortOrder(order),
+					scope: () => this.settings.panelScope,
+					setScope: (scope) => this.setPanelScope(scope),
+					loadVault: () => this.loadVault(),
+					loadNote: (filePath) => this.loadNote(filePath),
+					openThreadInNote: (filePath, thread) => void this.openThreadInNote(filePath, thread),
 				}),
 		);
 
@@ -172,6 +185,11 @@ export default class InlineCommentsPlugin extends Plugin {
 		await this.saveData(this.settings);
 	}
 
+	private async setPanelScope(scope: PanelScope): Promise<void> {
+		this.settings.panelScope = scope;
+		await this.saveData(this.settings);
+	}
+
 	private async setSortOrder(order: SortOrder): Promise<void> {
 		this.settings.sortOrder = order;
 		await this.saveData(this.settings);
@@ -218,6 +236,41 @@ export default class InlineCommentsPlugin extends Plugin {
 			doc,
 			comments: await this.storage.getCommentsForFile(file.path),
 		};
+	}
+
+	/** Every commented note, with the ones the vault no longer has marked. */
+	private async loadVault(): Promise<VaultSection[]> {
+		const summaries = await this.storage.getCommentSummaries();
+		// getAbstractFileByPath is an in-memory lookup, so this stays free of I/O
+		// even on a vault with hundreds of commented notes.
+		return buildSections(summaries, (path) => this.app.vault.getAbstractFileByPath(path) !== null);
+	}
+
+	/**
+	 * One note's text and comments.
+	 *
+	 * A missing note yields empty text rather than nothing at all: every comment
+	 * on it then reads as orphaned, which is exactly what it is, and it can still
+	 * be read and deleted.
+	 */
+	private async loadNote(filePath: string): Promise<NoteData> {
+		const comments = await this.storage.getCommentsForFile(filePath);
+		const view = this.markdownViewFor(filePath);
+		if (view) return { doc: view.editor.getValue(), comments };
+
+		const file = this.app.vault.getAbstractFileByPath(filePath);
+		if (!(file instanceof TFile)) return { doc: "", comments };
+		return { doc: await this.app.vault.cachedRead(file), comments };
+	}
+
+	/** Open another note and put the cursor on the thread's line. */
+	private async openThreadInNote(filePath: string, thread: Thread): Promise<void> {
+		const file = this.app.vault.getAbstractFileByPath(filePath);
+		if (!(file instanceof TFile) || thread.line === null) return;
+
+		const leaf = this.app.workspace.getLeaf(false);
+		await leaf.openFile(file);
+		if (leaf.view instanceof MarkdownView) goToLine(leaf.view, thread.line);
 	}
 
 	private revealThread(thread: Thread): void {
