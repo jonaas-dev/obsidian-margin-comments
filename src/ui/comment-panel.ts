@@ -1,5 +1,5 @@
 import { ItemView, setIcon, type WorkspaceLeaf } from "obsidian";
-import type { Comment } from "../types";
+import type { Comment, SortOrder } from "../types";
 import { buildThreads, type Thread } from "./threads";
 import {
 	THREAD_FILTERS,
@@ -9,6 +9,7 @@ import {
 	filterThreads,
 	type ThreadFilter,
 } from "./panel-filter";
+import { SORT_ORDERS, sortLabel, sortThreads, toSortOrder } from "./panel-sort";
 import { renderThreadCard, type ThreadActions } from "./thread-card";
 
 export const COMMENT_PANEL_VIEW = "inline-comments-panel";
@@ -24,12 +25,18 @@ export interface PanelHost extends ThreadActions {
 	filter(): ThreadFilter;
 	/** Persist a new filter choice. */
 	setFilter(filter: ThreadFilter): Promise<void>;
+	/** The sort order chosen last, restored from plugin data on startup. */
+	sortOrder(): SortOrder;
+	/** Persist a new sort order. */
+	setSortOrder(order: SortOrder): Promise<void>;
 }
 
 export class CommentPanelView extends ItemView {
 	/** Root id to highlight after the next render, set when arriving from a marker. */
 	private pendingSelection: string | null = null;
 	private cards = new Map<string, HTMLElement>();
+	/** Last data loaded, so filter and sort can redraw without touching disk. */
+	private active: { filePath: string; doc: string; comments: Comment[] } | null = null;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -78,12 +85,24 @@ export class CommentPanelView extends ItemView {
 	}
 
 	async render(): Promise<void> {
+		this.active = await this.host.loadActive();
+		this.paint();
+	}
+
+	/**
+	 * Draw from data already in hand.
+	 *
+	 * Filter and sort are view decisions: going back to the vault for them would
+	 * turn every click on a control into an I/O round trip, and the answer would
+	 * be the bytes just read.
+	 */
+	private paint(): void {
 		const container = this.contentEl;
 		container.empty();
 		container.addClass("inline-comment-panel");
 		this.cards.clear();
 
-		const active = await this.host.loadActive();
+		const active = this.active;
 		const header = container.createDiv({ cls: "inline-comment-panel-header" });
 
 		if (!active) {
@@ -94,7 +113,7 @@ export class CommentPanelView extends ItemView {
 
 		this.renderHeaderControls(header, active.filePath.replace(/\.md$/, "").split("/").pop() ?? "");
 
-		const all = buildThreads(active.doc, active.comments);
+		const all = sortThreads(buildThreads(active.doc, active.comments), this.host.sortOrder());
 		const filter = this.host.filter();
 		this.renderFilters(container, all, filter);
 
@@ -148,10 +167,41 @@ export class CommentPanelView extends ItemView {
 			button.addEventListener("click", () => {
 				void (async () => {
 					await this.host.setFilter(filter);
-					await this.render();
+					this.paint();
 				})();
 			});
 		}
+
+		this.renderSortControl(bar);
+	}
+
+	/**
+	 * Sort as a native dropdown.
+	 *
+	 * A dropdown rather than three more segments: sort is changed rarely, and a
+	 * second row of buttons would read as one long undifferentiated bank of
+	 * controls above a short list. Native rather than Obsidian's Menu, which
+	 * builds its DOM but never attaches it here — a control that cannot be
+	 * proved to open is not a control.
+	 */
+	private renderSortControl(bar: HTMLElement): void {
+		const selected = this.host.sortOrder();
+		const select = bar.createEl("select", {
+			cls: "dropdown inline-comment-sort",
+			attr: { "aria-label": "Sort comments" },
+		});
+
+		for (const order of SORT_ORDERS) {
+			const option = select.createEl("option", { text: sortLabel(order), value: order });
+			option.selected = order === selected;
+		}
+
+		select.addEventListener("change", () => {
+			void (async () => {
+				await this.host.setSortOrder(toSortOrder(select.value));
+				this.paint();
+			})();
+		});
 	}
 
 	private renderEmpty(container: HTMLElement, message: string): void {
