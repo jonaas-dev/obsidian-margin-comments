@@ -63,6 +63,12 @@ export interface PluginSettings {
 	/** "theme" follows the Obsidian accent colour; anything else is a custom hex. */
 	highlightColor: HighlightColor;
 	fuzzyThreshold: number;
+	/**
+	 * What happens to a note's comments when the note itself is deleted.
+	 * "delete" takes them with it — recoverably, while Obsidian stays open —
+	 * and "keep" leaves the sidecar, so the note shows as "not found" in the
+	 * all-notes view with its comments still readable.
+	 */
 	orphanedBehavior: OrphanedBehavior;
 	sortOrder: SortOrder;
 	panelPosition: PanelPosition;
@@ -88,7 +94,9 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	showLineHighlights: true,
 	highlightColor: "theme",
 	fuzzyThreshold: 0.3,
-	orphanedBehavior: "keep",
+	// Deleting a note is the one moment anyone wants its comments gone, and the
+	// deletion is undone by restoring the note.
+	orphanedBehavior: "delete",
 	sortOrder: "position",
 	panelPosition: "right",
 	showCommentCount: true,

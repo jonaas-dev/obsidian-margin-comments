@@ -1,14 +1,9 @@
+import { noteName } from "../utils";
 import type { Thread } from "./threads";
 
 /** Threads whose anchor no stage could place in the note. */
 export function orphanCount(threads: Thread[]): number {
 	return threads.filter((thread) => thread.orphaned).length;
-}
-
-/** The note as it reads in a sentence: no folder, no extension. */
-function noteName(filePath: string): string {
-	const name = filePath.replace(/\.md$/, "").split("/").pop();
-	return name === undefined || name === "" ? filePath : name;
 }
 
 /**

@@ -183,6 +183,37 @@ export class CommentStorage {
 		}
 	}
 
+	/**
+	 * Remove a note's comments and hand them back.
+	 *
+	 * For a caller that will hold on to them — deleting a note takes its comments
+	 * with it, and the only thing that makes that safe is being able to put them
+	 * back. Returning them rather than dropping them is what keeps the store from
+	 * being the last place they existed.
+	 */
+	async takeComments(filePath: string): Promise<Comment[]> {
+		const comments = await this.getCommentsForFile(filePath);
+		if (comments.length === 0) return [];
+		await this.writeComments(filePath, []);
+		return comments;
+	}
+
+	/**
+	 * Put comments back on a note, keeping anything written since.
+	 *
+	 * A note can be deleted, recreated and commented on before the restore lands;
+	 * replacing would throw that comment away.
+	 */
+	async restoreComments(filePath: string, comments: Comment[]): Promise<void> {
+		if (comments.length === 0) return;
+		const existing = await this.getCommentsForFile(filePath);
+		const known = new Set(existing.map((comment) => comment.id));
+		await this.writeComments(filePath, [
+			...existing,
+			...comments.filter((comment) => !known.has(comment.id)),
+		]);
+	}
+
 	private async writeComments(filePath: string, comments: Comment[]): Promise<void> {
 		return this.enqueue(filePath, async () => {
 			const path = this.sidecarPath(filePath);

@@ -1,8 +1,9 @@
-import { MarkdownView, Notice, Platform, Plugin, TFile } from "obsidian";
+import { MarkdownView, Notice, Platform, Plugin, TFile, type TAbstractFile } from "obsidian";
 import type { EditorView } from "@codemirror/view";
 import { CommentStorage } from "./storage";
 import { createAnchor } from "./anchor";
 import { movesFor } from "./note-moves";
+import { DeletedNotes, describeNoteDeletion, describeNoteRestore } from "./deleted-notes";
 import { commentGutter, updateCommentedLines } from "./editor/hover-gutter";
 import { linesWithOpenComments } from "./editor/gutter-state";
 import { highlightRanges, lineHighlights, updateHighlights } from "./editor/line-highlight";
@@ -51,6 +52,8 @@ export default class InlineCommentsPlugin extends Plugin {
 	/** Owned by the plugin, not the panel: the panel is rebuilt on every close
 	 *  and reopen, and the notice has to stay silent across both. */
 	private orphanNotice = new OrphanNotice();
+	/** Comments waiting for their note to come back. See DeletedNotes. */
+	private deleted = new DeletedNotes();
 
 	async onload(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -155,6 +158,8 @@ export default class InlineCommentsPlugin extends Plugin {
 		this.registerEvent(
 			this.app.vault.on("rename", (file, from) => void this.followRename(from, file.path)),
 		);
+		this.registerEvent(this.app.vault.on("delete", (file) => void this.followDelete(file)));
+		this.registerEvent(this.app.vault.on("create", (file) => void this.followCreate(file)));
 		this.app.workspace.onLayoutReady(() => {
 			void this.refresh();
 			void this.checkOrphans();
@@ -217,6 +222,49 @@ export default class InlineCommentsPlugin extends Plugin {
 		if (moves.length === 0) return;
 
 		for (const move of moves) await this.storage.moveComments(move.from, move.to);
+		await this.refresh();
+	}
+
+	/**
+	 * Take a note's comments with it when it is deleted, recoverably.
+	 *
+	 * Only the file events matter: a folder carries no comments of its own, and
+	 * Obsidian was measured emitting a delete for every note underneath it. If
+	 * that ever stopped, the comments would stay behind and show as a "not found"
+	 * note in the all-notes view — visible, not lost — which is why this needs no
+	 * folder cascade where the rename handler does.
+	 */
+	private async followDelete(file: TAbstractFile): Promise<void> {
+		if (!(file instanceof TFile) || file.extension !== "md") return;
+		if (this.settings.orphanedBehavior === "keep") {
+			await this.refresh();
+			return;
+		}
+
+		const comments = await this.storage.takeComments(file.path);
+		if (comments.length === 0) return;
+
+		this.deleted.remember(file.path, comments);
+		new Notice(describeNoteDeletion(file.path, comments.length));
+		await this.refresh();
+	}
+
+	/**
+	 * Give a note back its comments when it reappears.
+	 *
+	 * Restoring from the trash is routine, and some sync setups present a rename
+	 * as delete-then-create; both arrive here. Obsidian also fires create for
+	 * every file while it indexes a vault at startup, which is harmless: nothing
+	 * is held yet, so every one of those is a map lookup that misses.
+	 */
+	private async followCreate(file: TAbstractFile): Promise<void> {
+		if (!(file instanceof TFile) || file.extension !== "md") return;
+
+		const comments = this.deleted.recover(file.path);
+		if (comments === null) return;
+
+		await this.storage.restoreComments(file.path, comments);
+		new Notice(describeNoteRestore(file.path, comments.length));
 		await this.refresh();
 	}
 
