@@ -4,6 +4,8 @@ declare global {
 	interface Window {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		app: any;
+		/** Counter a test installs to prove the panel is not re-reading storage. */
+		__reads: number;
 	}
 }
 
