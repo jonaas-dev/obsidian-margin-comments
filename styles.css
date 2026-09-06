@@ -53,10 +53,12 @@
 }
 
 /* A line with an open comment, tinted from the theme accent so it reads as
-   "marked" in any theme rather than a fixed yellow. */
+   "marked" in any theme rather than a fixed yellow. --ic-highlight is set only
+   when the reader has chosen a colour of their own; unset, the accent wins, so
+   the default costs no plugin code at all. */
 .inline-comment-active-line {
-	background-color: color-mix(in srgb, var(--text-accent) 12%, transparent);
-	box-shadow: inset 2px 0 0 0 var(--text-accent);
+	background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 12%, transparent);
+	box-shadow: inset 2px 0 0 0 var(--ic-highlight, var(--text-accent));
 }
 
 /* ---- Comment panel ----------------------------------------------------
