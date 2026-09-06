@@ -95,6 +95,7 @@ by breaking the code they covered:
 |---------------------|-------------|
 | "keeps the section open after resolving" | Asserted the section was still expanded, not that its cards were current. It passed against a build that never re-read the note. |
 | "stores the scope in data.json" | Read the file after a filter had been clicked. Every setter saves the whole settings object, so the value was there whoever wrote it — the test passed against a plugin that never saved the scope. |
+| "applies it to the open note without a reload" | Counted gutter markers after a settings toggle. Clicking in the tab stirs the workspace, `active-leaf-change` fires and the markers are redrawn by something other than the setting — so it passed against a tab whose commit never refreshed. |
 
 Both share the shape above: **the failure path produces the same output as success.** For
 persisted state, read the file before anything else can write it; for a redraw, assert on
@@ -122,6 +123,18 @@ root and outlives the throwaway vault: a setting one test chose was still there 
 next run, and the suite started against state no fresh install would have. It showed up
 as 16 unrelated failures. `createTempVault` now deletes it; do not reintroduce state that
 lives outside the vault.
+
+**Obsidian's settings modal never attaches here either.** `app.setting.open()` runs and
+`app.setting.openTabById()` accepts the id, the tab's `containerEl` exists and reports
+`isConnected`, and no `.modal` ever reaches the DOM. `tests/e2e/settings-tab.test.ts`
+therefore renders the tab into its own container — which is what the tab is responsible
+for; the chrome around it is not. Give that container `position:fixed;inset:0` and a
+z-index: laid out at zero size the settings render correctly and Playwright still refuses
+to click them, which surfaces as a 30-second timeout, not as an invisible element.
+
+While there: **every Obsidian dropdown is built twice**, the live one plus a hidden
+`is-measuring` clone it sizes the first from. An unqualified `locator("select")` inside a
+`.setting-item` fails strict mode rather than picking the wrong one; take `.first()`.
 
 **Obsidian's `Menu` never attaches here.** The click handler runs, the instance is
 constructed, and `dom.isConnected` stays `false` after both `showAtMouseEvent` and
