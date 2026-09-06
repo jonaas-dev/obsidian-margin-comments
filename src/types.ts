@@ -1,3 +1,5 @@
+import type { ThreadFilter } from "./ui/panel-filter";
+
 /** How a comment finds its text again after the note has been edited. */
 export interface TextAnchor {
 	/** The commented text. Empty for a whole-line comment. */
@@ -63,6 +65,12 @@ export interface PluginSettings {
 	sortOrder: SortOrder;
 	panelPosition: PanelPosition;
 	showCommentCount: boolean;
+	/**
+	 * Which bucket the panel is showing. Persisted state rather than a setting —
+	 * it is chosen in the panel, not in the settings tab, but it has to survive a
+	 * reopen and a restart, and data.json is the only place that does.
+	 */
+	panelFilter: ThreadFilter;
 }
 
 export const FUZZY_THRESHOLD_MIN = 0.1;
@@ -80,4 +88,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	sortOrder: "position",
 	panelPosition: "right",
 	showCommentCount: true,
+	panelFilter: "all",
 };
