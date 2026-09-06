@@ -26,7 +26,15 @@ export interface Comment {
 	content: string;
 	author: string;
 	createdAt: number;
+	/** Last activity of any kind, including resolving. Drives activity sorting. */
 	updatedAt: number;
+	/**
+	 * When the body was last rewritten, if ever.
+	 *
+	 * Separate from updatedAt because that one moves on any change: deriving
+	 * "edited" from it would label every resolved comment as edited too.
+	 */
+	editedAt?: number;
 	/**
 	 * Only meaningful on a thread root: resolving a root resolves its thread.
 	 * Replies carry no independent resolved state.

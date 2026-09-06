@@ -28,7 +28,7 @@ export default class InlineCommentsPlugin extends Plugin {
 				new CommentPanelView(leaf, {
 					loadActive: () => this.loadActive(),
 					revealThread: (thread) => this.revealThread(thread),
-					replyTo: (target, near) => this.openReplyComposer(target, near),
+					addReply: (root, content) => this.addReply(root, content),
 					editComment: (comment, content) => this.editComment(comment, content),
 					setResolved: (root, resolved) => this.setResolved(root, resolved),
 					deleteComment: (comment) => this.confirmDelete(comment),
@@ -98,22 +98,9 @@ export default class InlineCommentsPlugin extends Plugin {
 		return null;
 	}
 
-	private openReplyComposer(target: Comment, near: HTMLElement): void {
-		const rect = near.getBoundingClientRect();
-		this.composer?.close();
-		this.composer = new FloatingComposer({
-			anchorRect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
-			placeholder: "Write a reply…",
-			submitLabel: "Reply",
-			onSubmit: async (content) => {
-				await this.storage.saveComment(createReply(target, content, this.settings.author));
-				await this.refresh();
-			},
-			onCancel: () => {
-				this.composer = null;
-			},
-		});
-		this.composer.open();
+	private async addReply(root: Comment, content: string): Promise<void> {
+		await this.storage.saveComment(createReply(root, content, this.settings.author));
+		await this.refresh();
 	}
 
 	private async editComment(comment: Comment, content: string): Promise<void> {
