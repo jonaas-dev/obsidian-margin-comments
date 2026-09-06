@@ -7,9 +7,10 @@ import { linesWithOpenComments } from "./editor/gutter-state";
 import { highlightRanges, lineHighlights, updateHighlights } from "./editor/line-highlight";
 import { FloatingComposer } from "./editor/floating-comment";
 import type { AnchorRect } from "./editor/floating-position";
-import { DEFAULT_SETTINGS, type Comment, type PluginSettings } from "./types";
+import { DEFAULT_SETTINGS, type Comment, type PluginSettings, type SortOrder } from "./types";
 import { COMMENT_PANEL_VIEW, CommentPanelView } from "./ui/comment-panel";
 import { toThreadFilter, type ThreadFilter } from "./ui/panel-filter";
+import { toSortOrder } from "./ui/panel-sort";
 import { ThreadPopover } from "./ui/thread-popover";
 import { buildThreads, type Thread } from "./ui/threads";
 import { createReply } from "./ui/replies";
@@ -29,6 +30,7 @@ export default class InlineCommentsPlugin extends Plugin {
 		// data.json survives across versions and can be hand-edited, so the stored
 		// filter is validated rather than trusted.
 		this.settings.panelFilter = toThreadFilter(this.settings.panelFilter);
+		this.settings.sortOrder = toSortOrder(this.settings.sortOrder);
 		this.storage = new CommentStorage(this.app.vault.adapter);
 		this.popover = new ThreadPopover(this.app, {
 			addReply: (root, content) => this.addReply(root, content),
@@ -51,6 +53,8 @@ export default class InlineCommentsPlugin extends Plugin {
 					closePanel: () => this.app.workspace.detachLeavesOfType(COMMENT_PANEL_VIEW),
 					filter: () => this.settings.panelFilter,
 					setFilter: (filter) => this.setPanelFilter(filter),
+					sortOrder: () => this.settings.sortOrder,
+					setSortOrder: (order) => this.setSortOrder(order),
 				}),
 		);
 
@@ -128,6 +132,11 @@ export default class InlineCommentsPlugin extends Plugin {
 
 	private async setPanelFilter(filter: ThreadFilter): Promise<void> {
 		this.settings.panelFilter = filter;
+		await this.saveData(this.settings);
+	}
+
+	private async setSortOrder(order: SortOrder): Promise<void> {
+		this.settings.sortOrder = order;
 		await this.saveData(this.settings);
 	}
 
