@@ -141,7 +141,16 @@ export function commentGutter(options: GutterOptions): Extension {
 				);
 			},
 			domEventHandlers: {
-				mousedown(view, line) {
+				// mousedown is what CM6 reaches for, but the editor claims focus
+				// during it and hands it back asynchronously afterwards, so a
+				// composer opened here can never keep the caret. Suppressing the
+				// default and acting on click instead lets focus settle first.
+				mousedown(_view, _line, event) {
+					event.preventDefault();
+					return true;
+				},
+				click(view, line, event) {
+					event.preventDefault();
 					options.onActivate(view, view.state.doc.lineAt(line.from).number);
 					return true;
 				},
