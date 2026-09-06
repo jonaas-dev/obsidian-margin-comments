@@ -93,6 +93,7 @@
    list and must not compete with it for attention. */
 .inline-comment-filters {
 	display: flex;
+	flex-wrap: wrap;
 	gap: var(--ic-gap-xs);
 	padding: 0 var(--ic-gap-sm) var(--ic-gap-md);
 }
@@ -123,6 +124,17 @@
 	background-color: var(--background-modifier-hover);
 	color: var(--text-normal);
 	font-weight: var(--font-medium);
+}
+
+/* The sort control shares the filter row when it fits and drops below it when
+   the sidebar is narrow: it is a separate decision from the filter, not a
+   fourth option in it. */
+.inline-comment-sort {
+	flex: none;
+	margin-left: auto;
+	height: auto;
+	padding: var(--ic-gap-xs) var(--ic-gap-sm);
+	font-size: var(--font-smallest);
 }
 
 .inline-comment-filter-count {
