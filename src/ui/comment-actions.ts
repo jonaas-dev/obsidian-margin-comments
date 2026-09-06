@@ -9,7 +9,12 @@ import type { Comment } from "../types";
  * points at.
  */
 export function withEditedContent(comment: Comment, content: string, now = Date.now()): Comment {
-	return { ...comment, content, updatedAt: now };
+	return { ...comment, content, updatedAt: now, editedAt: now };
+}
+
+/** Whether the body has been rewritten since it was written. */
+export function wasEdited(comment: Comment): boolean {
+	return comment.editedAt !== undefined;
 }
 
 /**
