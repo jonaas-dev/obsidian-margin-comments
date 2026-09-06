@@ -3,8 +3,9 @@ import type { EditorView } from "@codemirror/view";
 import { CommentStorage } from "./storage";
 import { createAnchor } from "./anchor";
 import { movesFor } from "./note-moves";
+import { HIGHLIGHT_VARIABLE, highlightOverride } from "./appearance";
 import { DeletedNotes, describeNoteDeletion, describeNoteRestore } from "./deleted-notes";
-import { commentGutter, updateCommentedLines } from "./editor/hover-gutter";
+import { commentGutter, updateCommentedLines, updateGutterEnabled } from "./editor/hover-gutter";
 import { linesWithOpenComments } from "./editor/gutter-state";
 import { highlightRanges, lineHighlights, updateHighlights } from "./editor/line-highlight";
 import { FloatingComposer } from "./editor/floating-comment";
@@ -103,6 +104,7 @@ export default class InlineCommentsPlugin extends Plugin {
 			callback: () => void this.togglePanel(),
 		});
 
+		this.applyHighlightColour();
 		this.registerEditorExtension(lineHighlights());
 		this.registerEditorExtension(
 			commentGutter({
@@ -170,6 +172,23 @@ export default class InlineCommentsPlugin extends Plugin {
 		this.composer?.close();
 		this.composer = null;
 		this.popover?.close();
+		// The custom property is set on a document the plugin does not own, so
+		// leaving it behind would keep tinting lines after the plugin is gone.
+		document.body.style.removeProperty(HIGHLIGHT_VARIABLE);
+	}
+
+	/**
+	 * Publish the chosen highlight colour to the stylesheet.
+	 *
+	 * A custom property rather than inline styles on each decoration: the
+	 * decorations are rebuilt on every keystroke, and the colour is not a
+	 * per-line fact. Removing it hands the line back to the theme accent, which
+	 * is what the stylesheet falls back to.
+	 */
+	applyHighlightColour(): void {
+		const override = highlightOverride(this.settings.highlightColor);
+		if (override === null) document.body.style.removeProperty(HIGHLIGHT_VARIABLE);
+		else document.body.style.setProperty(HIGHLIGHT_VARIABLE, override);
 	}
 
 	private async togglePanel(): Promise<void> {
@@ -582,6 +601,7 @@ export default class InlineCommentsPlugin extends Plugin {
 		const view = (markdownView.editor as unknown as { cm?: EditorView }).cm;
 		if (!view) return;
 
+		updateGutterEnabled(view, this.settings.showGutterIcons);
 		updateCommentedLines(view, linesWithOpenComments(doc, comments));
 		updateHighlights(view, this.settings.showLineHighlights ? highlightRanges(doc, comments) : []);
 	}

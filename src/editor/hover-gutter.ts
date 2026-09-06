@@ -9,6 +9,7 @@ const GUTTER_CLASS = "inline-comment-gutter";
 
 const setHoveredLine = StateEffect.define<number | null>();
 const setCommentedLines = StateEffect.define<Set<number>>();
+const setGutterEnabled = StateEffect.define<boolean>();
 
 const hoveredLineField = StateField.define<number | null>({
 	create: () => null,
@@ -25,6 +26,24 @@ const commentedLinesField = StateField.define<Set<number>>({
 	update(value, tr) {
 		for (const effect of tr.effects) {
 			if (effect.is(setCommentedLines)) return effect.value;
+		}
+		return value;
+	},
+});
+
+/**
+ * The gutter setting, in editor state rather than read from the plugin.
+ *
+ * A CodeMirror extension is built once and lives as long as the editor, so a
+ * value captured at construction never changes. Pushing it through an effect is
+ * what lets the setting take hold without reopening the note — the same reason
+ * the commented lines travel this way.
+ */
+const gutterEnabledField = StateField.define<boolean>({
+	create: () => true,
+	update(value, tr) {
+		for (const effect of tr.effects) {
+			if (effect.is(setGutterEnabled)) return effect.value;
 		}
 		return value;
 	},
@@ -118,6 +137,7 @@ export function commentGutter(options: GutterOptions): Extension {
 	return [
 		hoveredLineField,
 		commentedLinesField,
+		gutterEnabledField,
 		ViewPlugin.fromClass(HoverTracker),
 		gutter({
 			class: GUTTER_CLASS,
@@ -128,6 +148,7 @@ export function commentGutter(options: GutterOptions): Extension {
 					hoveredLine: view.state.field(hoveredLineField),
 					commented,
 					alwaysVisible: options.alwaysVisible,
+					enabled: view.state.field(gutterEnabledField),
 				});
 				return visible ? new CommentMarker(commented.has(number)) : null;
 			},
@@ -137,7 +158,9 @@ export function commentGutter(options: GutterOptions): Extension {
 			lineMarkerChange(update) {
 				return (
 					update.startState.field(hoveredLineField) !== update.state.field(hoveredLineField) ||
-					update.startState.field(commentedLinesField) !== update.state.field(commentedLinesField)
+					update.startState.field(commentedLinesField) !==
+						update.state.field(commentedLinesField) ||
+					update.startState.field(gutterEnabledField) !== update.state.field(gutterEnabledField)
 				);
 			},
 			domEventHandlers: {
@@ -157,6 +180,11 @@ export function commentGutter(options: GutterOptions): Extension {
 			},
 		}),
 	];
+}
+
+/** Push the gutter setting into the editor, so it applies without a reload. */
+export function updateGutterEnabled(view: EditorView, enabled: boolean): void {
+	view.dispatch({ effects: setGutterEnabled.of(enabled) });
 }
 
 /** Push the set of lines carrying open comments into the editor. */

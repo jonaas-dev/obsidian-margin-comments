@@ -11,6 +11,8 @@ export interface MarkerContext {
 	commented: Set<number>;
 	/** Mobile has no hover, so the affordance cannot depend on one. */
 	alwaysVisible: boolean;
+	/** The gutter setting. Off hides every marker, hovered and commented alike. */
+	enabled: boolean;
 }
 
 /** 1-based line number containing `offset`. */
@@ -40,6 +42,9 @@ export function linesWithOpenComments(doc: string, comments: Comment[]): Set<num
 }
 
 export function shouldShowMarker(line: number, context: MarkerContext): boolean {
+	// Checked before anything else, mobile included: "always visible" answers
+	// when a marker appears, not whether the reader wants markers at all.
+	if (!context.enabled) return false;
 	if (context.alwaysVisible) return true;
 	if (context.commented.has(line)) return true;
 	return context.hoveredLine === line;
