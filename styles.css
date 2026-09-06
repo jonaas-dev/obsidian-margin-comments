@@ -163,3 +163,34 @@
 	padding: 0.1em 0.6em;
 	font-size: var(--font-smallest);
 }
+
+.inline-comment-edit-btn,
+.inline-comment-resolve-btn {
+	padding: 0 0.4em;
+	font-size: var(--font-smallest);
+	background: transparent;
+	box-shadow: none;
+	color: var(--text-faint);
+}
+
+.inline-comment-edit-btn:hover {
+	color: var(--text-normal);
+}
+
+.inline-comment-resolve-btn {
+	color: var(--text-success);
+}
+
+.inline-comment-edited {
+	font-style: italic;
+}
+
+.inline-comment-inline-editor {
+	margin: 0.3em 0;
+}
+
+/* A resolved thread stays legible but visibly settled. */
+.inline-comment-resolved .inline-comment-quote {
+	border-left-color: var(--text-faint);
+	text-decoration: line-through;
+}
