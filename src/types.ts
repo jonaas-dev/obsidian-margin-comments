@@ -53,6 +53,8 @@ export type HighlightColor = "theme" | (string & {});
 export type OrphanedBehavior = "keep" | "delete";
 export type SortOrder = "position" | "date" | "lastActivity";
 export type PanelPosition = "right" | "left";
+/** Whether the panel describes the open note or the whole vault. */
+export type PanelScope = "note" | "vault";
 
 export interface PluginSettings {
 	author: string;
@@ -71,6 +73,8 @@ export interface PluginSettings {
 	 * reopen and a restart, and data.json is the only place that does.
 	 */
 	panelFilter: ThreadFilter;
+	/** Persisted panel state, like panelFilter. */
+	panelScope: PanelScope;
 }
 
 export const FUZZY_THRESHOLD_MIN = 0.1;
@@ -89,4 +93,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	panelPosition: "right",
 	showCommentCount: true,
 	panelFilter: "all",
+	panelScope: "note",
 };
