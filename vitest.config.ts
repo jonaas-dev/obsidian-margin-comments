@@ -12,5 +12,9 @@ export default defineConfig({
 	test: {
 		environment: "node",
 		include: ["tests/**/*.test.ts"],
+		// The E2E suite launches a real Obsidian, which CI has no way to provide.
+		// It has its own config and script; without this exclusion `npm test`
+		// picks it up and fails the runner with ENOENT.
+		exclude: ["tests/e2e/**"],
 	},
 });
