@@ -58,3 +58,95 @@
 	background-color: color-mix(in srgb, var(--text-accent) 12%, transparent);
 	box-shadow: inset 2px 0 0 0 var(--text-accent);
 }
+
+.inline-comment-panel {
+	padding: 0.5em;
+	font-size: var(--font-ui-small);
+}
+
+.inline-comment-panel-header {
+	display: flex;
+	justify-content: space-between;
+	align-items: baseline;
+	padding: 0 0.2em 0.5em;
+	color: var(--text-muted);
+	border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.inline-comment-panel-count {
+	padding: 0 0.4em;
+	border-radius: var(--radius-s);
+	background-color: var(--background-modifier-border);
+}
+
+.inline-comment-empty {
+	padding: 1.5em 0.5em;
+	text-align: center;
+	color: var(--text-faint);
+}
+
+.inline-comment-card {
+	padding: 0.6em 0.4em;
+	border-bottom: 1px solid var(--background-modifier-border);
+	cursor: pointer;
+}
+
+.inline-comment-card:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+/* The commented text, so a card is identifiable without jumping to the note. */
+.inline-comment-quote {
+	margin-bottom: 0.35em;
+	padding-left: 0.5em;
+	border-left: 2px solid var(--text-accent);
+	color: var(--text-muted);
+	font-style: italic;
+	overflow-wrap: anywhere;
+}
+
+.inline-comment-meta {
+	display: flex;
+	gap: 0.5em;
+	color: var(--text-faint);
+	font-size: var(--font-smallest);
+}
+
+.inline-comment-author {
+	color: var(--text-muted);
+	font-weight: var(--font-medium);
+}
+
+.inline-comment-body {
+	color: var(--text-normal);
+	overflow-wrap: anywhere;
+}
+
+.inline-comment-body > :first-child {
+	margin-top: 0.2em;
+}
+
+.inline-comment-body > :last-child {
+	margin-bottom: 0;
+}
+
+.inline-comment-reply {
+	margin-top: 0.4em;
+	padding-left: 0.7em;
+	border-left: 1px solid var(--background-modifier-border);
+}
+
+.inline-comment-reply-count {
+	margin-top: 0.3em;
+	color: var(--text-faint);
+	font-size: var(--font-smallest);
+}
+
+.inline-comment-orphaned .inline-comment-quote {
+	border-left-color: var(--text-error);
+	color: var(--text-error);
+}
+
+.inline-comment-resolved .inline-comment-body {
+	color: var(--text-faint);
+}
