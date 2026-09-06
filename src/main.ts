@@ -10,6 +10,7 @@ import { DEFAULT_SETTINGS, type Comment, type PluginSettings } from "./types";
 import { COMMENT_PANEL_VIEW, CommentPanelView } from "./ui/comment-panel";
 import { buildThreads, type Thread } from "./ui/threads";
 import { createReply } from "./ui/replies";
+import { withEditedContent, withResolved } from "./ui/comment-actions";
 
 export default class InlineCommentsPlugin extends Plugin {
 	storage!: CommentStorage;
@@ -27,6 +28,8 @@ export default class InlineCommentsPlugin extends Plugin {
 					loadActive: () => this.loadActive(),
 					revealThread: (thread) => this.revealThread(thread),
 					replyTo: (target, near) => this.openReplyComposer(target, near),
+					editComment: (comment, content) => this.editComment(comment, content),
+					setResolved: (root, resolved) => this.setResolved(root, resolved),
 				}),
 		);
 
@@ -109,6 +112,16 @@ export default class InlineCommentsPlugin extends Plugin {
 			},
 		});
 		this.composer.open();
+	}
+
+	private async editComment(comment: Comment, content: string): Promise<void> {
+		await this.storage.updateComment(withEditedContent(comment, content));
+		await this.refresh();
+	}
+
+	private async setResolved(root: Comment, resolved: boolean): Promise<void> {
+		await this.storage.updateComment(withResolved(root, resolved));
+		await this.refresh();
 	}
 
 	private async loadActive(): Promise<{

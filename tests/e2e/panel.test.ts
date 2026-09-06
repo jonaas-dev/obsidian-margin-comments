@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { readdirSync, readFileSync } from "node:fs";
 import {
 	launchObsidian,
 	waitForWorkspace,
@@ -6,6 +7,8 @@ import {
 	createTempVault,
 	dismissModals,
 } from "./launch.mjs";
+
+import type { Comment } from "../../src/types";
 
 const NOTE = "note.md";
 const BODY = ["first line of the note", "second line of the note", "third line"].join("\n");
@@ -47,6 +50,12 @@ describe("comment panel", () => {
 		await session?.close();
 		vault?.remove();
 	});
+
+	function readSidecar(): { comments: Comment[] } {
+		const dir = `${vault.path}/.inline-comments`;
+		const file = readdirSync(dir).find((f) => f !== "_index.json")!;
+		return JSON.parse(readFileSync(`${dir}/${file}`, "utf8"));
+	}
 
 	it("opens from the ribbon command", async () => {
 		await page.evaluate(async () => {
@@ -128,6 +137,45 @@ describe("comment panel", () => {
 		expect(await page.locator(".inline-comment-reply-count").innerText()).toBe("1 reply");
 	});
 
+	it("edits a comment in place and persists the new body", async () => {
+		await page.locator(".inline-comment-edit-btn").first().click();
+		await page.waitForSelector(".inline-comment-inline-editor", { timeout: 5000 });
+		const textarea = page.locator(".inline-comment-inline-editor textarea");
+		await textarea.click();
+		await textarea.fill("an edited body");
+		await page.locator(".inline-comment-inline-editor .mod-cta").click();
+		await page.waitForTimeout(1500);
+
+		expect(await page.locator(".inline-comment-body").first().innerText()).toContain(
+			"an edited body",
+		);
+		const stored = readSidecar();
+		const root = stored.comments.find((c: Comment) => c.parentId === null)!;
+		expect(root.content).toBe("an edited body");
+		expect(root.updatedAt).toBeGreaterThan(root.createdAt);
+	});
+
+	it("marks the edited comment as edited", async () => {
+		expect(await page.locator(".inline-comment-edited").count()).toBeGreaterThan(0);
+	});
+
+	it("resolves a thread, which clears the line highlight", async () => {
+		expect(await page.locator(".inline-comment-active-line").count()).toBe(1);
+		await page.locator(".inline-comment-resolve-btn").first().click();
+		await page.waitForTimeout(1500);
+
+		expect(readSidecar().comments.find((c: Comment) => c.parentId === null)!.resolved).toBe(true);
+		expect(await page.locator(".inline-comment-active-line").count()).toBe(0);
+	});
+
+	it("reopens a resolved thread and brings the highlight back", async () => {
+		await page.locator(".inline-comment-resolve-btn").first().click();
+		await page.waitForTimeout(1500);
+
+		expect(readSidecar().comments.find((c: Comment) => c.parentId === null)!.resolved).toBe(false);
+		expect(await page.locator(".inline-comment-active-line").count()).toBe(1);
+	});
+
 	it("shows the comments when the gutter marker of a commented line is clicked", async () => {
 		// The gap reported from real use: clicking a marked line opened an empty
 		// composer instead of showing what was already there.
@@ -141,8 +189,11 @@ describe("comment panel", () => {
 
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
 		expect(await page.locator(".inline-comment-composer").count()).toBe(0);
+		// Assert against what is stored rather than a literal: earlier tests in
+		// this file edit the body, and hardcoding it couples them by order.
+		const stored = readSidecar().comments.find((c: Comment) => c.parentId === null)!;
 		expect(await page.locator(".inline-comment-body").first().innerText()).toContain(
-			"bold comment body",
+			stored.content,
 		);
 	});
 });
