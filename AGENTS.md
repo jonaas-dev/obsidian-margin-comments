@@ -141,6 +141,15 @@ tested.
 Notices stack: a `.notice` from an earlier assertion may still be on screen, so match
 `.last()`.
 
+**The suite runs `main.js`, not the TypeScript.** Run `npm run build` before an E2E run
+or you are testing the previous version. This matters most when deliberately breaking
+code to check a test bites: `npm run build` starts with `tsc --noEmit`, so a patch that
+leaves an import or a constant unused fails the build, the old bundle stays in place, and
+the run reports whatever the *previous* patch did. The tell is a negative that fails a
+test unrelated to what you broke — that is a stale bundle, not a surprising coupling.
+Consume the symbol (`void thing;`) so the build still compiles, and check the build
+succeeded before believing the result.
+
 ## Vault events
 
 `vault.on('rename')` fires for a renamed **folder and for every descendant**,

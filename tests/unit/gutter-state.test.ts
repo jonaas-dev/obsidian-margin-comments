@@ -58,22 +58,39 @@ describe("linesWithOpenComments", () => {
 
 describe("shouldShowMarker", () => {
 	const commented = new Set([2]);
+	const on = { commented, alwaysVisible: false, enabled: true };
 
 	it("shows on a line that has an open comment", () => {
-		expect(shouldShowMarker(2, { hoveredLine: null, commented, alwaysVisible: false })).toBe(true);
+		expect(shouldShowMarker(2, { ...on, hoveredLine: null })).toBe(true);
 	});
 
 	it("shows on the hovered line even with no comment", () => {
-		expect(shouldShowMarker(3, { hoveredLine: 3, commented, alwaysVisible: false })).toBe(true);
+		expect(shouldShowMarker(3, { ...on, hoveredLine: 3 })).toBe(true);
 	});
 
 	it("hides on an unrelated line", () => {
-		expect(shouldShowMarker(1, { hoveredLine: 3, commented, alwaysVisible: false })).toBe(false);
+		expect(shouldShowMarker(1, { ...on, hoveredLine: 3 })).toBe(false);
 	});
 
 	it("shows everywhere when always visible", () => {
 		// Mobile has no hover, so the affordance cannot depend on one.
-		expect(shouldShowMarker(1, { hoveredLine: null, commented, alwaysVisible: true })).toBe(true);
+		expect(shouldShowMarker(1, { ...on, hoveredLine: null, alwaysVisible: true })).toBe(true);
+	});
+
+	it("hides a commented line when the gutter is switched off", () => {
+		expect(shouldShowMarker(2, { ...on, hoveredLine: null, enabled: false })).toBe(false);
+	});
+
+	it("hides the hovered line too, which is the affordance itself", () => {
+		// Hiding only the commented lines would leave the "add a comment" marker
+		// following the pointer, so the setting would look broken.
+		expect(shouldShowMarker(3, { ...on, hoveredLine: 3, enabled: false })).toBe(false);
+	});
+
+	it("stays off on mobile, where every marker is otherwise forced on", () => {
+		expect(
+			shouldShowMarker(1, { ...on, hoveredLine: null, alwaysVisible: true, enabled: false }),
+		).toBe(false);
 	});
 });
 
