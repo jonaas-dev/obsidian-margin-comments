@@ -1,0 +1,94 @@
+import { describe, it, expect } from "vitest";
+import { linesWithOpenComments, shouldShowMarker, isNearLeftEdge } from "../../src/editor/gutter-state";
+import { createAnchor } from "../../src/anchor";
+import type { Comment } from "../../src/types";
+
+const doc = ["alpha line", "beta line", "gamma line"].join("\n");
+
+function commentOn(text: string, overrides: Partial<Comment> = {}): Comment {
+	const from = doc.indexOf(text);
+	return {
+		id: `c-${text}`,
+		filePath: "note.md",
+		anchor: createAnchor(doc, from, from + text.length),
+		content: "a comment",
+		author: "someone",
+		createdAt: 1,
+		updatedAt: 1,
+		resolved: false,
+		parentId: null,
+		...overrides,
+	};
+}
+
+describe("linesWithOpenComments", () => {
+	it("marks the line an anchored comment sits on", () => {
+		expect(linesWithOpenComments(doc, [commentOn("beta")])).toEqual(new Set([2]));
+	});
+
+	it("ignores resolved comments", () => {
+		expect(linesWithOpenComments(doc, [commentOn("beta", { resolved: true })])).toEqual(new Set());
+	});
+
+	it("ignores replies, which share their root's line", () => {
+		// A reply has no independent anchor, so counting it would be double work
+		// for the same line and would keep a line marked after its root resolves.
+		const root = commentOn("beta");
+		const reply = commentOn("beta", { id: "r1", parentId: root.id });
+		expect(linesWithOpenComments(doc, [root, reply])).toEqual(new Set([2]));
+	});
+
+	it("marks several lines at once", () => {
+		expect(linesWithOpenComments(doc, [commentOn("alpha"), commentOn("gamma")])).toEqual(
+			new Set([1, 3]),
+		);
+	});
+
+	it("skips a comment whose text is gone", () => {
+		const orphan = commentOn("beta");
+		expect(linesWithOpenComments("nothing familiar here", [orphan])).toEqual(new Set());
+	});
+
+	it("follows the text when the note is reordered", () => {
+		const comment = commentOn("beta");
+		const reordered = ["gamma line", "alpha line", "beta line"].join("\n");
+		expect(linesWithOpenComments(reordered, [comment])).toEqual(new Set([3]));
+	});
+});
+
+describe("shouldShowMarker", () => {
+	const commented = new Set([2]);
+
+	it("shows on a line that has an open comment", () => {
+		expect(shouldShowMarker(2, { hoveredLine: null, commented, alwaysVisible: false })).toBe(true);
+	});
+
+	it("shows on the hovered line even with no comment", () => {
+		expect(shouldShowMarker(3, { hoveredLine: 3, commented, alwaysVisible: false })).toBe(true);
+	});
+
+	it("hides on an unrelated line", () => {
+		expect(shouldShowMarker(1, { hoveredLine: 3, commented, alwaysVisible: false })).toBe(false);
+	});
+
+	it("shows everywhere when always visible", () => {
+		// Mobile has no hover, so the affordance cannot depend on one.
+		expect(shouldShowMarker(1, { hoveredLine: null, commented, alwaysVisible: true })).toBe(true);
+	});
+});
+
+describe("isNearLeftEdge", () => {
+	const rect = { left: 100, width: 40 };
+
+	it("is true within the threshold of the left edge", () => {
+		expect(isNearLeftEdge(110, rect, 20)).toBe(true);
+	});
+
+	it("is false beyond the threshold", () => {
+		expect(isNearLeftEdge(130, rect, 20)).toBe(false);
+	});
+
+	it("is false to the left of the element", () => {
+		expect(isNearLeftEdge(80, rect, 20)).toBe(false);
+	});
+});
