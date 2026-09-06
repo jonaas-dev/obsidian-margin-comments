@@ -369,3 +369,69 @@ describe("moveComments", () => {
 		expect(adapter.writes.length).toBe(writesBefore);
 	});
 });
+
+describe("takeComments and restoreComments", () => {
+	it("hands back the comments it removed", async () => {
+		const storage = new CommentStorage(new MemoryAdapter());
+		await storage.saveComment(makeComment({ id: "a" }));
+		await storage.saveComment(makeComment({ id: "b" }));
+
+		const taken = await storage.takeComments("notes/meeting.md");
+		expect(taken.map((c) => c.id)).toEqual(["a", "b"]);
+	});
+
+	it("leaves the store empty afterwards, index included", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment());
+		await storage.takeComments("notes/meeting.md");
+
+		expect(await storage.getCommentsForFile("notes/meeting.md")).toEqual([]);
+		expect(await storage.getCommentSummaries()).toEqual([]);
+		expect(Object.keys(adapter.snapshot())).not.toContain(sidecarFor("notes/meeting.md"));
+	});
+
+	it("takes nothing, and writes nothing, for a note with no comments", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter);
+		expect(await storage.takeComments("notes/empty.md")).toEqual([]);
+		expect(adapter.writes).toEqual([]);
+	});
+
+	it("puts them back where they were", async () => {
+		const storage = new CommentStorage(new MemoryAdapter());
+		await storage.saveComment(makeComment({ id: "a" }));
+		const taken = await storage.takeComments("notes/meeting.md");
+		await storage.restoreComments("notes/meeting.md", taken);
+
+		expect((await storage.getCommentsForFile("notes/meeting.md")).map((c) => c.id)).toEqual([
+			"a",
+		]);
+		expect(await storage.getCommentSummaries()).toEqual([
+			{ filePath: "notes/meeting.md", threads: 1, open: 1 },
+		]);
+	});
+
+	it("keeps a comment written while the note was away", async () => {
+		// The note can be deleted, recreated and commented on before the restore
+		// lands; replacing rather than merging throws that comment away.
+		const storage = new CommentStorage(new MemoryAdapter());
+		await storage.saveComment(makeComment({ id: "old" }));
+		const taken = await storage.takeComments("notes/meeting.md");
+		await storage.saveComment(makeComment({ id: "new" }));
+		await storage.restoreComments("notes/meeting.md", taken);
+
+		const landed = await storage.getCommentsForFile("notes/meeting.md");
+		expect(landed.map((c) => c.id).sort()).toEqual(["new", "old"]);
+	});
+
+	it("does not double a comment restored twice", async () => {
+		const storage = new CommentStorage(new MemoryAdapter());
+		await storage.saveComment(makeComment({ id: "a" }));
+		const taken = await storage.takeComments("notes/meeting.md");
+		await storage.restoreComments("notes/meeting.md", taken);
+		await storage.restoreComments("notes/meeting.md", taken);
+
+		expect(await storage.getCommentsForFile("notes/meeting.md")).toHaveLength(1);
+	});
+});

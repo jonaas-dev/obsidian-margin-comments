@@ -159,7 +159,27 @@ Two consequences. The per-file events alone would move every sidecar today, so a
 test over a folder rename proves nothing about folder handling; the unit tests on
 `movedPath` are what cover it. And the same note arrives twice, from overlapping
 async handlers that each read the index before they write — which lands its
-comments twice unless rename handling is serialised, as it is in `followRename`.
+comments twice unless a move already in flight is refused, as `moveComments` does.
+
+`vault.on('delete')` also fires per descendant, but **innermost first**, with the
+folder last:
+
+```
+delete: notes/a.md
+delete: notes/deep
+delete: notes/deep/b.md
+delete: notes
+```
+
+So the delete handler needs no folder cascade: a folder holds no comments of its
+own, and if those per-file events ever stopped, the sidecars would stay behind and
+show as a "not found" note in the all-notes view — visible rather than lost, which
+is the opposite of what a missed rename does.
+
+`vault.on('create')` fires when a note is restored from the trash, and for every
+file while Obsidian indexes a vault at startup. The startup flood is harmless to
+`followCreate` — nothing is held at that point — but do not put anything expensive
+behind it.
 
 ## Architecture
 
