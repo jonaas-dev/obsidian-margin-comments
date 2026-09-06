@@ -20,6 +20,7 @@ import {
 	type VaultSection,
 } from "./vault-sections";
 import { renderThreadCard, type ThreadActions } from "./thread-card";
+import { orphanCount } from "./orphans";
 
 export const COMMENT_PANEL_VIEW = "inline-comments-panel";
 
@@ -56,6 +57,8 @@ export interface PanelHost extends ThreadActions {
 	scope(): PanelScope;
 	/** Persist a new scope. */
 	setScope(scope: PanelScope): Promise<void>;
+	/** Report how many threads the panel just drew as orphaned. */
+	notifyOrphans(count: number): void;
 }
 
 export class CommentPanelView extends ItemView {
@@ -277,10 +280,15 @@ export class CommentPanelView extends ItemView {
 	 * orphaned.
 	 */
 	private threadsOf(note: { doc: string; comments: Comment[] }): Thread[] {
-		return buildThreads(note.doc, note.comments, {
+		const threads = buildThreads(note.doc, note.comments, {
 			fuzzy: true,
 			threshold: this.host.fuzzyThreshold(),
 		});
+		// Reported from here rather than from paint: this is the one place the
+		// panel decides a comment is orphaned, and it covers the active note and
+		// every expanded section without either path having to remember to ask.
+		this.host.notifyOrphans(orphanCount(threads));
+		return threads;
 	}
 
 	private renderCard(parent: HTMLElement, thread: Thread, filePath: string): HTMLElement {

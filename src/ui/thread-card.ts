@@ -1,6 +1,7 @@
 import { App, Component, MarkdownRenderer, setIcon } from "obsidian";
 import type { Comment } from "../types";
 import { formatRelativeTime, type Thread } from "./threads";
+import { orphanExplanation } from "./orphans";
 import { wasEdited } from "./comment-actions";
 import { keyIntent } from "./key-intent";
 
@@ -82,6 +83,16 @@ export function renderThreadCard(
 		setIcon(quote.createSpan({ cls: "inline-comment-quote-icon" }), "unlink");
 	}
 	quote.createSpan({ text: thread.root.anchor.selectedText });
+
+	// The quote alone reads as an ordinary card in a colour nobody has learnt
+	// yet. Saying what happened is what turns a comment that goes nowhere from a
+	// bug into a state, and the stored text above is all that is left of it.
+	if (thread.orphaned) {
+		card.createDiv({
+			cls: "inline-comment-orphan-reason",
+			text: orphanExplanation(thread, filePath),
+		});
+	}
 
 	renderComment(card, thread.root, filePath, true, app, component, actions);
 	for (const reply of thread.replies) {
