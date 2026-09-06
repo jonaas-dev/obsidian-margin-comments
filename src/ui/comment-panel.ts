@@ -11,6 +11,10 @@ export interface PanelHost {
 	revealThread(thread: Thread): void;
 	/** Compose a reply to `target`, anchored beside the given element. */
 	replyTo(target: Comment, near: HTMLElement): void;
+	/** Persist an edited body. */
+	editComment(comment: Comment, content: string): Promise<void>;
+	/** Resolve or reopen a thread root. */
+	setResolved(root: Comment, resolved: boolean): Promise<void>;
 }
 
 export class CommentPanelView extends ItemView {
@@ -91,6 +95,15 @@ export class CommentPanelView extends ItemView {
 		}
 
 		const footer = card.createDiv({ cls: "inline-comment-card-footer" });
+		const resolve = footer.createEl("button", {
+			cls: "inline-comment-btn inline-comment-resolve-btn",
+			text: thread.root.resolved ? "Reopen" : "Resolve",
+		});
+		resolve.addEventListener("click", (event) => {
+			event.stopPropagation();
+			void this.host.setResolved(thread.root, !thread.root.resolved);
+		});
+
 		if (thread.replies.length > 0) {
 			footer.createSpan({
 				cls: "inline-comment-reply-count",
@@ -116,11 +129,91 @@ export class CommentPanelView extends ItemView {
 		const meta = parent.createDiv({ cls: "inline-comment-meta" });
 		meta.createSpan({ text: comment.author || "Unknown", cls: "inline-comment-author" });
 		meta.createSpan({ text: formatRelativeTime(comment.createdAt) });
-		if (comment.updatedAt > comment.createdAt) meta.createSpan({ text: "edited" });
+		if (comment.updatedAt > comment.createdAt) {
+			meta.createSpan({ text: "edited", cls: "inline-comment-edited" });
+		}
+
+		const edit = meta.createEl("button", {
+			cls: "inline-comment-btn inline-comment-edit-btn",
+			text: "Edit",
+		});
 
 		const body = parent.createDiv({ cls: "inline-comment-body" });
 		// Rendered rather than shown raw: comment bodies are Markdown, and the
 		// plugin is passed as the lifecycle component so child views are cleaned up.
 		void MarkdownRenderer.render(this.app, comment.content, body, filePath, this);
+
+		edit.addEventListener("click", (event) => {
+			event.stopPropagation();
+			this.startEditing(parent, body, comment, filePath);
+		});
+	}
+
+	/**
+	 * Swap the rendered body for a textarea in place.
+	 *
+	 * In place rather than in the floating composer: the composer is anchored to
+	 * text in the editor, and an edit started from the panel has no such anchor to
+	 * sit beside.
+	 */
+	private startEditing(
+		parent: HTMLElement,
+		body: HTMLElement,
+		comment: Comment,
+		filePath: string,
+	): void {
+		body.hide();
+		const editor = parent.createDiv({ cls: "inline-comment-inline-editor" });
+		const textarea = editor.createEl("textarea", {
+			cls: "inline-comment-composer-input",
+			attr: { "aria-label": "Edit comment" },
+		});
+		textarea.value = comment.content;
+
+		const finish = (): void => {
+			editor.remove();
+			body.show();
+		};
+
+		const save = async (): Promise<void> => {
+			const content = textarea.value.trim();
+			// An empty body would leave a card with nothing in it; treat it as a
+			// cancel rather than silently destroying the text.
+			if (content === "" || content === comment.content) {
+				finish();
+				return;
+			}
+			finish();
+			await this.host.editComment(comment, content);
+		};
+
+		const actions = editor.createDiv({ cls: "inline-comment-composer-actions" });
+		const cancel = actions.createEl("button", { cls: "inline-comment-btn", text: "Cancel" });
+		const submit = actions.createEl("button", {
+			cls: "inline-comment-btn mod-cta",
+			text: "Save",
+		});
+
+		cancel.addEventListener("click", (event) => {
+			event.stopPropagation();
+			finish();
+		});
+		submit.addEventListener("click", (event) => {
+			event.stopPropagation();
+			void save();
+		});
+		editor.addEventListener("click", (event) => event.stopPropagation());
+		textarea.addEventListener("keydown", (event) => {
+			if (event.key === "Escape") {
+				event.preventDefault();
+				finish();
+			}
+			if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+				event.preventDefault();
+				void save();
+			}
+		});
+		void filePath;
+		textarea.focus();
 	}
 }
