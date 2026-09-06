@@ -80,8 +80,30 @@ needs a full Obsidian restart.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint over `src` and `tests` |
 | `npm run format` | Prettier over `src` and `tests` |
-| `npm test` | Vitest, single run |
+| `npm test` | Vitest unit tests, single run |
+| `npm run test:e2e` | End-to-end tests driving a real Obsidian |
 | `npm run test:watch` | Vitest in watch mode |
+
+## End-to-end tests
+
+`npm run test:e2e` launches a real Obsidian, loads the plugin into a throwaway vault
+and drives it with Playwright. It needs Obsidian installed at
+`/Applications/Obsidian.app` and currently runs on macOS only.
+
+Two details are load-bearing, both discovered the hard way:
+
+- **Playwright's Electron support does not work here.** It needs the `--inspect`
+  fuse, which this production build disables, so the harness attaches to the
+  renderer over `--remote-debugging-port` instead.
+- **A private `--user-data-dir` is required.** Without it the launch silently hands
+  off to whatever Obsidian you already have open and exits, and the test hangs
+  waiting for a window that belongs to another process.
+
+A fresh profile always starts in Restricted Mode, so the harness enables the plugin
+explicitly and dismisses the resulting dialog — its backdrop swallows synthetic
+pointer events, which makes hover behaviour look broken when it is merely covered.
+
+These tests do not run in CI: it has no Obsidian to drive.
 
 ## Before opening a pull request
 
