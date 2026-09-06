@@ -9,6 +9,7 @@ import { FloatingComposer } from "./editor/floating-comment";
 import { DEFAULT_SETTINGS, type Comment, type PluginSettings } from "./types";
 import { COMMENT_PANEL_VIEW, CommentPanelView } from "./ui/comment-panel";
 import { buildThreads, type Thread } from "./ui/threads";
+import { createReply } from "./ui/replies";
 
 export default class InlineCommentsPlugin extends Plugin {
 	storage!: CommentStorage;
@@ -25,6 +26,7 @@ export default class InlineCommentsPlugin extends Plugin {
 				new CommentPanelView(leaf, {
 					loadActive: () => this.loadActive(),
 					revealThread: (thread) => this.revealThread(thread),
+					replyTo: (target, near) => this.openReplyComposer(target, near),
 				}),
 		);
 
@@ -89,6 +91,24 @@ export default class InlineCommentsPlugin extends Plugin {
 			if (view instanceof MarkdownView && view.file?.path === path) return view;
 		}
 		return null;
+	}
+
+	private openReplyComposer(target: Comment, near: HTMLElement): void {
+		const rect = near.getBoundingClientRect();
+		this.composer?.close();
+		this.composer = new FloatingComposer({
+			anchorRect: { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
+			placeholder: "Write a reply…",
+			submitLabel: "Reply",
+			onSubmit: async (content) => {
+				await this.storage.saveComment(createReply(target, content, this.settings.author));
+				await this.refresh();
+			},
+			onCancel: () => {
+				this.composer = null;
+			},
+		});
+		this.composer.open();
 	}
 
 	private async loadActive(): Promise<{

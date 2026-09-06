@@ -9,6 +9,8 @@ export interface PanelHost {
 	loadActive(): Promise<{ filePath: string; doc: string; comments: Comment[] } | null>;
 	/** Scroll the editor to a thread's anchor. */
 	revealThread(thread: Thread): void;
+	/** Compose a reply to `target`, anchored beside the given element. */
+	replyTo(target: Comment, near: HTMLElement): void;
 }
 
 export class CommentPanelView extends ItemView {
@@ -88,12 +90,22 @@ export class CommentPanelView extends ItemView {
 			this.renderComment(replyEl, reply, filePath);
 		}
 
+		const footer = card.createDiv({ cls: "inline-comment-card-footer" });
 		if (thread.replies.length > 0) {
-			card.createDiv({
+			footer.createSpan({
 				cls: "inline-comment-reply-count",
 				text: `${thread.replies.length} ${thread.replies.length === 1 ? "reply" : "replies"}`,
 			});
 		}
+		const reply = footer.createEl("button", {
+			cls: "inline-comment-btn inline-comment-reply-btn",
+			text: "Reply",
+		});
+		reply.addEventListener("click", (event) => {
+			// The card navigates on click; a button inside it must not do both.
+			event.stopPropagation();
+			this.host.replyTo(thread.root, reply);
+		});
 
 		if (!thread.orphaned) {
 			card.addEventListener("click", () => this.host.revealThread(thread));
