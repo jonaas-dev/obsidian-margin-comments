@@ -50,6 +50,8 @@ export interface PanelHost extends ThreadActions {
 	sortOrder(): SortOrder;
 	/** Persist a new sort order. */
 	setSortOrder(order: SortOrder): Promise<void>;
+	/** Tolerance for the fuzzy re-anchoring stage, from the settings. */
+	fuzzyThreshold(): number;
 	/** Whether the panel is showing this note or the whole vault. */
 	scope(): PanelScope;
 	/** Persist a new scope. */
@@ -177,7 +179,7 @@ export class CommentPanelView extends ItemView {
 
 		this.renderHeaderControls(header, active.filePath.replace(/\.md$/, "").split("/").pop() ?? "");
 
-		const all = sortThreads(buildThreads(active.doc, active.comments), this.host.sortOrder());
+		const all = sortThreads(this.threadsOf(active), this.host.sortOrder());
 		const filter = this.host.filter();
 		this.renderFilters(container, countThreads(all), filter);
 
@@ -245,7 +247,7 @@ export class CommentPanelView extends ItemView {
 		if (!data) return;
 
 		const threads = filterThreads(
-			sortThreads(buildThreads(data.doc, data.comments), this.host.sortOrder()),
+			sortThreads(this.threadsOf(data), this.host.sortOrder()),
 			filter,
 		);
 		const body = wrapper.createDiv({ cls: "inline-comment-section-body" });
@@ -265,6 +267,20 @@ export class CommentPanelView extends ItemView {
 			this.hydrated.set(filePath, await this.host.loadNote(filePath));
 		}
 		this.paint();
+	}
+
+	/**
+	 * Threads for one note, with the fuzzy stage enabled.
+	 *
+	 * The panel redraws on note switches and edits, not on every keystroke, so it
+	 * is the one place that can afford to look this hard before calling a comment
+	 * orphaned.
+	 */
+	private threadsOf(note: { doc: string; comments: Comment[] }): Thread[] {
+		return buildThreads(note.doc, note.comments, {
+			fuzzy: true,
+			threshold: this.host.fuzzyThreshold(),
+		});
 	}
 
 	private renderCard(parent: HTMLElement, thread: Thread, filePath: string): HTMLElement {
