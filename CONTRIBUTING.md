@@ -105,6 +105,12 @@ pointer events, which makes hover behaviour look broken when it is merely covere
 
 These tests do not run in CI: it has no Obsidian to drive.
 
+**Focus behaves differently under CDP.** Focus set programmatically is dropped
+shortly afterwards, with `relatedTarget` null, while `document.hasFocus()` still
+reports true — and Playwright's `fill()` leaves `activeElement` on BODY. None of
+that happens to a real user. Click the element before typing in a test, and
+verify anything focus-dependent by hand.
+
 ## Before opening a pull request
 
 - `npm run lint && npm run typecheck && npm test && npm run build` all pass

@@ -76,12 +76,12 @@ describe("creating a comment end to end", () => {
 		expect(readFileSync(join(vault.path, NOTE), "utf8")).toBe(BODY);
 	});
 
-	// Known gap, not yet understood. The composer focuses its textarea on open and
-	// the focus verifiably lands — instrumentation shows document.activeElement
-	// becoming the textarea — then something drops it, with relatedTarget null,
-	// while the window still has focus and the element stays in the DOM. Retrying
-	// across frames for 400ms does not hold it either. Unverified whether this
-	// reproduces outside the automated harness.
+	// Harness limitation, not a plugin bug: focus works when a person does this.
+	// Confirmed manually — typing straight after clicking the marker produces
+	// text, letter by letter. Under CDP the focus lands on the textarea and is
+	// then dropped with relatedTarget null while the window still reports focus,
+	// and Playwright's own fill() leaves activeElement on BODY here too. Kept as
+	// a skipped test rather than deleted so the behaviour stays documented.
 	it.skip("keeps focus in the composer so the user can type immediately", async () => {
 		expect(
 			await page.evaluate(
