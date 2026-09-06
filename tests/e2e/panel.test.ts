@@ -73,6 +73,61 @@ describe("comment panel", () => {
 		);
 	});
 
+	it("adds a reply through the panel and stores it against the root", async () => {
+		await page.locator(".inline-comment-reply-btn").first().click();
+		await page.waitForSelector(".inline-comment-composer", { timeout: 5000 });
+		await page.locator(".inline-comment-composer-input").click();
+		await page.locator(".inline-comment-composer-input").fill("a reply from the test");
+		await page.locator(".inline-comment-composer .mod-cta").click();
+		await page.waitForTimeout(1500);
+
+		const { readdirSync, readFileSync } = await import("node:fs");
+		const { join } = await import("node:path");
+		const dir = join(vault.path, ".inline-comments");
+		const file = readdirSync(dir).find((f) => f !== "_index.json")!;
+		const sidecar = JSON.parse(readFileSync(join(dir, file), "utf8"));
+
+		expect(sidecar.comments).toHaveLength(2);
+		const root = sidecar.comments.find((c: { parentId: string | null }) => c.parentId === null);
+		const reply = sidecar.comments.find((c: { parentId: string | null }) => c.parentId !== null);
+		expect(reply.parentId).toBe(root.id);
+		expect(reply.content).toBe("a reply from the test");
+		// The reply carries the root's anchor rather than one of its own.
+		expect(reply.anchor).toEqual(root.anchor);
+	});
+
+	it("does not navigate when the reply button is pressed", async () => {
+		// The card jumps to the anchor on click and the button sits inside it, so
+		// without stopPropagation pressing Reply also moves the cursor and pulls
+		// focus into the editor, away from the composer that just opened.
+		await page.evaluate(() => {
+			const leaf = window.app.workspace
+				.getLeavesOfType("markdown")
+				.find((l: { view: { editor?: unknown } }) => l.view.editor);
+			leaf.view.editor.setCursor({ line: 0, ch: 0 });
+		});
+
+		await page.locator(".inline-comment-reply-btn").first().click();
+		await page.waitForSelector(".inline-comment-composer", { timeout: 5000 });
+
+		const cursorLine = await page.evaluate(() => {
+			const leaf = window.app.workspace
+				.getLeavesOfType("markdown")
+				.find((l: { view: { editor?: unknown } }) => l.view.editor);
+			return leaf.view.editor.getCursor().line;
+		});
+		expect(cursorLine).toBe(0);
+
+		await page.keyboard.press("Escape");
+		await page.waitForTimeout(300);
+	});
+
+	it("shows the reply nested under its root with a count", async () => {
+		await page.waitForSelector(".inline-comment-reply", { timeout: 10000 });
+		expect(await page.locator(".inline-comment-reply").count()).toBe(1);
+		expect(await page.locator(".inline-comment-reply-count").innerText()).toBe("1 reply");
+	});
+
 	it("shows the comments when the gutter marker of a commented line is clicked", async () => {
 		// The gap reported from real use: clicking a marked line opened an empty
 		// composer instead of showing what was already there.

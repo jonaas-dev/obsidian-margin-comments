@@ -150,3 +150,16 @@
 .inline-comment-resolved .inline-comment-body {
 	color: var(--text-faint);
 }
+
+.inline-comment-card-footer {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5em;
+	margin-top: 0.4em;
+}
+
+.inline-comment-reply-btn {
+	padding: 0.1em 0.6em;
+	font-size: var(--font-smallest);
+}
