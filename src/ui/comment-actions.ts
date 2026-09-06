@@ -41,3 +41,13 @@ export function describeDeletion(target: Comment, all: Comment[]): string {
 	if (replies === 0) return "Delete this comment?";
 	return `Delete this comment and its ${replies} ${replies === 1 ? "reply" : "replies"}?`;
 }
+
+/** Thread roots still open. Replies are excluded: they have no state to resolve. */
+export function openRoots(comments: Comment[]): Comment[] {
+	return comments.filter((comment) => comment.parentId === null && !comment.resolved);
+}
+
+/** What a resolve-all is about to touch, phrased for a confirmation dialog. */
+export function describeResolveAll(count: number): string {
+	return `Resolve ${count} open ${count === 1 ? "thread" : "threads"} in this note?`;
+}
