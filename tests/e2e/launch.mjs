@@ -1,4 +1,5 @@
 import { mkdirSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
+import { dirname } from "node:path";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -106,6 +107,9 @@ export function createTempVault(seed = {}) {
 	rmSync(join(REPO, "data.json"), { force: true });
 	writeFileSync(join(vault, ".obsidian", "community-plugins.json"), '["inline-comments"]');
 	for (const [name, content] of Object.entries(seed)) {
+		// Seeds may name a path inside a folder — a sidecar under .inline-comments,
+		// say — so the folder is created rather than assumed.
+		mkdirSync(dirname(join(vault, name)), { recursive: true });
 		writeFileSync(join(vault, name), content);
 	}
 	return {
