@@ -373,3 +373,60 @@
 		transition: none;
 	}
 }
+
+/* ---- Popover ----
+   The same card as the panel, shown beside the line it belongs to. */
+
+.inline-comment-popover {
+	position: fixed;
+	z-index: var(--layer-popover);
+	width: 22em;
+	max-width: calc(100vw - 2em);
+	max-height: 60vh;
+	overflow-y: auto;
+	padding: var(--ic-gap-sm, 0.5em);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background-color: var(--background-primary);
+	box-shadow: var(--shadow-s);
+	font-size: var(--font-ui-small);
+}
+
+/* Spacing tokens live on the panel root, so the popover declares its own. */
+.inline-comment-popover .inline-comment-card,
+.inline-comment-popover {
+	--ic-gap-xs: 0.25em;
+	--ic-gap-sm: 0.5em;
+	--ic-gap-md: 0.75em;
+	--ic-gap-lg: 1em;
+}
+
+.inline-comment-popover .inline-comment-card {
+	cursor: default;
+}
+
+.inline-comment-popover .inline-comment-card:hover {
+	background-color: transparent;
+}
+
+/* ---- Open state ----
+   The popover is already a deliberate act; hiding its controls would be coy. */
+
+.inline-comment-card.is-open .inline-comment-actions,
+.inline-comment-card.is-open .inline-comment-replybox {
+	opacity: 1;
+	display: flex;
+}
+
+/* ---- Selection ----
+   Which thread the marker just pointed at, so the panel answers the question
+   that clicking a marker asks. */
+
+.inline-comment-card.is-selected {
+	background-color: var(--background-modifier-hover);
+	box-shadow: inset 2px 0 0 0 var(--text-accent);
+}
+
+.inline-comment-panel-header .inline-comment-action {
+	flex: none;
+}
