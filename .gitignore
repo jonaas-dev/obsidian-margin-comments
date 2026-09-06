@@ -5,3 +5,4 @@ main.js
 .hotreload
 coverage/
 data.json
+test-results/
