@@ -29,3 +29,9 @@ function toHex8(value: number): string {
 export function hashString(input: string): string {
 	return toHex8(fnv1a(input, OFFSET_BASIS_A)) + toHex8(fnv1a(input, OFFSET_BASIS_B));
 }
+
+/** A note as it reads in a sentence: no folder, no extension. */
+export function noteName(filePath: string): string {
+	const name = filePath.replace(/\.md$/, "").split("/").pop();
+	return name === undefined || name === "" ? filePath : name;
+}

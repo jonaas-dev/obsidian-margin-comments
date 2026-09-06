@@ -15,10 +15,12 @@ describe("DEFAULT_SETTINGS", () => {
 		expect(DEFAULT_SETTINGS.highlightColor).toBe("theme");
 	});
 
-	it("keeps orphaned comments by default", () => {
-		// Silently deleting a user's comment because its anchor text moved is not
-		// a default anyone would choose knowingly.
-		expect(DEFAULT_SETTINGS.orphanedBehavior).toBe("keep");
+	it("takes a note's comments with it when the note is deleted", () => {
+		// The setting no longer means "delete an orphan after a while" — nothing
+		// deletes a comment on a timer. It means what happens when the user
+		// deletes the note, and taking the comments along is what they asked for.
+		// Safe because restoring the note within the session brings them back.
+		expect(DEFAULT_SETTINGS.orphanedBehavior).toBe("delete");
 	});
 
 	it("starts with an empty author so nothing is attributed to a guessed name", () => {
