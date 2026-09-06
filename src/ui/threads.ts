@@ -1,4 +1,4 @@
-import { matchByContext, matchByHash } from "../anchor";
+import { matchAnchor, type MatchOptions } from "../anchor";
 import type { Comment } from "../types";
 
 export interface Thread {
@@ -24,8 +24,15 @@ function lineNumberAt(doc: string, offset: number): number {
  *
  * Replies are attached to their root rather than nested recursively — the model
  * is deliberately one level deep.
+ *
+ * `matching` decides how hard to look for a moved anchor. The panel asks for the
+ * fuzzy stage; callers that run on every keystroke do not.
  */
-export function buildThreads(doc: string, comments: Comment[]): Thread[] {
+export function buildThreads(
+	doc: string,
+	comments: Comment[],
+	matching: MatchOptions = {},
+): Thread[] {
 	const byId = new Map(comments.map((c) => [c.id, c]));
 	const repliesByRoot = new Map<string, Comment[]>();
 	const roots: Comment[] = [];
@@ -43,7 +50,7 @@ export function buildThreads(doc: string, comments: Comment[]): Thread[] {
 	}
 
 	const threads = roots.map((root): Thread => {
-		const match = matchByHash(doc, root.anchor) ?? matchByContext(doc, root.anchor);
+		const match = matchAnchor(doc, root.anchor, matching);
 		return {
 			root,
 			replies: (repliesByRoot.get(root.id) ?? []).sort((a, b) => a.createdAt - b.createdAt),

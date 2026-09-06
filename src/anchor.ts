@@ -1,3 +1,4 @@
+import { boundedLevenshtein } from "./fuzzy";
 import type { TextAnchor } from "./types";
 import { hashString } from "./utils";
 
@@ -91,17 +92,23 @@ export function matchByHash(doc: string, anchor: TextAnchor): AnchorMatch | null
 	};
 }
 
-/** Longest common suffix length of `a` and `b`, capped at both lengths. */
-function commonSuffix(a: string, b: string): number {
+/**
+ * How much of `context`'s tail is still there, reading backwards from `end`.
+ *
+ * Indices rather than slices: doc.slice(0, end) copies the whole note on every
+ * candidate, which is the difference between a scan that is felt and one that
+ * is not.
+ */
+function suffixMatchAt(doc: string, end: number, context: string): number {
 	let n = 0;
-	while (n < a.length && n < b.length && a[a.length - 1 - n] === b[b.length - 1 - n]) n++;
+	while (n < end && n < context.length && doc[end - 1 - n] === context[context.length - 1 - n]) n++;
 	return n;
 }
 
-/** Longest common prefix length of `a` and `b`. */
-function commonPrefix(a: string, b: string): number {
+/** How much of `context`'s head is still there, reading forwards from `start`. */
+function prefixMatchAt(doc: string, start: number, context: string): number {
 	let n = 0;
-	while (n < a.length && n < b.length && a[n] === b[n]) n++;
+	while (start + n < doc.length && n < context.length && doc[start + n] === context[n]) n++;
 	return n;
 }
 
@@ -111,11 +118,47 @@ const CONTEXT_MATCH_RATIO = 0.6;
 const MIN_CONTEXT_CHARS = 8;
 
 /**
+ * The shortest tail of `context` that any acceptable match must contain verbatim.
+ *
+ * A match needs CONTEXT_MATCH_RATIO of the context to survive, and the surviving
+ * part is measured from the edge nearest the anchor — so that many characters,
+ * at that edge, are present in every candidate. Searching for them with indexOf
+ * turns "look at every offset" into "look at the few that can possibly work".
+ */
+function probeLength(context: string): number {
+	return Math.ceil(context.length * CONTEXT_MATCH_RATIO);
+}
+
+/** First value at or after `least`, by binary search over a sorted list. */
+function firstAtLeast(sorted: number[], least: number): number | null {
+	let low = 0;
+	let high = sorted.length;
+	while (low < high) {
+		const mid = (low + high) >> 1;
+		if (sorted[mid] < least) low = mid + 1;
+		else high = mid;
+	}
+	return low < sorted.length ? sorted[low] : null;
+}
+
+/** Offsets where the given probe occurs, as candidate anchor boundaries. */
+function probePositions(doc: string, probe: string): number[] {
+	const found: number[] = [];
+	for (let i = doc.indexOf(probe); i !== -1; i = doc.indexOf(probe, i + 1)) found.push(i);
+	return found;
+}
+
+/**
  * Stage 2: the commented text itself was edited, but its surroundings survived.
  *
  * Both sides must agree. Anchoring on one side alone would place the comment on
  * whatever text happens to sit next to the surviving half, which is worse than
  * reporting the anchor as lost.
+ *
+ * Candidates come from an exact search for the inner tail of each context, not
+ * from walking every offset. Scanning was quadratic in the one case that matters
+ * — context intact, text rewritten — and cost 1.4 seconds per comment on a
+ * 10,000 line note, which is felt as the editor freezing while typing.
  */
 export function matchByContext(doc: string, anchor: TextAnchor): AnchorMatch | null {
 	const { contextBefore, contextAfter } = anchor;
@@ -123,21 +166,136 @@ export function matchByContext(doc: string, anchor: TextAnchor): AnchorMatch | n
 		return null;
 	}
 
+	const beforeProbe = contextBefore.slice(contextBefore.length - probeLength(contextBefore));
+	const afterProbe = contextAfter.slice(0, probeLength(contextAfter));
+	// Both probes are located once. Searching for the closing probe from inside
+	// the loop rescans the note per candidate, and a probe that repeats on every
+	// line — the tail of an ordinary sentence — makes that quadratic again.
+	const afterPositions = probePositions(doc, afterProbe);
+
 	let best: { from: number; to: number; score: number } | null = null;
 
-	for (let start = 0; start <= doc.length; start++) {
-		const beforeScore = commonSuffix(doc.slice(0, start), contextBefore) / contextBefore.length;
+	for (const position of probePositions(doc, beforeProbe)) {
+		const start = position + beforeProbe.length;
+		const beforeScore = suffixMatchAt(doc, start, contextBefore) / contextBefore.length;
 		if (beforeScore < CONTEXT_MATCH_RATIO) continue;
 
-		for (let end = start; end <= doc.length; end++) {
-			const afterScore = commonPrefix(doc.slice(end), contextAfter) / contextAfter.length;
-			if (afterScore < CONTEXT_MATCH_RATIO) continue;
+		// The first end that clears the bar is the tightest span, and any end that
+		// clears it starts with the probe.
+		const end = firstAtLeast(afterPositions, start);
+		if (end === null) continue;
 
-			const score = beforeScore + afterScore;
-			if (!best || score > best.score) best = { from: start, to: end, score };
-			break; // the first end that clears the bar is the tightest span
-		}
+		const afterScore = prefixMatchAt(doc, end, contextAfter) / contextAfter.length;
+		if (afterScore < CONTEXT_MATCH_RATIO) continue;
+
+		const score = beforeScore + afterScore;
+		if (!best || score > best.score) best = { from: start, to: end, score };
 	}
 
 	return best ? { from: best.from, to: best.to, ambiguous: false, method: "context" } : null;
+}
+
+/** Lines either side of the last known position that stage 3 will search. */
+export const FUZZY_WINDOW_LINES = 40;
+
+/** How much of the anchored text is compared against each candidate. */
+export const FUZZY_SIGNATURE_CHARS = 120;
+
+/** Offsets of the first character of each word within `[from, to)`. */
+function wordStarts(doc: string, from: number, to: number): number[] {
+	const starts: number[] = [];
+	for (let i = from; i < to; i++) {
+		const previous = i === 0 ? " " : doc[i - 1];
+		if (!/[\p{L}\p{N}]/u.test(previous) && /[\p{L}\p{N}]/u.test(doc[i])) starts.push(i);
+	}
+	return starts;
+}
+
+/** Character range covering `lineHint` ± `radius` lines. */
+function windowAround(doc: string, lineHint: number, radius: number): { from: number; to: number } {
+	const first = Math.max(1, lineHint - radius);
+	const last = lineHint + radius;
+
+	let line = 1;
+	let from = 0;
+	let to = doc.length;
+	for (let i = 0; i < doc.length; i++) {
+		if (doc[i] !== "\n") continue;
+		line++;
+		if (line === first) from = i + 1;
+		if (line === last + 1) {
+			to = i;
+			break;
+		}
+	}
+	return { from, to };
+}
+
+/**
+ * Stage 3: the text was partially rewritten, and its context went with it.
+ *
+ * Last resort before declaring the anchor lost, and the only stage that can be
+ * made expensive by a long note, so it is bounded three ways: the search covers
+ * a window around the last known line rather than the note; candidates start on
+ * a word boundary rather than every character; and each comparison abandons its
+ * table as soon as the edit distance passes the tolerance.
+ *
+ * A near-match far from where the comment lived is somebody else's text, which
+ * is why the window is a correctness bound and not only a performance one.
+ */
+export function matchByFuzzy(doc: string, anchor: TextAnchor, threshold: number): AnchorMatch | null {
+	const text = anchor.selectedText;
+	if (text === "") return null;
+
+	// Only the opening of the anchored text is compared. Scoring a whole
+	// paragraph against every candidate in the window took 25 seconds for one
+	// comment; matching its opening locates the same place, and the span is
+	// recovered from the stored length. Short anchors are unaffected — most are
+	// shorter than this already.
+	const signature = text.slice(0, FUZZY_SIGNATURE_CHARS);
+	const tolerance = Math.floor(signature.length * threshold);
+	if (tolerance < 1) return null;
+
+	const window = windowAround(doc, anchor.lineHint, FUZZY_WINDOW_LINES);
+	let best: { from: number; to: number; distance: number } | null = null;
+
+	for (const start of wordStarts(doc, window.from, window.to)) {
+		// Two lengths: the edit may have shortened or lengthened the run, and a
+		// fixed-length slice would charge the difference as extra edits.
+		for (const length of [signature.length, signature.length + tolerance]) {
+			const candidate = doc.slice(start, start + length);
+			const distance = boundedLevenshtein(signature, candidate, tolerance);
+			if (distance > tolerance) continue;
+			// Ties go to the first candidate, which is the one nearest the top of
+			// the window and therefore nearest the last known position.
+			if (!best || distance < best.distance) {
+				best = { from: start, to: Math.min(doc.length, start + text.length), distance };
+			}
+		}
+	}
+
+	return best ? { from: best.from, to: best.to, ambiguous: false, method: "fuzzy" } : null;
+}
+
+export interface MatchOptions {
+	/** Run stage 3. Off by default: see the note on cost below. */
+	fuzzy?: boolean;
+	threshold?: number;
+}
+
+/**
+ * Re-anchor a comment, cheapest stage first.
+ *
+ * Stage 3 is opt-in rather than automatic. The editor decorations re-run on
+ * every keystroke and stop at stage 2; the panel, which redraws far less often,
+ * is where a comment earns a fuzzy search before being called orphaned.
+ */
+export function matchAnchor(
+	doc: string,
+	anchor: TextAnchor,
+	options: MatchOptions = {},
+): AnchorMatch | null {
+	const exact = matchByHash(doc, anchor) ?? matchByContext(doc, anchor);
+	if (exact || !options.fuzzy) return exact;
+	return matchByFuzzy(doc, anchor, options.threshold ?? 0.3);
 }

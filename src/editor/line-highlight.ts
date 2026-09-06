@@ -1,6 +1,6 @@
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import { StateEffect, StateField, type Extension } from "@codemirror/state";
-import { matchByContext, matchByHash } from "../anchor";
+import { matchAnchor } from "../anchor";
 import type { Comment } from "../types";
 
 export interface LineRange {
@@ -25,7 +25,8 @@ export function highlightRanges(doc: string, comments: Comment[]): LineRange[] {
 	const starts = new Map<number, LineRange>();
 	for (const comment of comments) {
 		if (comment.resolved || comment.parentId !== null) continue;
-		const match = matchByHash(doc, comment.anchor) ?? matchByContext(doc, comment.anchor);
+		// Stages 1 and 2 only: this runs on every keystroke.
+		const match = matchAnchor(doc, comment.anchor);
 		if (!match) continue;
 		const range = lineRangeAt(doc, match.from);
 		starts.set(range.from, range);
