@@ -62,6 +62,8 @@ export class CommentStorage {
 	private index: Index | null = null;
 	/** Serialises writes per sidecar; interleaved writes would lose comments. */
 	private queues = new Map<string, Promise<unknown>>();
+	/** Notes whose comments are mid-move. See moveComments. */
+	private moving = new Set<string>();
 
 	constructor(private adapter: StorageAdapter) {}
 
@@ -135,6 +137,50 @@ export class CommentStorage {
 		// gone can never be displayed or re-anchored.
 		const remaining = existing.filter((c) => c.id !== id && c.parentId !== id);
 		await this.writeComments(filePath, remaining);
+	}
+
+	/**
+	 * Carry a note's comments to a new path, sidecar name and index entry included.
+	 *
+	 * The sidecar is named after a hash of the path, so a renamed note stops
+	 * finding its own comments unless they are rewritten here. `filePath` is
+	 * rewritten on every comment too: it is what a rebuild reads when the index
+	 * is gone, and a stale one would send the comments back to the dead path.
+	 *
+	 * Written to the new path before the old one is cleared. A crash in between
+	 * leaves the comments in two places, which the next rebuild resolves; the
+	 * other order leaves them nowhere.
+	 *
+	 * Anything already at the target is kept rather than overwritten. Obsidian
+	 * will not rename a note onto an existing one, so a sidecar there belongs to
+	 * a note that is already gone — its comments are orphaned, not disposable.
+	 *
+	 * A second move of the same note is refused while one is in flight, because
+	 * keeping the target's comments is what makes overlapping moves dangerous.
+	 * Obsidian emits a folder rename once for the folder and again for every
+	 * descendant, so the same note genuinely arrives twice; between the target
+	 * being written and the source being removed, the second mover reads the
+	 * comments off the still-present source and appends them to the target it
+	 * just found them in. Reproduced, and covered by a test that fails without
+	 * this line.
+	 */
+	async moveComments(from: string, to: string): Promise<void> {
+		if (from === to || this.moving.has(from)) return;
+
+		this.moving.add(from);
+		try {
+			const moving = await this.getCommentsForFile(from);
+			if (moving.length === 0) return;
+
+			const existing = await this.getCommentsForFile(to);
+			await this.writeComments(to, [
+				...existing,
+				...moving.map((c) => ({ ...c, filePath: to })),
+			]);
+			await this.writeComments(from, []);
+		} finally {
+			this.moving.delete(from);
+		}
 	}
 
 	private async writeComments(filePath: string, comments: Comment[]): Promise<void> {

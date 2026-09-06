@@ -2,6 +2,7 @@ import { MarkdownView, Notice, Platform, Plugin, TFile } from "obsidian";
 import type { EditorView } from "@codemirror/view";
 import { CommentStorage } from "./storage";
 import { createAnchor } from "./anchor";
+import { movesFor } from "./note-moves";
 import { commentGutter, updateCommentedLines } from "./editor/hover-gutter";
 import { linesWithOpenComments } from "./editor/gutter-state";
 import { highlightRanges, lineHighlights, updateHighlights } from "./editor/line-highlight";
@@ -149,6 +150,11 @@ export default class InlineCommentsPlugin extends Plugin {
 			}),
 		);
 		this.registerEvent(this.app.workspace.on("editor-change", () => void this.refresh()));
+		// vault.on rather than a workspace event: a note can be renamed from the
+		// file explorer with nothing open, and the comments still have to follow.
+		this.registerEvent(
+			this.app.vault.on("rename", (file, from) => void this.followRename(from, file.path)),
+		);
 		this.app.workspace.onLayoutReady(() => {
 			void this.refresh();
 			void this.checkOrphans();
@@ -188,6 +194,30 @@ export default class InlineCommentsPlugin extends Plugin {
 			if (view instanceof MarkdownView && view.file?.path === path) return view;
 		}
 		return null;
+	}
+
+	/**
+	 * Move comments to wherever their note went.
+	 *
+	 * A folder rename arrives as several overlapping events — the folder, then
+	 * every descendant — so the same note is handled more than once. That is
+	 * safe because `moveComments` refuses a second move of a note it is already
+	 * moving; nothing here needs to sequence the events itself.
+	 *
+	 * Renaming a note that carries no comments moves nothing and costs one
+	 * index read.
+	 */
+	private async followRename(from: string, to: string): Promise<void> {
+		const summaries = await this.storage.getCommentSummaries();
+		const moves = movesFor(
+			summaries.map((summary) => summary.filePath),
+			from,
+			to,
+		);
+		if (moves.length === 0) return;
+
+		for (const move of moves) await this.storage.moveComments(move.from, move.to);
+		await this.refresh();
 	}
 
 	/**
