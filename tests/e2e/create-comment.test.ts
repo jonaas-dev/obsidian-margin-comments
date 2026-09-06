@@ -97,4 +97,32 @@ describe("creating a comment end to end", () => {
 		await page.waitForTimeout(300);
 		expect(await page.locator(".inline-comment-marker-active").count()).toBeGreaterThan(0);
 	});
+
+	it("highlights the commented line", async () => {
+		expect(await page.locator(".inline-comment-active-line").count()).toBe(1);
+	});
+
+	it("highlights the line the comment is actually anchored to", async () => {
+		const text = await page.locator(".inline-comment-active-line").first().innerText();
+		expect(text.trim()).toBe("second line of the note");
+	});
+
+	it("restores the highlight from disk when the plugin reloads", async () => {
+		// Reloading drops every in-memory cache, so the highlight coming back
+		// proves it was rebuilt from the sidecar rather than left over in state.
+		await page.evaluate(async () => {
+			await window.app.plugins.disablePlugin("inline-comments");
+		});
+		await page.waitForFunction(
+			() => document.querySelector(".inline-comment-active-line") === null,
+			null,
+			{ timeout: 10000 },
+		);
+
+		await page.evaluate(async () => {
+			await window.app.plugins.enablePlugin("inline-comments");
+		});
+		await page.waitForSelector(".inline-comment-active-line", { timeout: 15000 });
+		expect(await page.locator(".inline-comment-active-line").count()).toBe(1);
+	});
 });

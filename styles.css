@@ -51,3 +51,10 @@
 	gap: 0.4em;
 	margin-top: 0.5em;
 }
+
+/* A line with an open comment, tinted from the theme accent so it reads as
+   "marked" in any theme rather than a fixed yellow. */
+.inline-comment-active-line {
+	background-color: color-mix(in srgb, var(--text-accent) 12%, transparent);
+	box-shadow: inset 2px 0 0 0 var(--text-accent);
+}
