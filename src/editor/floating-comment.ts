@@ -1,4 +1,5 @@
 import { computePosition, type AnchorRect } from "./floating-position";
+import { keyIntent } from "../ui/key-intent";
 
 export interface ComposerOptions {
 	/** Screen rect of the text being commented on. */
@@ -102,15 +103,11 @@ export class FloatingComposer {
 	}
 
 	private onKeyDown(event: KeyboardEvent): void {
-		if (event.key === "Escape") {
-			event.preventDefault();
-			this.cancel();
-			return;
-		}
-		if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
-			event.preventDefault();
-			void this.submit();
-		}
+		const intent = keyIntent(event);
+		if (intent === "ignore" || intent === "newline") return;
+		event.preventDefault();
+		if (intent === "cancel") this.cancel();
+		else void this.submit();
 	}
 
 	private async submit(): Promise<void> {

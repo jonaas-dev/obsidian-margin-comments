@@ -6,8 +6,10 @@ import { commentGutter, updateCommentedLines } from "./editor/hover-gutter";
 import { linesWithOpenComments } from "./editor/gutter-state";
 import { highlightRanges, lineHighlights, updateHighlights } from "./editor/line-highlight";
 import { FloatingComposer } from "./editor/floating-comment";
+import type { AnchorRect } from "./editor/floating-position";
 import { DEFAULT_SETTINGS, type Comment, type PluginSettings } from "./types";
 import { COMMENT_PANEL_VIEW, CommentPanelView } from "./ui/comment-panel";
+import { ThreadPopover } from "./ui/thread-popover";
 import { buildThreads, type Thread } from "./ui/threads";
 import { createReply } from "./ui/replies";
 import { describeDeletion, withEditedContent, withResolved } from "./ui/comment-actions";
@@ -17,10 +19,20 @@ export default class InlineCommentsPlugin extends Plugin {
 	storage!: CommentStorage;
 	settings: PluginSettings = DEFAULT_SETTINGS;
 	private composer: FloatingComposer | null = null;
+	private popover: ThreadPopover | null = null;
+	/** Note the open popover belongs to, so a genuine note switch closes it. */
+	private popoverFile: string | null = null;
 
 	async onload(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
 		this.storage = new CommentStorage(this.app.vault.adapter);
+		this.popover = new ThreadPopover(this.app, {
+			addReply: (root, content) => this.addReply(root, content),
+			editComment: (comment, content) => this.editComment(comment, content),
+			setResolved: (root, resolved) => this.setResolved(root, resolved),
+			deleteComment: (comment) => this.confirmDelete(comment),
+		});
+		this.addChild(this.popover);
 
 		this.registerView(
 			COMMENT_PANEL_VIEW,
@@ -32,6 +44,7 @@ export default class InlineCommentsPlugin extends Plugin {
 					editComment: (comment, content) => this.editComment(comment, content),
 					setResolved: (root, resolved) => this.setResolved(root, resolved),
 					deleteComment: (comment) => this.confirmDelete(comment),
+					closePanel: () => this.app.workspace.detachLeavesOfType(COMMENT_PANEL_VIEW),
 				}),
 		);
 
@@ -59,7 +72,15 @@ export default class InlineCommentsPlugin extends Plugin {
 			},
 		});
 
-		this.registerEvent(this.app.workspace.on("active-leaf-change", () => void this.refresh()));
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", () => {
+				// Not on every refresh: the click that opens the popover also stirs
+				// the workspace, and closing there shut it the instant it appeared.
+				const path = this.app.workspace.getActiveFile()?.path ?? null;
+				if (path !== this.popoverFile) this.popover?.close();
+				void this.refresh();
+			}),
+		);
 		this.registerEvent(this.app.workspace.on("editor-change", () => void this.refresh()));
 		this.app.workspace.onLayoutReady(() => void this.refresh());
 	}
@@ -67,6 +88,7 @@ export default class InlineCommentsPlugin extends Plugin {
 	onunload(): void {
 		this.composer?.close();
 		this.composer = null;
+		this.popover?.close();
 	}
 
 	private async togglePanel(): Promise<void> {
@@ -189,18 +211,33 @@ export default class InlineCommentsPlugin extends Plugin {
 	): Promise<void> {
 		const comments = await this.storage.getCommentsForFile(filePath);
 		const threads = buildThreads(view.state.doc.toString(), comments);
-		if (threads.some((thread) => thread.line === line)) {
-			await this.openPanel();
+		const thread = threads.find((candidate) => candidate.line === line);
+		if (!thread) {
+			this.compose(view, line, filePath);
 			return;
 		}
-		this.compose(view, line, filePath);
+
+		// With the panel already open, selecting there keeps everything in one
+		// place. With it closed, a popover beside the line beats yanking the
+		// reader's attention across the window to a panel that just appeared.
+		const panels = this.app.workspace.getLeavesOfType(COMMENT_PANEL_VIEW);
+		if (panels.length > 0) {
+			for (const leaf of panels) {
+				await (leaf.view as CommentPanelView).select(thread.root.id);
+			}
+			return;
+		}
+
+		this.popoverFile = filePath;
+		this.popover?.open(thread, filePath, this.lineRect(view, line));
 	}
 
-	private async openPanel(): Promise<void> {
-		if (this.app.workspace.getLeavesOfType(COMMENT_PANEL_VIEW).length === 0) {
-			await this.togglePanel();
-		}
-		await this.refreshPanel();
+	/** Screen rect of a line, for anchoring the popover. */
+	private lineRect(view: EditorView, line: number): AnchorRect {
+		const coords = view.coordsAtPos(view.state.doc.line(line).from);
+		return coords
+			? { left: coords.left, right: coords.right, top: coords.top, bottom: coords.bottom }
+			: { left: 0, right: 0, top: 0, bottom: 0 };
 	}
 
 	private compose(view: EditorView, line: number, filePath: string): void {
