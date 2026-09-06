@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { describeDeletion, withEditedContent, withResolved } from "../../src/ui/comment-actions";
+import { describeDeletion, wasEdited, withEditedContent, withResolved } from "../../src/ui/comment-actions";
 import { createAnchor } from "../../src/anchor";
 import type { Comment } from "../../src/types";
 
@@ -38,6 +38,27 @@ describe("withEditedContent", () => {
 	it("does not mutate the original", () => {
 		withEditedContent(base, "edited", 2000);
 		expect(base.content).toBe("original");
+	});
+});
+
+describe("wasEdited", () => {
+	it("is false for an untouched comment", () => {
+		expect(wasEdited(base)).toBe(false);
+	});
+
+	it("is true once the body has been edited", () => {
+		expect(wasEdited(withEditedContent(base, "edited", 2000))).toBe(true);
+	});
+
+	it("stays false after resolving", () => {
+		// Resolving moves updatedAt so last-activity sorting notices it. Deriving
+		// "edited" from that same field labels every resolved comment as edited.
+		expect(wasEdited(withResolved(base, true, 2000))).toBe(false);
+	});
+
+	it("stays true after a resolve that follows an edit", () => {
+		const edited = withEditedContent(base, "edited", 2000);
+		expect(wasEdited(withResolved(edited, true, 3000))).toBe(true);
 	});
 });
 

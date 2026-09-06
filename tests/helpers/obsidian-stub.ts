@@ -13,3 +13,8 @@ export function normalizePath(path: string): string {
 		.replace(/(^\/+|\/+$)/g, "")
 		.normalize("NFC");
 }
+
+/** No-op stand-in: icon rendering has no observable behaviour in a unit test. */
+export function setIcon(_el: HTMLElement, _iconId: string): void {
+	/* intentionally empty */
+}
