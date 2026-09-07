@@ -12,6 +12,8 @@ import { renderThreadCard, type ThreadActions } from "./thread-card";
  */
 export class ThreadPopover extends Component {
 	private el: HTMLElement | null = null;
+	/** Lifecycle owner of the card currently on screen. See CommentPanelView. */
+	private cardScope: Component | null = null;
 	private onOutsideClick: ((event: MouseEvent) => void) | null = null;
 	private onKeyDown: ((event: KeyboardEvent) => void) | null = null;
 
@@ -27,7 +29,9 @@ export class ThreadPopover extends Component {
 
 		const el = document.body.createDiv({ cls: "inline-comment-popover" });
 		this.el = el;
-		renderThreadCard(el, thread, filePath, this.app, this, this.actions, {
+		this.cardScope = new Component();
+		this.addChild(this.cardScope);
+		renderThreadCard(el, thread, filePath, this.app, this.cardScope, this.actions, {
 			alwaysOpen: true,
 			onReplied: () => this.close(),
 		});
@@ -82,6 +86,10 @@ export class ThreadPopover extends Component {
 		}
 		this.el?.remove();
 		this.el = null;
+		if (this.cardScope) {
+			this.removeChild(this.cardScope);
+			this.cardScope = null;
+		}
 	}
 
 	onunload(): void {

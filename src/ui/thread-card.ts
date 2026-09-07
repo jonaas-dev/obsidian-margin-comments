@@ -4,6 +4,7 @@ import { formatRelativeTime, type Thread } from "./threads";
 import { orphanExplanation } from "./orphans";
 import { wasEdited } from "./comment-actions";
 import { keyIntent } from "./key-intent";
+import { shouldClamp } from "./clamp";
 
 export interface ThreadActions {
 	/** Store a reply to the given thread root. */
@@ -23,6 +24,9 @@ export interface CardOptions {
 	/** Called after a reply is sent, so a popover can close itself. */
 	onReplied?: () => void;
 }
+
+const SHOW_MORE = "Show more";
+const SHOW_LESS = "Show less";
 
 interface IconButtonOptions {
 	icon: string;
@@ -122,6 +126,7 @@ function renderComment(
 
 	const buttons = meta.createDiv({ cls: "inline-comment-actions" });
 	const body = parent.createDiv({ cls: "inline-comment-body" });
+	const showMore = renderShowMore(parent, body);
 
 	// Only a thread root can be resolved: resolving a root resolves its thread.
 	if (isRoot) {
@@ -135,7 +140,7 @@ function renderComment(
 	iconButton(buttons, {
 		icon: "pencil",
 		label: "Edit",
-		onClick: () => startEditing(parent, body, comment, actions),
+		onClick: () => startEditing(parent, body, showMore, comment, actions),
 	});
 	iconButton(buttons, {
 		icon: "trash-2",
@@ -146,7 +151,39 @@ function renderComment(
 
 	// Rendered rather than shown raw: comment bodies are Markdown, and the
 	// component is passed so child views are cleaned up with their host.
-	void MarkdownRenderer.render(app, comment.content, body, filePath, component);
+	//
+	// filePath is what internal links and embeds resolve against: a comment on
+	// notes/deep/a.md saying [[target]] means the target that note means, not
+	// whichever one happens to sit nearest the vault root.
+	void MarkdownRenderer.render(app, comment.content, body, filePath, component).then(() => {
+		// Measured after rendering because the height is a property of the output,
+		// not of the Markdown: a table and a paragraph of the same length are not
+		// the same number of lines.
+		if (!shouldClamp(body.scrollHeight)) return;
+		body.addClass("is-clipped");
+		showMore.addClass("is-available");
+		showMore.show();
+	});
+}
+
+/**
+ * The control that uncovers a clipped body.
+ *
+ * Built up front and hidden rather than created on demand: the height is only
+ * known once the Markdown has rendered, and by then the buttons around it have
+ * their listeners — appending afterwards would put it in the wrong place.
+ */
+function renderShowMore(parent: HTMLElement, body: HTMLElement): HTMLElement {
+	const button = parent.createEl("button", { cls: "inline-comment-showmore", text: SHOW_MORE });
+	button.hide();
+	button.addEventListener("click", (event) => {
+		// The card navigates to the anchor on click.
+		event.stopPropagation();
+		const wasClipped = body.hasClass("is-clipped");
+		body.toggleClass("is-clipped", !wasClipped);
+		button.setText(wasClipped ? SHOW_LESS : SHOW_MORE);
+	});
+	return button;
 }
 
 /** A reply field at the foot of the thread, which grows with the text. */
@@ -209,12 +246,14 @@ function renderReplyBox(
 function startEditing(
 	parent: HTMLElement,
 	body: HTMLElement,
+	showMore: HTMLElement,
 	comment: Comment,
 	actions: ThreadActions,
 ): void {
 	if (parent.querySelector(".inline-comment-editor")) return;
 
 	body.hide();
+	showMore.hide();
 	const editor = parent.createDiv({ cls: "inline-comment-editor" });
 	const textarea = editor.createEl("textarea", {
 		cls: "inline-comment-editor-input",
@@ -225,6 +264,9 @@ function startEditing(
 	const finish = (): void => {
 		editor.remove();
 		body.show();
+		// Only if there was one to begin with: is-available records that decision,
+		// which the expanded state does not — an expanded body has no is-clipped.
+		if (showMore.hasClass("is-available")) showMore.show();
 	};
 
 	const save = (): void => {

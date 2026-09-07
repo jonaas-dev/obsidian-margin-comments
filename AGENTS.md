@@ -163,6 +163,29 @@ test unrelated to what you broke — that is a stale bundle, not a surprising co
 Consume the symbol (`void thing;`) so the build still compiles, and check the build
 succeeded before believing the result.
 
+## Markdown rendering in cards
+
+`MarkdownRenderer.render(app, md, el, sourcePath, component)` — both arguments after
+`el` were measured here, because both look inert from outside.
+
+**`sourcePath` decides what a link means, and the DOM does not say so.** An unresolved
+`[[nowhere-at-all]]` renders with exactly the classes a resolved link gets — no
+`is-unresolved` — so a link cannot prove which note the renderer resolved against. An
+**embed** can: it pulls the target's text into the card. Obsidian resolves a linkpath by
+exact path from the vault root first, then by preferring the source note's own folder,
+then by falling back to whichever match it indexed first. So a test that means to catch a
+wrong `sourcePath` needs two notes of the same basename, **neither at the vault root**,
+with the decoy created first — otherwise the wrong path resolves to the right file and
+the test passes against a renderer given no path at all. That is exactly what the first
+version of `markdown-cards.test.ts` did.
+
+**`component` is where child components are registered, one per embed.** Plain Markdown
+registers nothing, so a leak test written over a `**bold**` body measures zero either
+way. The panel repaints on every filter, sort, scope and settings change, so the card
+lifecycle owner is a `Component` created per paint and removed on the next one — hanging
+it off the view leaks one component per embed per repaint, alive until the panel closes.
+Measured before and after: 8 repaints took the view's component tree from 5 to 13.
+
 ## Vault events
 
 `vault.on('rename')` fires for a renamed **folder and for every descendant**,

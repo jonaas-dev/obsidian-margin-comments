@@ -1,4 +1,4 @@
-import { ItemView, setIcon, type WorkspaceLeaf } from "obsidian";
+import { Component, ItemView, setIcon, type WorkspaceLeaf } from "obsidian";
 import type { Comment, PanelScope, SortOrder } from "../types";
 import { buildThreads, type Thread } from "./threads";
 import {
@@ -74,6 +74,16 @@ export class CommentPanelView extends ItemView {
 	 *  laziness the view is built around. */
 	private expanded = new Set<string>();
 	private hydrated = new Map<string, NoteData>();
+	/**
+	 * Lifecycle owner of the cards drawn by the current paint.
+	 *
+	 * Not the view itself: MarkdownRenderer registers a child component per
+	 * embed, and the view outlives every repaint. Filter, sort, scope and
+	 * settings changes all repaint, so hanging them off the view leaves one
+	 * dead component per embed per repaint, alive until the panel is closed.
+	 * A scope that is replaced with the DOM it belongs to cannot drift from it.
+	 */
+	private cardScope!: Component;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -165,6 +175,7 @@ export class CommentPanelView extends ItemView {
 		container.empty();
 		container.addClass("inline-comment-panel");
 		this.cards.clear();
+		this.resetCardScope();
 
 		const header = container.createDiv({ cls: "inline-comment-panel-header" });
 		if (this.host.scope() === "vault") {
@@ -291,8 +302,15 @@ export class CommentPanelView extends ItemView {
 		return threads;
 	}
 
+	/** Drop the previous paint's child components before drawing the next. */
+	private resetCardScope(): void {
+		if (this.cardScope) this.removeChild(this.cardScope);
+		this.cardScope = new Component();
+		this.addChild(this.cardScope);
+	}
+
 	private renderCard(parent: HTMLElement, thread: Thread, filePath: string): HTMLElement {
-		const card = renderThreadCard(parent, thread, filePath, this.app, this, this.host);
+		const card = renderThreadCard(parent, thread, filePath, this.app, this.cardScope, this.host);
 		this.cards.set(thread.root.id, card);
 		return card;
 	}
