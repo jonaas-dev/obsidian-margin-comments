@@ -57,6 +57,13 @@
    when the reader has chosen a colour of their own; unset, the accent wins, so
    the default costs no plugin code at all. */
 .inline-comment-active-line {
+	/* Order is the mechanism: a renderer without color-mix drops the second
+	   declaration and keeps this one. Every desktop build at minAppVersion 1.5
+	   has it, but mobile runs the system webview, where it arrived in iOS 16.2 —
+	   and without a fallback the tint would simply not be painted there. A flat
+	   theme colour rather than the accent, which at full strength would be a
+	   solid block over the text. */
+	background-color: var(--background-modifier-hover);
 	background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 12%, transparent);
 	box-shadow: inset 2px 0 0 0 var(--ic-highlight, var(--text-accent));
 }
