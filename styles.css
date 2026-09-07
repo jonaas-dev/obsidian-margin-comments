@@ -298,6 +298,33 @@
 	margin-bottom: 0;
 }
 
+/* A comment long enough to push every other thread off the panel stops the
+   panel being a list. The cap matches MAX_BODY_HEIGHT in src/ui/clamp.ts, which
+   is what decides whether the control appears at all. */
+.inline-comment-body.is-clipped {
+	max-height: 220px;
+	overflow: hidden;
+	/* Faded rather than cut mid-glyph, so the clip reads as "there is more"
+	   instead of as a rendering fault. */
+	mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+}
+
+.inline-comment-showmore {
+	background: none;
+	border: none;
+	box-shadow: none;
+	padding: 0;
+	margin-top: var(--ic-gap-xs);
+	color: var(--text-accent);
+	font-size: var(--font-smallest);
+	cursor: pointer;
+}
+
+.inline-comment-showmore:hover {
+	color: var(--text-accent-hover);
+	text-decoration: underline;
+}
+
 /* ---- Actions ----
    Hidden until the card is hovered. Four always-visible buttons per comment
    turn a reading list into a control panel. Keyboard focus reveals them too,
