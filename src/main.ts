@@ -14,8 +14,9 @@ import {
 } from "./settings-values";
 import { DeletedNotes, describeNoteDeletion, describeNoteRestore } from "./deleted-notes";
 import { commentGutter, updateCommentedLines, updateGutterEnabled } from "./editor/hover-gutter";
-import { linesWithOpenComments } from "./editor/gutter-state";
-import { highlightRanges, lineHighlights, updateHighlights } from "./editor/line-highlight";
+import { resolveMarkers } from "./editor/marker-pass";
+import { lineHighlights, updateHighlights } from "./editor/line-highlight";
+import { debounce, type Debounced } from "./debounce";
 import { FloatingComposer } from "./editor/floating-comment";
 import type { AnchorRect } from "./editor/floating-position";
 import {
@@ -50,6 +51,14 @@ function goToLine(view: MarkdownView, line: number): void {
 	view.editor.scrollIntoView({ from: position, to: position }, true);
 	view.editor.focus();
 }
+
+/**
+ * Stillness before a typing burst is redrawn.
+ *
+ * Long enough that a run of keystrokes costs one pass, short enough that the
+ * markers are back before anyone looks away from the line they just edited.
+ */
+const REFRESH_DEBOUNCE_MS = 300;
 
 export default class InlineCommentsPlugin extends Plugin implements SettingsHost {
 	storage!: CommentStorage;
@@ -181,7 +190,14 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 				void this.checkOrphans();
 			}),
 		);
-		this.registerEvent(this.app.workspace.on("editor-change", () => void this.refresh()));
+		// Debounced, and this path only. Typing is the one caller that fires per
+		// keystroke, and the pass it triggers is not cheap: with 200 comments on a
+		// 10,000-line note the markers cost ~20 ms and the panel repaints every
+		// card, running the fuzzy stage for anything the edit unanchored. Every
+		// other caller — saving a comment, switching note, changing a setting — is
+		// a single act and stays immediate, so nothing on screen lags behind a
+		// click. See tests/unit/marker-pass.test.ts for the measured budget.
+		this.registerEvent(this.app.workspace.on("editor-change", () => this.refreshSoon()));
 		// vault.on rather than a workspace event: a note can be renamed from the
 		// file explorer with nothing open, and the comments still have to follow.
 		this.registerEvent(
@@ -196,6 +212,9 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	}
 
 	onunload(): void {
+		// Before anything else: a pending pass firing after teardown would reach
+		// for an editor and a store this plugin no longer owns.
+		this.refreshSoon.cancel();
 		this.composer?.close();
 		this.composer = null;
 		this.popover?.close();
@@ -526,6 +545,9 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		}
 	}
 
+	/** Redraw once typing stops. See the editor-change registration. */
+	private refreshSoon: Debounced = debounce(() => void this.refresh(), REFRESH_DEBOUNCE_MS);
+
 	/** Redraw markers, highlights and the panel. Part of SettingsHost. */
 	async refresh(): Promise<void> {
 		await this.refreshMarkers();
@@ -652,8 +674,11 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		const view = (markdownView.editor as unknown as { cm?: EditorView }).cm;
 		if (!view) return;
 
+		// One pass for both: the gutter and the highlights want the same anchor
+		// matches, and resolving them separately paid for every comment twice.
+		const markers = resolveMarkers(doc, comments);
 		updateGutterEnabled(view, this.settings.showGutterIcons);
-		updateCommentedLines(view, linesWithOpenComments(doc, comments));
-		updateHighlights(view, this.settings.showLineHighlights ? highlightRanges(doc, comments) : []);
+		updateCommentedLines(view, markers.lines);
+		updateHighlights(view, this.settings.showLineHighlights ? markers.ranges : []);
 	}
 }

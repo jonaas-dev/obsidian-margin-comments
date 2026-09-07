@@ -1,4 +1,4 @@
-import { matchAnchor } from "../anchor";
+import { resolveMarkers } from "./marker-pass";
 import type { Comment } from "../types";
 
 /** Pixels from the gutter's left edge that count as "at the edge". */
@@ -15,30 +15,15 @@ export interface MarkerContext {
 	enabled: boolean;
 }
 
-/** 1-based line number containing `offset`. */
-function lineNumberAt(doc: string, offset: number): number {
-	let line = 1;
-	for (let i = 0; i < offset && i < doc.length; i++) {
-		if (doc[i] === "\n") line++;
-	}
-	return line;
-}
-
 /**
- * Lines that should carry a highlight, resolved against the current document.
+ * Lines that should carry a marker, resolved against the current document.
  *
- * Replies are skipped: they have no anchor of their own, so counting them would
- * re-resolve their root's line and keep it marked after the root is resolved.
+ * A thin read of the shared pass. The editor calls resolveMarkers once and uses
+ * both halves; this stays for callers that want only the lines, and for the
+ * tests that describe what the lines mean.
  */
 export function linesWithOpenComments(doc: string, comments: Comment[]): Set<number> {
-	const lines = new Set<number>();
-	for (const comment of comments) {
-		if (comment.resolved || comment.parentId !== null) continue;
-		// Stages 1 and 2 only: this runs on every keystroke.
-		const match = matchAnchor(doc, comment.anchor);
-		if (match) lines.add(lineNumberAt(doc, match.from));
-	}
-	return lines;
+	return resolveMarkers(doc, comments).lines;
 }
 
 export function shouldShowMarker(line: number, context: MarkerContext): boolean {
