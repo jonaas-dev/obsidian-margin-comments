@@ -1,38 +1,17 @@
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import { StateEffect, StateField, type Extension } from "@codemirror/state";
-import { matchAnchor } from "../anchor";
+import { resolveMarkers, type LineRange } from "./marker-pass";
 import type { Comment } from "../types";
 
-export interface LineRange {
-	from: number;
-	to: number;
-}
-
-function lineRangeAt(doc: string, offset: number): LineRange {
-	const from = doc.lastIndexOf("\n", Math.max(0, offset - 1)) + 1;
-	const next = doc.indexOf("\n", offset);
-	return { from, to: next === -1 ? doc.length : next };
-}
+export type { LineRange };
 
 /**
  * Line spans that should be highlighted, resolved against the current document.
  *
- * One range per line, not per comment: two decorations on the same line stack
- * their background tint and read as a different, darker state. Replies are
- * skipped since they share their root's anchor.
+ * A thin read of the shared pass, for the same reason as linesWithOpenComments.
  */
 export function highlightRanges(doc: string, comments: Comment[]): LineRange[] {
-	const starts = new Map<number, LineRange>();
-	for (const comment of comments) {
-		if (comment.resolved || comment.parentId !== null) continue;
-		// Stages 1 and 2 only: this runs on every keystroke.
-		const match = matchAnchor(doc, comment.anchor);
-		if (!match) continue;
-		const range = lineRangeAt(doc, match.from);
-		starts.set(range.from, range);
-	}
-	// CodeMirror requires ranges in document order.
-	return [...starts.values()].sort((a, b) => a.from - b.from);
+	return resolveMarkers(doc, comments).ranges;
 }
 
 const setHighlights = StateEffect.define<LineRange[]>();

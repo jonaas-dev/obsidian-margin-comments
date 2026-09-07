@@ -186,6 +186,38 @@ lifecycle owner is a `Component` created per paint and removed on the next one �
 it off the view leaks one component per embed per repaint, alive until the panel closes.
 Measured before and after: 8 repaints took the view's component tree from 5 to 13.
 
+## The editor path is O(comments x document)
+
+Measured, because the issue that asked for this assumed otherwise.
+
+Every redraw resolves each open comment against the note, and `matchAnchor`
+searches the document for each one — so the pass is O(comments x document) and
+always was. Two things were wrong with it, and only one of them was a
+complexity problem:
+
+- **The gutter and the highlights each ran their own pass.** Every comment was
+  matched twice per redraw. `resolveMarkers` returns both halves from one walk.
+- **Line numbers were counted by walking the note from the top, per comment.**
+  A constant factor, not a complexity class: 68 ms against 19 ms for 200
+  comments on 10,000 lines, and 529 ms against 220 ms at 500 on 50,000. The gap
+  *narrows* as the case grows, because matchAnchor comes to dominate — so the
+  usual escape of enlarging the case until the signal is unmistakable does not
+  work here, and no timing test can separate the two on a shared runner. What
+  guards it instead is a count: `matchAnchor` must be called once per open
+  comment, asserted with a delegating mock in `tests/unit/marker-pass.test.ts`.
+
+Building decorations only for `view.visibleRanges` would not have helped: the
+DecorationSet is cheap to build, the matching is not, and highlights live in a
+StateField precisely so a commented line scrolling back into view does not
+depend on a rebuild that happened while it was off-screen.
+
+**What actually makes typing cheap is the debounce**, because the expensive
+redraw is the panel's: it repaints every card, renders each body through
+MarkdownRenderer, and runs the fuzzy stage for anything the edit unanchored
+(62 ms intact, 105 ms after an edit, 255 ms with the anchors wrecked, at 200
+comments). Only `editor-change` is debounced. Every other caller is a single
+deliberate act, and delaying those would show as lag after a click.
+
 ## Vault events
 
 `vault.on('rename')` fires for a renamed **folder and for every descendant**,
