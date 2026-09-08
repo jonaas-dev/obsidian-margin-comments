@@ -22,11 +22,19 @@ export class FloatingComposer {
 	private el: HTMLElement | null = null;
 	private textarea: HTMLTextAreaElement | null = null;
 	private onOutsideClick: ((event: MouseEvent) => void) | null = null;
+	/** Where focus was when the composer opened, so dismissing can give it back. */
+	private returnFocusTo: HTMLElement | null = null;
 
 	constructor(private options: ComposerOptions) {}
 
 	open(container: HTMLElement = document.body): void {
 		this.close();
+
+		// Captured before anything is built: the composer steals focus a few
+		// frames from now, and on dismiss the caret has to go back where the
+		// reader left it rather than to the top of the document.
+		const active = document.activeElement;
+		this.returnFocusTo = active instanceof HTMLElement && active !== document.body ? active : null;
 
 		const el = container.createDiv({ cls: "inline-comment-composer" });
 		this.el = el;
@@ -132,8 +140,15 @@ export class FloatingComposer {
 			document.removeEventListener("mousedown", this.onOutsideClick);
 			this.onOutsideClick = null;
 		}
+		const wasOpen = this.el !== null;
 		this.el?.remove();
 		this.el = null;
 		this.textarea = null;
+
+		// Only when this call actually dismissed something: open() calls close()
+		// first, and returning focus there would fight the focus it is about to
+		// claim. isConnected because the element may have gone with a re-render.
+		if (wasOpen && this.returnFocusTo?.isConnected) this.returnFocusTo.focus();
+		this.returnFocusTo = null;
 	}
 }

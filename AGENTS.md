@@ -115,8 +115,8 @@ combined test would have looked like proof of both while proving one. Both commi
 
 ## The E2E harness
 
-`tests/e2e/` drives a real Obsidian over the remote debugging port. Four things about it
-have already cost an afternoon each.
+`tests/e2e/` drives a real Obsidian over the remote debugging port. Everything below has
+already cost an afternoon.
 
 **The vault symlinks this repo in as the plugin.** So `data.json` is written to the repo
 root and outlives the throwaway vault: a setting one test chose was still there on the
@@ -147,9 +147,21 @@ first note's editor in the DOM but hidden, and `.cm-editor` selectors go on matc
 which surfaces as a 30-second timeout, not as a wrong element. Wait on
 `.workspace-leaf.mod-active .cm-editor`.
 
-**The harness cannot hold focus in a textarea**, so a keydown never reaches a composer or
-reply field. Click the button instead; `keyIntent` is where the Enter/Escape decision is
-tested.
+**The harness holds DOM focus only inside one synchronous block.** It is not just
+textareas: `element.focus()` sticks while the `page.evaluate` that called it is still
+running, and after any `await` — or between two evaluates — `document.activeElement` is
+back on `<body>`, whatever the plugin did. Pressing Tab moves nothing at all. So a keydown
+never reaches a composer or reply field (click the button instead; `keyIntent` is where the
+Enter/Escape decision is tested), a tab traversal cannot be simulated, and "the composer
+takes focus when it opens" cannot be asserted here. What *can* be asserted is what makes
+the keyboard work: that the controls are focusable elements in DOM order, that the ones
+without text carry a label, and — read synchronously — that focus goes back where it came
+from. `tests/e2e/accessibility.test.ts` is built on that split.
+
+**`:focus-visible` needs a keyboard press first.** It asks whether the last interaction was
+a keyboard one, and a suite that has only clicked will compute no focus ring at all from a
+perfectly good stylesheet. One `page.keyboard.press("Tab")` sets the modality; it does not
+matter that focus does not move.
 
 Notices stack: a `.notice` from an earlier assertion may still be on screen, so match
 `.last()`.
@@ -162,6 +174,12 @@ the run reports whatever the *previous* patch did. The tell is a negative that f
 test unrelated to what you broke — that is a stale bundle, not a surprising coupling.
 Consume the symbol (`void thing;`) so the build still compiles, and check the build
 succeeded before believing the result.
+
+**Obsidian's own element styles outrank a lone plugin class.** `button:not(.clickable-icon)`
+is specificity 0,1,1 and sets colour, background, border and padding — so styling a
+`<button>` of ours through a single class silently loses. It surfaced as the theme test
+finding the quote in the theme's button colour instead of muted, with the accent rule down
+its left edge gone too. Scope through an ancestor (`.inline-comment-card .inline-comment-quote`).
 
 ## Markdown rendering in cards
 
