@@ -6,11 +6,33 @@
 	cursor: pointer;
 }
 
+/* Fixed width, and the count laid over it rather than beside it: the badge
+   changes as threads are opened and resolved, and a marker that grew with it
+   would push the note's text sideways while it is being read (#68). */
 .inline-comment-marker {
+	position: relative;
+	display: inline-block;
+	width: 1.5em;
 	font-size: 0.75em;
 	line-height: inherit;
+	text-align: center;
 	opacity: 0.35;
 	transition: opacity 100ms ease-in-out;
+}
+
+.inline-comment-marker-count {
+	position: absolute;
+	right: 0;
+	bottom: 0;
+	min-width: 1.15em;
+	padding: 0 0.15em;
+	border-radius: 0.6em;
+	background-color: var(--text-accent);
+	color: var(--text-on-accent);
+	font-size: 0.7em;
+	font-weight: var(--font-semibold);
+	line-height: 1.35;
+	text-align: center;
 }
 
 .inline-comment-marker:hover {

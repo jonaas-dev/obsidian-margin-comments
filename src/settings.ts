@@ -93,6 +93,19 @@ export class InlineCommentsSettingTab extends PluginSettingTab {
 			);
 
 		new Setting(container)
+			.setName("Comment count")
+			.setDesc(
+				"Badges the gutter marker with the number of open threads on a line. A line with a single thread stays a bare icon.",
+			)
+			.addToggle((toggle) =>
+				toggle
+					.setValue(this.host.settings.showCommentCount)
+					.onChange((value) =>
+						this.commit(() => (this.host.settings.showCommentCount = value)),
+					),
+			);
+
+		new Setting(container)
 			.setName("Highlight commented lines")
 			.setDesc("Tints lines carrying an open comment. Resolved threads are never tinted.")
 			.addToggle((toggle) =>
