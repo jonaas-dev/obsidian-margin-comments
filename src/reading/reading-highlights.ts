@@ -1,0 +1,135 @@
+import type { Thread } from "../ui/threads";
+
+/** A stretch of a block's rendered text that carries an open thread. */
+export interface ReadingHighlight {
+	/** Thread root id, so the mark can be traced back to its conversation. */
+	id: string;
+	/**
+	 * The commented text as the *current* document has it, not as it was stored.
+	 * Reading mode renders the document as it stands, so a comment that moved
+	 * through the fuzzy stage has to be looked for where it landed.
+	 */
+	text: string;
+}
+
+/** Where a needle falls inside one segment of a run of text. */
+export interface TextSlice {
+	index: number;
+	start: number;
+	end: number;
+}
+
+interface SourcePosition {
+	index: number;
+	offset: number;
+}
+
+/**
+ * Open threads anchored inside a block of the note, in document order.
+ *
+ * `lineStart` and `lineEnd` are 0-based and inclusive, as Obsidian's
+ * `getSectionInfo` reports them; `Thread.line` is 1-based.
+ *
+ * Whole-line comments come back with empty text on purpose: there is no
+ * selection to find in the rendered output, and the caller falls back to
+ * marking the block rather than guessing at a range.
+ */
+export function highlightsInBlock(
+	doc: string,
+	threads: Thread[],
+	lineStart: number,
+	lineEnd: number,
+): ReadingHighlight[] {
+	return threads
+		.filter(
+			(thread) =>
+				!thread.orphaned &&
+				!thread.root.resolved &&
+				thread.line !== null &&
+				thread.line - 1 >= lineStart &&
+				thread.line - 1 <= lineEnd,
+		)
+		.sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+		.map((thread) => ({
+			id: thread.root.id,
+			text:
+				thread.root.anchor.isLineComment || thread.position === null || thread.end === null
+					? ""
+					: doc.slice(thread.position, thread.end),
+		}));
+}
+
+/**
+ * Collapse whitespace, remembering where every surviving character came from.
+ *
+ * The rendered output is not the source: a soft-wrapped sentence arrives as one
+ * run of text with the newline turned into a space, and an indented list item
+ * loses its indent. Comparing the two literally fails on text that is plainly
+ * the same, so both sides are normalised and the map is what turns a hit in the
+ * normalised string back into a range in the real nodes.
+ */
+function normalise(segments: string[]): {
+	text: string;
+	starts: SourcePosition[];
+	ends: SourcePosition[];
+} {
+	let text = "";
+	const starts: SourcePosition[] = [];
+	const ends: SourcePosition[] = [];
+	let spaceStart: SourcePosition | null = null;
+	let spaceEnd: SourcePosition | null = null;
+
+	for (let index = 0; index < segments.length; index++) {
+		const segment = segments[index];
+		for (let offset = 0; offset < segment.length; offset++) {
+			if (/\s/.test(segment[offset])) {
+				if (spaceStart === null) spaceStart = { index, offset };
+				spaceEnd = { index, offset: offset + 1 };
+				continue;
+			}
+			if (spaceStart !== null) {
+				// Leading whitespace is dropped rather than emitted: a match must
+				// not begin on space the renderer collapsed away.
+				if (text.length > 0) {
+					text += " ";
+					starts.push(spaceStart);
+					ends.push(spaceEnd!);
+				}
+				spaceStart = null;
+				spaceEnd = null;
+			}
+			text += segment[offset];
+			starts.push({ index, offset });
+			ends.push({ index, offset: offset + 1 });
+		}
+	}
+
+	return { text, starts, ends };
+}
+
+/**
+ * Where `needle` falls across `segments`, or null if it is not there.
+ *
+ * Not being there is expected, not a failure: the anchor may include Markdown
+ * the renderer consumed — `**bold**` arrives as `bold` — and the caller marks
+ * the whole block instead.
+ */
+export function locateAcrossSegments(segments: string[], needle: string): TextSlice[] | null {
+	const wanted = normalise([needle]).text;
+	if (wanted === "") return null;
+
+	const haystack = normalise(segments);
+	const at = haystack.text.indexOf(wanted);
+	if (at === -1) return null;
+
+	const start = haystack.starts[at];
+	const end = haystack.ends[at + wanted.length - 1];
+
+	const slices: TextSlice[] = [];
+	for (let index = start.index; index <= end.index; index++) {
+		const from = index === start.index ? start.offset : 0;
+		const to = index === end.index ? end.offset : segments[index].length;
+		if (to > from) slices.push({ index, start: from, end: to });
+	}
+	return slices;
+}

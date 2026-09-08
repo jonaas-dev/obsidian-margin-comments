@@ -43,6 +43,7 @@ function thread(id: string, spec: ThreadSpec): Thread {
 		),
 		line: position === null ? null : 1,
 		position,
+		end: position === null ? null : position + 5,
 		orphaned: position === null,
 	};
 }

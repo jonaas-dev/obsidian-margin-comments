@@ -34,6 +34,7 @@ function thread(id: string, resolved: boolean, replies: Comment[] = []): Thread 
 		replies,
 		line: 1,
 		position: 0,
+		end: 5,
 		orphaned: false,
 	};
 }
