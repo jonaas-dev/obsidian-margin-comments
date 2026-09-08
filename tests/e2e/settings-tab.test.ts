@@ -104,10 +104,20 @@ describe("settings tab", () => {
 		expect(registered).toBe(true);
 	});
 
-	it("offers no control for a setting nothing reads", async () => {
-		// showCommentCount is a gutter feature that does not exist yet. A switch
-		// with nothing behind it is worse than no switch.
-		expect(await settingNamed("comment count").count()).toBe(0);
+	it("offers the comment count now that something reads it", async () => {
+		// It was deliberately left out while nothing read it (#67): a switch with
+		// nothing behind it is worse than no switch. #68 gave it a feature, and
+		// the E2E suite in gutter-count.test.ts is what proves the switch works.
+		expect(await settingNamed("Comment count").count()).toBe(1);
+	});
+
+	it("writes the comment count straight to disk too", async () => {
+		await controlOf("Comment count", ".checkbox-container").click();
+		await page.waitForTimeout(800);
+		expect(storedSettings().showCommentCount).toBe(false);
+		await controlOf("Comment count", ".checkbox-container").click();
+		await page.waitForTimeout(800);
+		expect(storedSettings().showCommentCount).toBe(true);
 	});
 
 	it("describes what a setting costs, not what its label already says", async () => {
