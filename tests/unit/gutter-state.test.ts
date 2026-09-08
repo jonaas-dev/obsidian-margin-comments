@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { linesWithOpenComments, shouldShowMarker, isNearLeftEdge } from "../../src/editor/gutter-state";
+import {
+	countBadgeText,
+	isNearLeftEdge,
+	linesWithOpenComments,
+	markerLabel,
+	shouldShowMarker,
+} from "../../src/editor/gutter-state";
 import { createAnchor } from "../../src/anchor";
 import type { Comment } from "../../src/types";
 
@@ -107,5 +113,39 @@ describe("isNearLeftEdge", () => {
 
 	it("is false to the left of the element", () => {
 		expect(isNearLeftEdge(80, rect, 20)).toBe(false);
+	});
+});
+
+describe("countBadgeText", () => {
+	it("says nothing for a line carrying one thread", () => {
+		// A badge reading "1" tells the reader nothing the icon does not.
+		expect(countBadgeText(0)).toBeNull();
+		expect(countBadgeText(1)).toBeNull();
+	});
+
+	it("counts from two up", () => {
+		expect(countBadgeText(2)).toBe("2");
+		expect(countBadgeText(9)).toBe("9");
+	});
+
+	it("caps at two glyphs, which is what the gutter column holds", () => {
+		// Measured: Obsidian pins the gutter to ~17px, and a third glyph puts the
+		// badge past its right edge.
+		expect(countBadgeText(10)).toBe("9+");
+		expect(countBadgeText(148)).toBe("9+");
+	});
+});
+
+describe("markerLabel", () => {
+	it("offers the action when the line has no comment", () => {
+		expect(markerLabel(0)).toBe("Add a comment");
+	});
+
+	it("gives a screen reader the exact number, uncapped and never a bare digit", () => {
+		// The badge is capped and silent at one; the label is neither, because it
+		// is the only place a screen reader hears the count at all.
+		expect(markerLabel(1)).toBe("1 comment on this line");
+		expect(markerLabel(3)).toBe("3 comments on this line");
+		expect(markerLabel(148)).toBe("148 comments on this line");
 	});
 });

@@ -8,8 +8,15 @@ export interface LineRange {
 
 /** Everything the editor decorations need, from one walk over the comments. */
 export interface MarkerPass {
-	/** 1-based lines carrying at least one open comment. */
-	lines: Set<number>;
+	/**
+	 * How many open threads each 1-based line carries.
+	 *
+	 * A count rather than a set of lines because the gutter marker has to tell
+	 * one thread from several without the panel being open (#68), and the count
+	 * falls out of the walk the pass already makes. Every key carries at least
+	 * one thread, so the keys are still "the commented lines".
+	 */
+	counts: Map<number, number>;
 	/** One span per highlighted line, in document order. */
 	ranges: LineRange[];
 }
@@ -56,7 +63,7 @@ function lineIndexAt(starts: number[], offset: number): number {
  */
 export function resolveMarkers(doc: string, comments: Comment[]): MarkerPass {
 	const starts = lineStarts(doc);
-	const lines = new Set<number>();
+	const counts = new Map<number, number>();
 	// Keyed by line start: two comments on one line must not stack two tints,
 	// which reads as a different, darker state rather than as two comments.
 	const ranges = new Map<number, LineRange>();
@@ -68,14 +75,15 @@ export function resolveMarkers(doc: string, comments: Comment[]): MarkerPass {
 		if (!match) continue;
 
 		const index = lineIndexAt(starts, match.from);
-		lines.add(index + 1);
+		const line = index + 1;
+		counts.set(line, (counts.get(line) ?? 0) + 1);
 		const from = starts[index];
 		const to = index + 1 < starts.length ? starts[index + 1] - 1 : doc.length;
 		ranges.set(from, { from, to });
 	}
 
 	return {
-		lines,
+		counts,
 		// CodeMirror requires ranges in document order.
 		ranges: [...ranges.values()].sort((a, b) => a.from - b.from),
 	};

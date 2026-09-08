@@ -1,6 +1,12 @@
 import { gutter, GutterMarker, EditorView, ViewPlugin, type PluginValue } from "@codemirror/view";
 import { StateEffect, StateField, type Extension } from "@codemirror/state";
-import { EDGE_THRESHOLD, isNearLeftEdge, shouldShowMarker } from "./gutter-state";
+import {
+	countBadgeText,
+	EDGE_THRESHOLD,
+	isNearLeftEdge,
+	markerLabel,
+	shouldShowMarker,
+} from "./gutter-state";
 
 /** Milliseconds of stillness before the hovered line changes. */
 const HOVER_DEBOUNCE_MS = 50;
@@ -8,8 +14,9 @@ const HOVER_DEBOUNCE_MS = 50;
 const GUTTER_CLASS = "inline-comment-gutter";
 
 const setHoveredLine = StateEffect.define<number | null>();
-const setCommentedLines = StateEffect.define<Set<number>>();
+const setCommentedLines = StateEffect.define<Map<number, number>>();
 const setGutterEnabled = StateEffect.define<boolean>();
+const setCountEnabled = StateEffect.define<boolean>();
 
 const hoveredLineField = StateField.define<number | null>({
 	create: () => null,
@@ -21,8 +28,8 @@ const hoveredLineField = StateField.define<number | null>({
 	},
 });
 
-const commentedLinesField = StateField.define<Set<number>>({
-	create: () => new Set(),
+const commentedLinesField = StateField.define<Map<number, number>>({
+	create: () => new Map(),
 	update(value, tr) {
 		for (const effect of tr.effects) {
 			if (effect.is(setCommentedLines)) return effect.value;
@@ -49,22 +56,48 @@ const gutterEnabledField = StateField.define<boolean>({
 	},
 });
 
+/**
+ * The gutter setting for the count, in editor state for the same reason as the
+ * gutter's own: an extension built once never sees a value captured at
+ * construction change.
+ */
+const countEnabledField = StateField.define<boolean>({
+	create: () => true,
+	update(value, tr) {
+		for (const effect of tr.effects) {
+			if (effect.is(setCountEnabled)) return effect.value;
+		}
+		return value;
+	},
+});
+
 class CommentMarker extends GutterMarker {
-	constructor(private hasComment: boolean) {
+	constructor(
+		private count: number,
+		private showCount: boolean,
+	) {
 		super();
 	}
 
+	/**
+	 * Both, not just whether the line is commented: without the count here a
+	 * line going from two threads to three would keep the marker CodeMirror
+	 * already has, and the badge would go stale in the open editor.
+	 */
 	eq(other: CommentMarker): boolean {
-		return this.hasComment === other.hasComment;
+		return this.count === other.count && this.showCount === other.showCount;
 	}
 
 	toDOM(): HTMLElement {
 		const span = document.createElement("span");
-		span.className = this.hasComment
-			? "inline-comment-marker inline-comment-marker-active"
-			: "inline-comment-marker";
-		span.setAttribute("aria-label", this.hasComment ? "Comments on this line" : "Add a comment");
-		span.textContent = "💬";
+		span.className =
+			this.count > 0
+				? "inline-comment-marker inline-comment-marker-active"
+				: "inline-comment-marker";
+		span.setAttribute("aria-label", markerLabel(this.count));
+		span.createSpan({ cls: "inline-comment-marker-icon", text: "💬" });
+		const badge = this.showCount ? countBadgeText(this.count) : null;
+		if (badge !== null) span.createSpan({ cls: "inline-comment-marker-count", text: badge });
 		return span;
 	}
 }
@@ -138,6 +171,7 @@ export function commentGutter(options: GutterOptions): Extension {
 		hoveredLineField,
 		commentedLinesField,
 		gutterEnabledField,
+		countEnabledField,
 		ViewPlugin.fromClass(HoverTracker),
 		gutter({
 			class: GUTTER_CLASS,
@@ -150,7 +184,9 @@ export function commentGutter(options: GutterOptions): Extension {
 					alwaysVisible: options.alwaysVisible,
 					enabled: view.state.field(gutterEnabledField),
 				});
-				return visible ? new CommentMarker(commented.has(number)) : null;
+				return visible
+					? new CommentMarker(commented.get(number) ?? 0, view.state.field(countEnabledField))
+					: null;
 			},
 			// Without this the gutter never re-runs lineMarker for our effects: it
 			// only recomputes on document and viewport changes, so the hover state
@@ -160,7 +196,8 @@ export function commentGutter(options: GutterOptions): Extension {
 					update.startState.field(hoveredLineField) !== update.state.field(hoveredLineField) ||
 					update.startState.field(commentedLinesField) !==
 						update.state.field(commentedLinesField) ||
-					update.startState.field(gutterEnabledField) !== update.state.field(gutterEnabledField)
+					update.startState.field(gutterEnabledField) !== update.state.field(gutterEnabledField) ||
+					update.startState.field(countEnabledField) !== update.state.field(countEnabledField)
 				);
 			},
 			domEventHandlers: {
@@ -187,7 +224,12 @@ export function updateGutterEnabled(view: EditorView, enabled: boolean): void {
 	view.dispatch({ effects: setGutterEnabled.of(enabled) });
 }
 
-/** Push the set of lines carrying open comments into the editor. */
-export function updateCommentedLines(view: EditorView, lines: Set<number>): void {
-	view.dispatch({ effects: setCommentedLines.of(lines) });
+/** Push the count setting into the editor, so it applies without a reload. */
+export function updateCountEnabled(view: EditorView, enabled: boolean): void {
+	view.dispatch({ effects: setCountEnabled.of(enabled) });
+}
+
+/** Push each commented line's open thread count into the editor. */
+export function updateCommentedLines(view: EditorView, counts: Map<number, number>): void {
+	view.dispatch({ effects: setCommentedLines.of(counts) });
 }
