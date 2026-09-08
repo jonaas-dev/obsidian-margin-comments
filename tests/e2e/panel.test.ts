@@ -140,7 +140,7 @@ describe("comment panel", () => {
 
 	it("edits a comment in place and persists the new body", async () => {
 		await page.locator(".inline-comment-card").first().hover();
-		await page.locator('[aria-label="Edit"]').first().click();
+		await page.locator('[aria-label="Edit comment"]').first().click();
 		await page.waitForSelector(".inline-comment-editor", { timeout: 5000 });
 		const textarea = page.locator(".inline-comment-editor-input");
 		await textarea.click();
@@ -275,7 +275,7 @@ describe("comment panel", () => {
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
 
 		await page.locator(".inline-comment-card").first().hover();
-		await page.locator('[aria-label="Delete"]').first().click();
+		await page.locator('[aria-label="Delete comment"]').first().click();
 		await page.waitForSelector(".modal", { timeout: 5000 });
 		expect(await page.locator(".modal-title").innerText()).toBe(
 			"Delete this comment and its 1 reply?",
@@ -292,7 +292,7 @@ describe("comment panel", () => {
 
 	it("deletes the root together with its replies and removes the sidecar", async () => {
 		await page.locator(".inline-comment-card").first().hover();
-		await page.locator('[aria-label="Delete"]').first().click();
+		await page.locator('[aria-label="Delete comment"]').first().click();
 		await page.waitForSelector(".modal", { timeout: 5000 });
 		await page.locator(".modal button", { hasText: "Delete" }).click();
 		await page.waitForTimeout(1500);

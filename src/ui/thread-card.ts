@@ -23,6 +23,15 @@ export interface CardOptions {
 	alwaysOpen?: boolean;
 	/** Called after a reply is sent, so a popover can close itself. */
 	onReplied?: () => void;
+	/**
+	 * Jump to the thread in the note.
+	 *
+	 * Given, the quote becomes a button: the card navigates on click, and a
+	 * click handler on a plain div is reachable by mouse and by nothing else.
+	 * The popover leaves this out — it is already anchored to the line it would
+	 * take you to.
+	 */
+	onReveal?: () => void;
 }
 
 const SHOW_MORE = "Show more";
@@ -82,11 +91,26 @@ export function renderThreadCard(
 	if (thread.root.resolved) card.addClass("is-resolved");
 	if (options.alwaysOpen) card.addClass("is-open");
 
-	const quote = card.createDiv({ cls: "inline-comment-quote" });
+	// A button only when there is somewhere to go: an orphaned thread's text is
+	// no longer in the note, so a control promising to reveal it would lie.
+	const reveal = options.onReveal !== undefined && !thread.orphaned;
+	const quote = reveal
+		? card.createEl("button", {
+				cls: "inline-comment-quote",
+				attr: { "aria-label": `Go to "${thread.root.anchor.selectedText}" in the note` },
+			})
+		: card.createDiv({ cls: "inline-comment-quote" });
 	if (thread.orphaned) {
 		setIcon(quote.createSpan({ cls: "inline-comment-quote-icon" }), "unlink");
 	}
 	quote.createSpan({ text: thread.root.anchor.selectedText });
+	if (reveal) {
+		quote.addEventListener("click", (event) => {
+			// The card navigates on click too; without this the reveal runs twice.
+			event.stopPropagation();
+			options.onReveal!();
+		});
+	}
 
 	// The quote alone reads as an ordinary card in a colour nobody has learnt
 	// yet. Saying what happened is what turns a comment that goes nowhere from a
@@ -137,14 +161,18 @@ function renderComment(
 			onClick: () => void actions.setResolved(comment, !comment.resolved),
 		});
 	}
+	// Named for what they act on. A thread with replies draws these buttons once
+	// per comment, and a screen reader reading "Delete" four times down a card
+	// cannot tell which one takes the whole conversation with it.
+	const subject = isRoot ? "comment" : "reply";
 	iconButton(buttons, {
 		icon: "pencil",
-		label: "Edit",
+		label: `Edit ${subject}`,
 		onClick: () => startEditing(parent, body, showMore, comment, actions),
 	});
 	iconButton(buttons, {
 		icon: "trash-2",
-		label: "Delete",
+		label: `Delete ${subject}`,
 		extraClass: "inline-comment-action-delete",
 		onClick: () => actions.deleteComment(comment),
 	});
