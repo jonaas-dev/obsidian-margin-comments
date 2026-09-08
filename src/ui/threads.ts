@@ -8,6 +8,8 @@ export interface Thread {
 	line: number | null;
 	/** Offset of the anchor, used for ordering. */
 	position: number | null;
+	/** Offset just past the anchor, so callers can read the matched text back. */
+	end: number | null;
 	orphaned: boolean;
 }
 
@@ -56,6 +58,7 @@ export function buildThreads(
 			replies: (repliesByRoot.get(root.id) ?? []).sort((a, b) => a.createdAt - b.createdAt),
 			line: match ? lineNumberAt(doc, match.from) : null,
 			position: match ? match.from : null,
+			end: match ? match.to : null,
 			orphaned: match === null,
 		};
 	});

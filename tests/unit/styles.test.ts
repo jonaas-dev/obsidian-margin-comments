@@ -88,18 +88,36 @@ describe("styles.css theme awareness", () => {
 		expect(offenders).toEqual([]);
 	});
 
-	it("puts the color-mix fallback before the color-mix", () => {
+	it("puts the color-mix fallback before the color-mix, in every rule that mixes", () => {
 		// The whole mechanism is the order: a renderer that does not understand
 		// color-mix drops that declaration and keeps whatever came before it.
 		// Reversed, the fallback wins everywhere and the tint is never mixed.
-		const rule = /\.inline-comment-active-line\s*\{([^}]*)\}/.exec(rules);
-		expect(rule).not.toBeNull();
-		const backgrounds = [...rule![1].matchAll(/background-color\s*:\s*([^;]+);/g)].map(
-			(match) => match[1],
-		);
-		expect(backgrounds).toHaveLength(2);
-		expect(backgrounds[0]).not.toContain("color-mix");
-		expect(backgrounds[1]).toContain("color-mix");
+		//
+		// Every rule, not just the editor's line highlight: reading mode (#34)
+		// added a second one, and a guard naming a single selector would have let
+		// it ship unpaired.
+		const mixing = [...rules.matchAll(/([^{}@;]+)\{([^}]*)\}/g)]
+			.map((match) => ({ selector: match[1].trim(), body: match[2] }))
+			.filter((rule) => rule.body.includes("color-mix"));
+
+		expect(mixing.length).toBeGreaterThanOrEqual(2);
+
+		for (const rule of mixing) {
+			const backgrounds = [...rule.body.matchAll(/background-color\s*:\s*([^;]+);/g)].map(
+				(match) => match[1],
+			);
+			expect({ selector: rule.selector, count: backgrounds.length }).toEqual({
+				selector: rule.selector,
+				count: 2,
+			});
+			expect({ selector: rule.selector, fallbackFirst: !backgrounds[0].includes("color-mix") }).toEqual(
+				{ selector: rule.selector, fallbackFirst: true },
+			);
+			expect({ selector: rule.selector, mixSecond: backgrounds[1].includes("color-mix") }).toEqual({
+				selector: rule.selector,
+				mixSecond: true,
+			});
+		}
 	});
 
 	it("roots every selector in the plugin's own namespace", () => {
