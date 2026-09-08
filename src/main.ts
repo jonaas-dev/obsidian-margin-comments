@@ -1,8 +1,17 @@
-import { MarkdownView, Notice, Platform, Plugin, TFile, type TAbstractFile } from "obsidian";
+import {
+	MarkdownView,
+	Notice,
+	Platform,
+	Plugin,
+	TFile,
+	type MarkdownPostProcessorContext,
+	type TAbstractFile,
+} from "obsidian";
 import type { EditorView } from "@codemirror/view";
 import { CommentStorage } from "./storage";
 import { createAnchor } from "./anchor";
 import { movesFor } from "./note-moves";
+import { hashString } from "./utils";
 import { HIGHLIGHT_VARIABLE, highlightOverride } from "./appearance";
 import { InlineCommentsSettingTab, type SettingsHost } from "./settings";
 import {
@@ -21,6 +30,8 @@ import {
 } from "./editor/hover-gutter";
 import { resolveMarkers } from "./editor/marker-pass";
 import { lineHighlights, updateHighlights } from "./editor/line-highlight";
+import { highlightsInBlock } from "./reading/reading-highlights";
+import { paintReadingMarks, READING_BLOCK_CLASS } from "./reading/reading-marks";
 import { debounce, type Debounced } from "./debounce";
 import { FloatingComposer } from "./editor/floating-comment";
 import type { AnchorRect } from "./editor/floating-position";
@@ -146,6 +157,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		});
 
 		this.applyHighlightColour();
+		this.registerMarkdownPostProcessor((el, ctx) => this.markReadingBlock(el, ctx));
 		this.registerEditorExtension(lineHighlights());
 		this.registerEditorExtension(
 			commentGutter({
@@ -550,13 +562,93 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		}
 	}
 
+	/**
+	 * Threads resolved for reading mode, keyed by note path and text digest.
+	 * See threadsForReading.
+	 */
+	private readingThreads = new Map<string, Thread[]>();
+
 	/** Redraw once typing stops. See the editor-change registration. */
 	private refreshSoon: Debounced = debounce(() => void this.refresh(), REFRESH_DEBOUNCE_MS);
 
 	/** Redraw markers, highlights and the panel. Part of SettingsHost. */
 	async refresh(): Promise<void> {
+		// The reading-mode cache is keyed by the note's text, so an edit misses it
+		// on its own. A resolve does not: same text, different comments.
+		this.readingThreads.clear();
 		await this.refreshMarkers();
+		await this.refreshReading();
 		await this.refreshPanel();
+	}
+
+	/**
+	 * Re-render every note's reading view, whether it is the visible mode or not.
+	 *
+	 * A post-processor runs when Obsidian renders a block and never again, so
+	 * nothing else brings a resolve or a settings change to a note being read.
+	 *
+	 * Not only the leaves currently showing preview, which is what this did
+	 * first: Obsidian reuses a cached render when returning to reading mode, and
+	 * it invalidates that cache when the *note* changes. Comments live outside
+	 * the note, so a comment added while editing left the cached render standing
+	 * and switching to reading mode showed the note without it. Measured with the
+	 * post-processor instrumented: on the second switch it was not called once.
+	 */
+	private async refreshReading(): Promise<void> {
+		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
+			(leaf.view as MarkdownView).previewMode?.rerender(true);
+		}
+	}
+
+	/**
+	 * Mark the commented text in one rendered block.
+	 *
+	 * Reading mode gets highlights and nothing else: CodeMirror extensions do not
+	 * apply here, so there is no gutter to hover and no line to click, and a
+	 * comment is created in editing mode or from the panel.
+	 *
+	 * `getSectionInfo` is what makes this possible and also what keeps it in
+	 * bounds — it answers only for elements rendered as part of a file, so the
+	 * Markdown the panel renders inside its own cards falls straight through
+	 * rather than highlighting the comments' own text.
+	 */
+	private async markReadingBlock(el: HTMLElement, ctx: MarkdownPostProcessorContext): Promise<void> {
+		if (!this.settings.showLineHighlights) return;
+
+		const info = ctx.getSectionInfo(el);
+		if (!info) return;
+
+		const comments = await this.storage.getCommentsForFile(ctx.sourcePath);
+		if (comments.length === 0) return;
+
+		const threads = this.threadsForReading(ctx.sourcePath, info.text, comments);
+		const highlights = highlightsInBlock(info.text, threads, info.lineStart, info.lineEnd);
+		if (highlights.length === 0) return;
+
+		if (paintReadingMarks(el, highlights) === 0) el.addClass(READING_BLOCK_CLASS);
+	}
+
+	/**
+	 * The note's threads, resolved once per render rather than once per block.
+	 *
+	 * Reading mode calls the post-processor for every block, and the fuzzy stage
+	 * this shares with the panel searches the whole note for every comment. Paid
+	 * per block on a long note it is the stage-2 hole from #22 all over again.
+	 */
+	private threadsForReading(path: string, doc: string, comments: Comment[]): Thread[] {
+		const key = `${path}:${hashString(doc)}`;
+		const cached = this.readingThreads.get(key);
+		if (cached) return cached;
+
+		const threads = buildThreads(doc, comments, {
+			fuzzy: true,
+			threshold: this.settings.fuzzyThreshold,
+		});
+		// One note is being read at a time; the cap is only so a long session of
+		// edit-and-read does not hold every version of the note it passed through.
+		if (this.readingThreads.size >= 8) this.readingThreads.clear();
+		this.readingThreads.set(key, threads);
+		return threads;
 	}
 
 	/**

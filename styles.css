@@ -90,6 +90,26 @@
 	box-shadow: inset 2px 0 0 0 var(--ic-highlight, var(--text-accent));
 }
 
+/* Reading mode. The same tint as the editor's line highlight, but around the
+   commented words rather than the whole line: reading mode has no gutter and no
+   hover, so the mark is the only thing that says a comment is here. Fallback
+   before color-mix for the same reason as above. */
+.inline-comment-reading-mark {
+	border-radius: var(--radius-s);
+	background-color: var(--background-modifier-hover);
+	background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 18%, transparent);
+	box-shadow: inset 0 -1px 0 0 var(--ic-highlight, var(--text-accent));
+}
+
+/* The fallback when the commented text cannot be found in the rendered output:
+   the comment was made on Markdown the renderer consumed, or on a whole line,
+   so the block is marked instead of a guessed range. A rule down the left edge
+   rather than a tint, so it does not claim to cover particular words. */
+.inline-comment-reading-block {
+	border-left: 2px solid var(--ic-highlight, var(--text-accent));
+	padding-left: var(--size-4-2);
+}
+
 /* ---- Comment panel ----------------------------------------------------
    Colours and type come from the active Obsidian theme; only structure,
    rhythm and hierarchy are decided here. A spacing scale keeps the card

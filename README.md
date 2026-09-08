@@ -11,19 +11,50 @@ Everything below is implemented and covered by tests against a real Obsidian.
 - **Inline comments** — hover the left edge of a line to comment on it, or select text and comment on the selection
 - **Threaded replies** — reply to any comment; threads are flat, one level deep
 - **Edit, resolve, delete** — edit in place, resolve and reopen a thread, delete with the reply cascade named up front
-- **Line highlights and gutter markers** — lines carrying open comments are marked in the editor
+- **Line highlights and gutter markers** — lines carrying open comments are marked in the editor, with a count when a line carries several
 - **Popover or panel** — click a marker to read the thread beside the line, or in the sidebar when it is open
 - **Sidebar panel** — filter by all / open / resolved, sort by document order, date or last activity, with counts that match what is shown
 - **All-notes view** — every commented note in the vault, one collapsed row each, opened on demand
 - **Commands and hotkeys** — add a comment (`Mod+Shift+M`), jump to the next or previous comment, resolve every thread in a note, toggle the panel. All rebindable in Obsidian's hotkey settings
 - **Non-destructive** — comments live in `.inline-comments/`, your notes stay untouched
 - **Theme-aware** — colours and type come from your Obsidian theme
+- **Reading mode** — commented text is highlighted there too; see below for what reading mode does and does not do
 - **Mobile support** — tap replaces hover
+
+## Reading mode
+
+Comments are **created and managed in editing mode**. In reading mode the plugin
+highlights the commented text and nothing else.
+
+**What works**
+
+- Commented text is highlighted in the rendered note
+- The highlight follows the same anchoring as the editor, so text that moved is
+  still marked where it ended up
+- Resolving a thread clears its highlight without leaving reading mode
+- Turning off "Highlight commented lines" turns these off too
+
+**What does not**
+
+- **No gutter markers**, so there is nowhere to hover or tap to add a comment.
+  Switch to editing mode, or use the panel
+- **No click-to-open.** A highlight marks the text; the thread is read in the
+  sidebar panel, which works the same in either mode
+- A comment made on text that Markdown consumes — the asterisks in `**bold**`,
+  a link's target — cannot be marked around the words it belongs to, because
+  those characters are not in the rendered output. The whole block carries a rule
+  down its left edge instead
+- A whole-line comment marks its block the same way, for the same reason: there
+  is no selection to find
+
+The cause is that these are CodeMirror editor extensions, and CodeMirror does not
+run in reading mode. The highlights arrive through a Markdown post-processor,
+which can reach the rendered output but not the gutter beside it.
 
 ### Still to come
 
-Fuzzy re-anchoring for heavily edited text, orphaned-comment handling, rename tracking,
-a settings tab, and the accessibility and performance passes before 1.0.
+Virtual scrolling in the panel, the accessibility and keyboard pass, and the
+mobile pass, before 1.0.
 
 ## How it works
 
