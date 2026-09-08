@@ -72,6 +72,7 @@ export interface PluginSettings {
 	orphanedBehavior: OrphanedBehavior;
 	sortOrder: SortOrder;
 	panelPosition: PanelPosition;
+	/** Badges the gutter marker with a line's open thread count, past the first. */
 	showCommentCount: boolean;
 	/**
 	 * Which bucket the panel is showing. Persisted state rather than a setting —

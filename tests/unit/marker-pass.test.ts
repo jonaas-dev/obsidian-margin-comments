@@ -39,13 +39,13 @@ describe("resolveMarkers", () => {
 
 	it("reports the line a comment resolves to, 1-based", () => {
 		const at = doc.indexOf("third");
-		expect([...resolveMarkers(doc, [comment(doc, at, 5)]).lines]).toEqual([3]);
+		expect([...resolveMarkers(doc, [comment(doc, at, 5)]).counts.keys()]).toEqual([3]);
 	});
 
 	it("finds the first and last lines, where an off-by-one would hide", () => {
 		const first = comment(doc, 0, 5);
 		const last = comment(doc, doc.indexOf("fourth"), 6);
-		expect([...resolveMarkers(doc, [first, last]).lines].sort()).toEqual([1, 4]);
+		expect([...resolveMarkers(doc, [first, last]).counts.keys()].sort()).toEqual([1, 4]);
 	});
 
 	it("spans the whole line, not the commented words", () => {
@@ -68,6 +68,31 @@ describe("resolveMarkers", () => {
 		expect(pass.ranges).toHaveLength(1);
 	});
 
+	it("counts the open threads a line carries, not just that it carries one", () => {
+		// #68: the marker has to tell one thread from several without the panel
+		// being open, and the count falls out of the walk the pass already makes.
+		const at = doc.indexOf("second");
+		const pass = resolveMarkers(doc, [
+			comment(doc, at, 6),
+			comment(doc, at + 7, 4),
+			comment(doc, doc.indexOf("third"), 5),
+		]);
+		expect(pass.counts.get(2)).toBe(2);
+		expect(pass.counts.get(3)).toBe(1);
+	});
+
+	it("leaves resolved roots and replies out of the count", () => {
+		// A reply carries its root's anchor, so counting replies would make one
+		// conversation look like a crowd; a resolved root is not open at all.
+		const at = doc.indexOf("second");
+		const pass = resolveMarkers(doc, [
+			comment(doc, at, 6, { id: "root" }),
+			comment(doc, at, 6, { id: "reply", parentId: "root" }),
+			comment(doc, at, 6, { id: "done", resolved: true }),
+		]);
+		expect(pass.counts.get(2)).toBe(1);
+	});
+
 	it("returns ranges in document order, which CodeMirror requires", () => {
 		const late = comment(doc, doc.indexOf("fourth"), 6);
 		const early = comment(doc, 0, 5);
@@ -79,7 +104,7 @@ describe("resolveMarkers", () => {
 		const at = doc.indexOf("second");
 		const resolved = comment(doc, at, 6, { resolved: true, id: "r" });
 		const reply = comment(doc, at, 6, { parentId: "root", id: "p" });
-		expect(resolveMarkers(doc, [resolved, reply]).lines.size).toBe(0);
+		expect(resolveMarkers(doc, [resolved, reply]).counts.size).toBe(0);
 	});
 
 	it("follows a rewritten line by its surviving context", () => {
@@ -88,14 +113,14 @@ describe("resolveMarkers", () => {
 		const at = doc.indexOf("second line");
 		const anchored = comment(doc, at, 11);
 		const rewritten = "first line\nsomething else entirely\nthird line\nfourth line";
-		expect([...resolveMarkers(rewritten, [anchored]).lines]).toEqual([2]);
+		expect([...resolveMarkers(rewritten, [anchored]).counts.keys()]).toEqual([2]);
 	});
 
 	it("drops a comment whose text and context are both gone", () => {
 		const at = doc.indexOf("second line");
 		const anchored = comment(doc, at, 11);
 		expect(
-			resolveMarkers("nothing here resembles the original note", [anchored]).lines.size,
+			resolveMarkers("nothing here resembles the original note", [anchored]).counts.size,
 		).toBe(0);
 	});
 });
@@ -130,7 +155,7 @@ describe("performance", () => {
 		// Without this, resolving nothing is the fastest implementation there is
 		// and the budget below would applaud it.
 		const pass = resolveMarkers(doc, comments);
-		expect(pass.lines.size).toBe(COUNT);
+		expect(pass.counts.size).toBe(COUNT);
 		expect(pass.ranges).toHaveLength(COUNT);
 	});
 
@@ -171,7 +196,7 @@ describe("one match per comment", () => {
 		const pass = resolveMarkers(doc, [...open, ...ignored]);
 
 		// Both halves consumed, which is what the editor does with them.
-		expect(pass.lines.size).toBe(3);
+		expect(pass.counts.size).toBe(3);
 		expect(pass.ranges).toHaveLength(3);
 		// Three open comments, three matches. Six would mean the gutter and the
 		// highlights are each paying for the whole set; five would mean the

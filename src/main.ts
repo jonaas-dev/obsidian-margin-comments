@@ -13,7 +13,12 @@ import {
 	toPanelPosition,
 } from "./settings-values";
 import { DeletedNotes, describeNoteDeletion, describeNoteRestore } from "./deleted-notes";
-import { commentGutter, updateCommentedLines, updateGutterEnabled } from "./editor/hover-gutter";
+import {
+	commentGutter,
+	updateCommentedLines,
+	updateCountEnabled,
+	updateGutterEnabled,
+} from "./editor/hover-gutter";
 import { resolveMarkers } from "./editor/marker-pass";
 import { lineHighlights, updateHighlights } from "./editor/line-highlight";
 import { debounce, type Debounced } from "./debounce";
@@ -678,7 +683,8 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		// matches, and resolving them separately paid for every comment twice.
 		const markers = resolveMarkers(doc, comments);
 		updateGutterEnabled(view, this.settings.showGutterIcons);
-		updateCommentedLines(view, markers.lines);
+		updateCountEnabled(view, this.settings.showCommentCount);
+		updateCommentedLines(view, markers.counts);
 		updateHighlights(view, this.settings.showLineHighlights ? markers.ranges : []);
 	}
 }
