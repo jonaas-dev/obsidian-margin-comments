@@ -102,14 +102,15 @@
    list and must not compete with it for attention. */
 .inline-comment-filters {
 	display: flex;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
 	gap: var(--ic-gap-xs);
-	padding: 0 var(--ic-gap-sm) var(--ic-gap-md);
+	padding: 0 var(--ic-gap-sm) var(--ic-gap-xs);
 }
 
 .inline-comment-filter {
 	display: flex;
 	flex: 1;
+	min-width: 0;
 	align-items: center;
 	justify-content: center;
 	gap: var(--ic-gap-xs);
@@ -138,9 +139,17 @@
 /* The sort control shares the filter row when it fits and drops below it when
    the sidebar is narrow: it is a separate decision from the filter, not a
    fourth option in it. */
+/* The sort row. Its own row on purpose: there is never width for a fourth
+   control beside the three filter segments, and a control that wraps into the
+   space reads as overflow rather than as a choice. */
+.inline-comment-sortbar {
+	display: flex;
+	padding: 0 var(--ic-gap-sm) var(--ic-gap-md);
+}
+
 .inline-comment-sort {
-	flex: none;
-	margin-left: auto;
+	flex: 1;
+	min-width: 0;
 	height: auto;
 	padding: var(--ic-gap-xs) var(--ic-gap-sm);
 	font-size: var(--font-smallest);

@@ -376,11 +376,11 @@ export class CommentPanelView extends ItemView {
 			});
 		}
 
-		this.renderSortControl(bar);
+		this.renderSortControl(container);
 	}
 
 	/**
-	 * Sort as a native dropdown.
+	 * Sort as a native dropdown, on its own row below the filter bar.
 	 *
 	 * A dropdown rather than three more segments: sort is changed rarely, and a
 	 * second row of buttons would read as one long undifferentiated bank of
@@ -388,12 +388,19 @@ export class CommentPanelView extends ItemView {
 	 * builds its DOM but never attaches it here — a control that cannot be
 	 * proved to open is not a control.
 	 *
+	 * Its own row because there is never width for a fourth item beside three
+	 * filter segments: measured, the header fits it only by crushing the note
+	 * title from 167px to 24px at a 240px panel, and the filter bar fits it only
+	 * by truncating "Resolved". A row that wraps reads as overflow, so the row
+	 * is declared and the control fills it — which also makes it a touch target.
+	 *
 	 * In the vault view it orders threads inside a note; the notes themselves
 	 * stay in path order, which is what makes the list scannable.
 	 */
-	private renderSortControl(bar: HTMLElement): void {
+	private renderSortControl(container: HTMLElement): void {
 		const selected = this.host.sortOrder();
-		const select = bar.createEl("select", {
+		const row = container.createDiv({ cls: "inline-comment-sortbar" });
+		const select = row.createEl("select", {
 			cls: "dropdown inline-comment-sort",
 			attr: { "aria-label": "Sort comments" },
 		});
