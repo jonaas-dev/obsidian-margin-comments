@@ -174,6 +174,10 @@ export class CommentPanelView extends ItemView {
 		const container = this.contentEl;
 		container.empty();
 		container.addClass("inline-comment-panel");
+		// A landmark, so the panel can be jumped to rather than tabbed into from
+		// wherever the reader happens to be.
+		container.setAttribute("role", "complementary");
+		container.setAttribute("aria-label", "Inline comments");
 		this.cards.clear();
 		this.resetCardScope();
 
@@ -203,9 +207,10 @@ export class CommentPanelView extends ItemView {
 			return;
 		}
 
-		const list = container.createDiv({ cls: "inline-comment-list" });
+		const list = container.createDiv({ cls: "inline-comment-list", attr: { role: "list" } });
 		for (const thread of threads) {
 			const card = this.renderCard(list, thread, active.filePath);
+			card.setAttribute("role", "listitem");
 			if (!thread.orphaned) {
 				card.addEventListener("click", () => this.host.revealThread(thread));
 			}
@@ -225,7 +230,7 @@ export class CommentPanelView extends ItemView {
 			return;
 		}
 
-		const list = container.createDiv({ cls: "inline-comment-list" });
+		const list = container.createDiv({ cls: "inline-comment-list", attr: { role: "list" } });
 		for (const section of sections) this.renderSection(list, section, filter);
 
 		this.applySelection();
@@ -310,7 +315,9 @@ export class CommentPanelView extends ItemView {
 	}
 
 	private renderCard(parent: HTMLElement, thread: Thread, filePath: string): HTMLElement {
-		const card = renderThreadCard(parent, thread, filePath, this.app, this.cardScope, this.host);
+		const card = renderThreadCard(parent, thread, filePath, this.app, this.cardScope, this.host, {
+			onReveal: () => this.host.revealThread(thread),
+		});
 		this.cards.set(thread.root.id, card);
 		return card;
 	}
