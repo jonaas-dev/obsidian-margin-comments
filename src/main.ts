@@ -300,12 +300,26 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	 * active view, so the note the panel is describing stops being "active" the
 	 * instant anyone clicks the panel.
 	 */
-	private markdownViewFor(path: string): MarkdownView | null {
+	/**
+	 * Every open editor showing a note, not just the first one found.
+	 *
+	 * A note can be open in several panes — editing on the left, reading on the
+	 * right is an ordinary layout — and each pane is its own CodeMirror instance
+	 * with its own decorations. Answering with one of them left the others
+	 * showing the note as though it carried no comments at all (#83).
+	 */
+	private markdownViewsFor(path: string): MarkdownView[] {
+		const views: MarkdownView[] = [];
 		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
 			const view = leaf.view;
-			if (view instanceof MarkdownView && view.file?.path === path) return view;
+			if (view instanceof MarkdownView && view.file?.path === path) views.push(view);
 		}
-		return null;
+		return views;
+	}
+
+	/** Any one editor showing a note, for callers that only want its text. */
+	private markdownViewFor(path: string): MarkdownView | null {
+		return this.markdownViewsFor(path)[0] ?? null;
 	}
 
 	/**
@@ -788,23 +802,29 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 
 	private async refreshMarkers(): Promise<void> {
 		const file = this.app.workspace.getActiveFile();
-		const markdownView = file ? this.markdownViewFor(file.path) : null;
-		if (!markdownView || !file) return;
+		if (!file) return;
+
+		const panes = this.markdownViewsFor(file.path);
+		if (panes.length === 0) return;
 
 		const comments = await this.storage.getCommentsForFile(file.path);
-		const doc = markdownView.editor.getValue();
 
-		// Obsidian exposes the CodeMirror view here but does not declare it, and
-		// it is absent in the legacy editor, so this stays defensive.
-		const view = (markdownView.editor as unknown as { cm?: EditorView }).cm;
-		if (!view) return;
+		// One pass for both halves and for every pane: the gutter and the
+		// highlights want the same anchor matches, resolving them separately paid
+		// for every comment twice, and two panes of one note hold one text.
+		// Matching is what the pass costs; dispatching is what each pane costs.
+		const markers = resolveMarkers(panes[0].editor.getValue(), comments);
 
-		// One pass for both: the gutter and the highlights want the same anchor
-		// matches, and resolving them separately paid for every comment twice.
-		const markers = resolveMarkers(doc, comments);
-		updateGutterEnabled(view, this.settings.showGutterIcons);
-		updateCountEnabled(view, this.settings.showCommentCount);
-		updateCommentedLines(view, markers.counts);
-		updateHighlights(view, this.settings.showLineHighlights ? markers.ranges : []);
+		for (const pane of panes) {
+			// Obsidian exposes the CodeMirror view here but does not declare it,
+			// and it is absent in the legacy editor, so this stays defensive.
+			const view = (pane.editor as unknown as { cm?: EditorView }).cm;
+			if (!view) continue;
+
+			updateGutterEnabled(view, this.settings.showGutterIcons);
+			updateCountEnabled(view, this.settings.showCommentCount);
+			updateCommentedLines(view, markers.counts);
+			updateHighlights(view, this.settings.showLineHighlights ? markers.ranges : []);
+		}
 	}
 }
