@@ -71,10 +71,6 @@ export class ThreadPopover extends Component {
 		this.el.dataset.placement = placement;
 	}
 
-	isOpen(): boolean {
-		return this.el !== null;
-	}
-
 	close(): void {
 		if (this.onOutsideClick) {
 			document.removeEventListener("mousedown", this.onOutsideClick);
