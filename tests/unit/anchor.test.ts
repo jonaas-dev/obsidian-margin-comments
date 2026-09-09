@@ -375,3 +375,78 @@ describe("performance", () => {
 		expect(timed(() => matchByContext(big, lost))).toBeLessThan(BUDGET_MS);
 	});
 });
+
+/**
+ * The two constants the module's reasoning rests on, pinned by behaviour.
+ *
+ * Found by mutation: changing CONTEXT_MATCH_RATIO from 0.6 to 0.3, and the
+ * fuzzy tolerance from Math.floor to Math.ceil, both left all 367 tests
+ * passing. Neither is asserted directly here — asserting the number would pass
+ * against any behaviour at all. Each case is built so that the *outcome* flips
+ * if the constant moves, in either direction.
+ */
+describe("the constants stage 2 and stage 3 rest on", () => {
+	function anchorWith(before: string, text: string, after: string) {
+		return {
+			selectedText: text,
+			textHash: "unused-by-these-stages",
+			isLineComment: false,
+			contextBefore: before,
+			contextAfter: after,
+			lineHint: 1,
+			startOffset: 0,
+			endOffset: text.length,
+		};
+	}
+
+	describe("CONTEXT_MATCH_RATIO", () => {
+		// Twenty characters of context either side, so a surviving fraction is a
+		// count. The half nearest the anchor is what a match must keep.
+		const before = `${"A".repeat(6)}${"B".repeat(14)}`;
+		const after = `${"C".repeat(14)}${"D".repeat(6)}`;
+
+		it("accepts a candidate keeping 70% of its context", () => {
+			// Above the 60% bar, so it must match. Raising the ratio to 0.8 makes
+			// the probe longer than what survives, no candidate is found, and this
+			// returns null.
+			const doc = `${"Z".repeat(6)}${"B".repeat(14)}rewritten${"C".repeat(14)}${"E".repeat(6)}`;
+			const match = matchByContext(doc, anchorWith(before, "original", after));
+
+			expect(match).not.toBeNull();
+			expect(doc.slice(match!.from, match!.to)).toBe("rewritten");
+		});
+
+		it("rejects a candidate keeping only half of it", () => {
+			// Below the bar, so the anchor is lost rather than placed on text that
+			// merely sits between two half-familiar neighbours. Lowering the ratio
+			// to 0.3 accepts this and returns a match.
+			const half = `${"A".repeat(10)}${"B".repeat(10)}`;
+			const halfAfter = `${"C".repeat(10)}${"D".repeat(10)}`;
+			const doc = `${"Z".repeat(10)}${"B".repeat(10)}rewritten${"C".repeat(10)}${"E".repeat(10)}`;
+
+			expect(matchByContext(doc, anchorWith(half, "original", halfAfter))).toBeNull();
+		});
+	});
+
+	describe("the fuzzy tolerance", () => {
+		// Ten characters at 0.35 puts the tolerance at 3.5: floor allows three
+		// edits, ceil allows four. Every other fuzzy test sits far enough from the
+		// boundary that the rounding cannot change an outcome.
+		const text = "abcdefghij";
+		const anchor = anchorWith("", text, "");
+
+		it("accepts a candidate exactly at the tolerance", () => {
+			// Three edits, which floor(10 x 0.35) allows. Pins the bar as
+			// inclusive: a strict comparison would reject this.
+			const match = matchByFuzzy("abcdefgXYZ", anchor, 0.35);
+			expect(match).not.toBeNull();
+			expect(match!.from).toBe(0);
+		});
+
+		it("rejects a candidate one edit past it", () => {
+			// Four edits. Rounding the tolerance up accepts this, and the comment
+			// lands on text a character further from what was written.
+			expect(matchByFuzzy("abcdefWXYZ", anchor, 0.35)).toBeNull();
+		});
+	});
+});
