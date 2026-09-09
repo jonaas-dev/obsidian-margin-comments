@@ -2,7 +2,21 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import builtins from "builtin-modules";
 
-const bundle = readFileSync("main.js", "utf8");
+/**
+ * The built plugin. `main.js` is generated and not in the repository, so this
+ * file needs `npm run build` to have run — CI builds before it tests for that
+ * reason. Failing loudly beats skipping: a bundle audit that quietly does
+ * nothing when the bundle is missing is worse than no audit.
+ */
+function readBundle(): string {
+	try {
+		return readFileSync("main.js", "utf8");
+	} catch {
+		throw new Error("main.js is missing — run `npm run build` before `npm test`.");
+	}
+}
+
+const bundle = readBundle();
 
 /**
  * Node built-ins in main.js are fatal on mobile, not merely wasteful.
