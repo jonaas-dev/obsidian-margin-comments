@@ -11,7 +11,6 @@ export interface AnchorMatch {
 	from: number;
 	to: number;
 	/** The text occurs more than once; the caller may want to warn. */
-	ambiguous: boolean;
 	method: MatchMethod;
 }
 
@@ -70,6 +69,38 @@ function occurrences(doc: string, needle: string): number[] {
  * Content rather than position is what makes a comment survive the note being
  * reorganised. The line hint only breaks ties between repeated occurrences.
  */
+/**
+ * How much of the stored surroundings a candidate still has, 0 to 2.
+ *
+ * Both sides, so a candidate that merely shares the words before it cannot
+ * outrank one that sits in the right place entirely.
+ */
+function contextScore(doc: string, from: number, to: number, anchor: TextAnchor): number {
+	const before = anchor.contextBefore.length
+		? suffixMatchAt(doc, from, anchor.contextBefore) / anchor.contextBefore.length
+		: 0;
+	const after = anchor.contextAfter.length
+		? prefixMatchAt(doc, to, anchor.contextAfter) / anchor.contextAfter.length
+		: 0;
+	return before + after;
+}
+
+/**
+ * Stage 1: locate the anchor by exact content.
+ *
+ * Content rather than position is what makes a comment survive the note being
+ * reorganised.
+ *
+ * When the text appears more than once, the surroundings decide, and the line
+ * hint only breaks a genuine tie. The hint alone was wrong in an ordinary case:
+ * comment a repeated phrase, then insert text *between* the two occurrences,
+ * and the hint points at the decoy — it stayed near the old line number while
+ * the real one moved away. Measured on a four-line note with 200 lines
+ * inserted, the comment silently moved from one paragraph to another.
+ *
+ * Only paid when there is something to disambiguate: one occurrence is one
+ * scan, as before.
+ */
 export function matchByHash(doc: string, anchor: TextAnchor): AnchorMatch | null {
 	const { selectedText } = anchor;
 	if (selectedText === "" || hashString(selectedText) !== anchor.textHash) return null;
@@ -77,17 +108,21 @@ export function matchByHash(doc: string, anchor: TextAnchor): AnchorMatch | null
 	const found = occurrences(doc, selectedText);
 	if (found.length === 0) return null;
 
-	const nearest = found.reduce((best, offset) =>
-		Math.abs(lineNumberAt(doc, offset) - anchor.lineHint) <
-		Math.abs(lineNumberAt(doc, best) - anchor.lineHint)
+	const best = found.reduce((winner, offset) => {
+		if (offset === winner) return winner;
+		const score = contextScore(doc, offset, offset + selectedText.length, anchor);
+		const winning = contextScore(doc, winner, winner + selectedText.length, anchor);
+		if (score !== winning) return score > winning ? offset : winner;
+		// A genuine tie — the same surroundings twice — falls back to the hint.
+		return Math.abs(lineNumberAt(doc, offset) - anchor.lineHint) <
+			Math.abs(lineNumberAt(doc, winner) - anchor.lineHint)
 			? offset
-			: best,
-	);
+			: winner;
+	}, found[0]);
 
 	return {
-		from: nearest,
-		to: nearest + selectedText.length,
-		ambiguous: found.length > 1,
+		from: best,
+		to: best + selectedText.length,
 		method: "hash",
 	};
 }
@@ -192,7 +227,7 @@ export function matchByContext(doc: string, anchor: TextAnchor): AnchorMatch | n
 		if (!best || score > best.score) best = { from: start, to: end, score };
 	}
 
-	return best ? { from: best.from, to: best.to, ambiguous: false, method: "context" } : null;
+	return best ? { from: best.from, to: best.to, method: "context" } : null;
 }
 
 /** Lines either side of the last known position that stage 3 will search. */
@@ -274,7 +309,7 @@ export function matchByFuzzy(doc: string, anchor: TextAnchor, threshold: number)
 		}
 	}
 
-	return best ? { from: best.from, to: best.to, ambiguous: false, method: "fuzzy" } : null;
+	return best ? { from: best.from, to: best.to, method: "fuzzy" } : null;
 }
 
 export interface MatchOptions {

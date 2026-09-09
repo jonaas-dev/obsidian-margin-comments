@@ -78,17 +78,89 @@ describe("matchByHash", () => {
 		expect(match!.from).toBe(repeated.lastIndexOf("target text"));
 	});
 
-	it("flags an ambiguous match when the text appears more than once", () => {
-		const repeated = "target text\nfiller\ntarget text";
-		const anchor = createAnchor(repeated, 0, 11);
-		expect(matchByHash(repeated, anchor)!.ambiguous).toBe(true);
+	it("picks the occurrence whose surroundings match, not the nearest line number", () => {
+		// The line hint alone was wrong here: comment a repeated phrase, then
+		// insert text *between* the two occurrences. The hint stays near the
+		// decoy while the real one moves away, and the comment silently changes
+		// what it is about.
+		const original = [
+			"Alpha section, see below for details.",
+			"Beta section.",
+			"Gamma section, see below for details.",
+			"The end.",
+		].join("\n");
+		const at = original.lastIndexOf("see below");
+		const repeated = createAnchor(original, at, at + "see below".length);
+
+		const edited = [
+			"Alpha section, see below for details.",
+			"Beta section.",
+			...Array.from({ length: 200 }, (_, i) => `inserted line ${i}`),
+			"Gamma section, see below for details.",
+			"The end.",
+		].join("\n");
+
+		const match = matchByHash(edited, repeated)!;
+		expect(edited.slice(match.from - 15, match.from)).toBe("Gamma section, ");
 	});
 
-	it("does not flag a unique match as ambiguous", () => {
-		const anchor = createAnchor(doc, targetFrom, targetTo);
-		expect(matchByHash(doc, anchor)!.ambiguous).toBe(false);
+	it("still follows text inserted above both occurrences", () => {
+		// The case the line hint always handled, kept: both moved by the same
+		// amount, so their order is intact and either rule agrees.
+		const original = ["Intro.", "One, see below.", "Two.", "Other, see below.", "End."].join("\n");
+		const at = original.indexOf("see below");
+		const repeated = createAnchor(original, at, at + "see below".length);
+
+		const edited = [
+			...Array.from({ length: 200 }, (_, i) => `inserted ${i}`),
+			"Intro.",
+			"One, see below.",
+			"Two.",
+			"Other, see below.",
+			"End.",
+		].join("\n");
+
+		const match = matchByHash(edited, repeated)!;
+		expect(edited.slice(match.from - 5, match.from)).toBe("One, ");
 	});
 
+	it("uses the text after the anchor too, not only the text before it", () => {
+		// Two candidates with the same words before them and different words
+		// after. Scoring one side only leaves them tied, and the tie-break then
+		// hands it to whichever is nearer the stale hint — the decoy.
+		const runs = (letter: string) => letter.repeat(60);
+		const decoy = `${runs("x")}target${runs("z")}`;
+		const real = `${runs("x")}target${runs("y")}`;
+
+		const original = [decoy, "filler", real].join("\n");
+		const at = original.lastIndexOf("target");
+		const repeated = createAnchor(original, at, at + "target".length);
+
+		const edited = [
+			decoy,
+			"filler",
+			...Array.from({ length: 200 }, (_, i) => `inserted ${i}`),
+			real,
+		].join("\n");
+
+		const match = matchByHash(edited, repeated)!;
+		expect(edited.slice(match.to, match.to + 3)).toBe("yyy");
+	});
+
+	it("falls back to the line hint when the surroundings really are identical", () => {
+		// Sixty characters of the same filler either side, so the stored context
+		// — fifty at most — cannot tell the two apart at all. The hint is the
+		// only thing left, and without it this becomes whichever the scan met
+		// last.
+		const line = `${"x".repeat(60)}target${"y".repeat(60)}`;
+		const doc = [line, line].join("\n");
+		const first = doc.indexOf("target");
+		const repeated = createAnchor(doc, first, first + "target".length);
+		expect(repeated.lineHint).toBe(1);
+
+		const match = matchByHash(doc, repeated)!;
+		expect(doc.slice(0, match.from).split("\n").length).toBe(1);
+	});
 	it("matches a line comment against the whole line", () => {
 		const anchor = createAnchor(doc, targetFrom, targetFrom);
 		const match = matchByHash(doc, anchor);
