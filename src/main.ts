@@ -144,6 +144,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 					loadNote: (filePath) => this.loadNote(filePath),
 					openThreadInNote: (filePath, thread) => void this.openThreadInNote(filePath, thread),
 					notifyOrphans: (count) => this.announceOrphans(count),
+					touch: () => this.touch,
 				}),
 		);
 
@@ -161,7 +162,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		this.registerEditorExtension(lineHighlights());
 		this.registerEditorExtension(
 			commentGutter({
-				alwaysVisible: Platform.isMobile,
+				touch: () => this.touch,
 				onActivate: (view, line) => this.openComposer(view, line),
 			}),
 		);
@@ -567,6 +568,14 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	 * See threadsForReading.
 	 */
 	private readingThreads = new Map<string, Thread[]>();
+
+	/**
+	 * Whether this is a touch device.
+	 *
+	 * Read once and held rather than consulted at each call site, so the whole
+	 * plugin agrees and a test can flip it and re-render.
+	 */
+	touch = Platform.isMobile;
 
 	/** Redraw once typing stops. See the editor-change registration. */
 	private refreshSoon: Debounced = debounce(() => void this.refresh(), REFRESH_DEBOUNCE_MS);

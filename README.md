@@ -12,6 +12,7 @@ Everything below is implemented and covered by tests against a real Obsidian.
 - **Threaded replies** — reply to any comment; threads are flat, one level deep
 - **Edit, resolve, delete** — edit in place, resolve and reopen a thread, delete with the reply cascade named up front
 - **Line highlights and gutter markers** — lines carrying open comments are marked in the editor, with a count when a line carries several
+- **Keyboard and screen readers** — every control is reachable without a mouse, with a focus ring from your theme and a name on every icon
 - **Popover or panel** — click a marker to read the thread beside the line, or in the sidebar when it is open
 - **Sidebar panel** — filter by all / open / resolved, sort by document order, date or last activity, with counts that match what is shown
 - **All-notes view** — every commented note in the vault, one collapsed row each, opened on demand
@@ -19,7 +20,7 @@ Everything below is implemented and covered by tests against a real Obsidian.
 - **Non-destructive** — comments live in `.inline-comments/`, your notes stay untouched
 - **Theme-aware** — colours and type come from your Obsidian theme
 - **Reading mode** — commented text is highlighted there too; see below for what reading mode does and does not do
-- **Mobile support** — tap replaces hover
+- **Mobile and touch** — tap replaces hover: markers stay on the commented lines and on the line the caret is on, controls are thumb-sized, and the composer stays above the on-screen keyboard
 
 ## Reading mode
 
@@ -53,8 +54,7 @@ which can reach the rendered output but not the gutter beside it.
 
 ### Still to come
 
-Virtual scrolling in the panel, the accessibility and keyboard pass, and the
-mobile pass, before 1.0.
+Virtual scrolling in the panel, before 1.0.
 
 ## How it works
 
