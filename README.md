@@ -52,9 +52,17 @@ The cause is that these are CodeMirror editor extensions, and CodeMirror does no
 run in reading mode. The highlights arrive through a Markdown post-processor,
 which can reach the rendered output but not the gutter beside it.
 
-### Still to come
+### Panel size
 
-Virtual scrolling in the panel, before 1.0.
+The panel draws every thread it is showing. Measured against a real Obsidian, on
+a note with one thousand comments that costs about 250ms once, when the panel
+opens or repaints — and scrolling stays at the frame budget however many there
+are, because the browser only paints what is on screen. At three thousand the
+render is about a second and scrolling is unchanged.
+
+So there is no virtual scrolling, deliberately: it would trade `Cmd+F` and Tab
+reaching the threads that are off screen for a cost that only shows up on notes
+far past any real one.
 
 ## How it works
 
