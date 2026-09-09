@@ -175,6 +175,18 @@ test unrelated to what you broke — that is a stale bundle, not a surprising co
 Consume the symbol (`void thing;`) so the build still compiles, and check the build
 succeeded before believing the result.
 
+**CodeMirror hides the whole gutter from assistive technology.** `.cm-gutters` carries
+`aria-hidden="true"`, because it is chrome duplicating content the editor already exposes. So
+nothing inside a gutter marker reaches the accessibility tree — measured with `role="img"` and
+an `aria-label` on it, the tree held no node for it at all. Do not spend an afternoon adding
+roles there. A `title` is what a pointer user gets; the panel is the surface a screen reader
+reads.
+
+**A CSS transition makes `getComputedStyle` time-dependent.** Reading a colour a frame or two
+after changing the variable it comes from returns the *interpolated* value, so a correct
+stylesheet reads back as whatever it is halfway to. Wait past the transition, or the assertion
+measures the clock.
+
 **Obsidian's own element styles outrank a lone plugin class.** `button:not(.clickable-icon)`
 is specificity 0,1,1 and sets colour, background, border and padding — so styling a
 `<button>` of ours through a single class silently loses. It surfaced as the theme test
