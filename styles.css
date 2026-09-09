@@ -47,7 +47,10 @@
 .inline-comment-composer {
 	position: fixed;
 	z-index: var(--layer-popover);
-	width: 320px;
+	/* Never wider than the screen it is placed on. A fixed 320px is most of a
+	   phone and all of a narrow split, and the overflow lands under the edge
+	   rather than being scrolled to. */
+	width: min(320px, calc(100vw - 1.5rem));
 	padding: 0.6em;
 	border: 1px solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
@@ -127,6 +130,36 @@
 	outline: 2px solid var(--background-modifier-border-focus);
 	outline-offset: 1px;
 	border-radius: var(--radius-s);
+}
+
+/* ---- Touch ----
+   Set on the panel when the plugin is running on a touch device. Everything
+   here is about the size of a target, not about how it looks: 44px is the
+   smallest square a finger hits reliably, and the panel's controls are drawn at
+   reading-list scale, which a pointer manages and a thumb does not. */
+
+.inline-comment-panel.is-touch .inline-comment-action,
+.inline-comment-panel.is-touch .inline-comment-send {
+	min-width: 44px;
+	min-height: 44px;
+}
+
+.inline-comment-panel.is-touch .inline-comment-filter,
+.inline-comment-panel.is-touch .inline-comment-sort,
+.inline-comment-panel.is-touch .inline-comment-scope,
+.inline-comment-panel.is-touch .inline-comment-section-head,
+.inline-comment-panel.is-touch .inline-comment-quote,
+.inline-comment-panel.is-touch .inline-comment-showmore {
+	min-height: 44px;
+}
+
+/* The actions are revealed by hover on a pointer, and there is no hover here:
+   without this the only way to resolve or delete a comment on a phone would be
+   to guess where an invisible button is. */
+.inline-comment-panel.is-touch .inline-comment-actions,
+.inline-comment-panel.is-touch .inline-comment-replybox {
+	opacity: 1;
+	display: flex;
 }
 
 /* ---- Comment panel ----------------------------------------------------

@@ -64,7 +64,7 @@ describe("linesWithOpenComments", () => {
 
 describe("shouldShowMarker", () => {
 	const commented = new Set([2]);
-	const on = { commented, alwaysVisible: false, enabled: true };
+	const on = { commented, touch: false, cursorLine: null, enabled: true };
 
 	it("shows on a line that has an open comment", () => {
 		expect(shouldShowMarker(2, { ...on, hoveredLine: null })).toBe(true);
@@ -78,9 +78,31 @@ describe("shouldShowMarker", () => {
 		expect(shouldShowMarker(1, { ...on, hoveredLine: 3 })).toBe(false);
 	});
 
-	it("shows everywhere when always visible", () => {
-		// Mobile has no hover, so the affordance cannot depend on one.
-		expect(shouldShowMarker(1, { ...on, hoveredLine: null, alwaysVisible: true })).toBe(true);
+	it("follows the caret on touch, where there is no hover to follow", () => {
+		expect(shouldShowMarker(3, { ...on, hoveredLine: null, touch: true, cursorLine: 3 })).toBe(
+			true,
+		);
+	});
+
+	it("does not mark every line on touch", () => {
+		// It used to. A speech bubble beside every line of the note stops reading
+		// as "something is here" and becomes wallpaper.
+		expect(shouldShowMarker(1, { ...on, hoveredLine: null, touch: true, cursorLine: 3 })).toBe(
+			false,
+		);
+	});
+
+	it("keeps marking commented lines on touch wherever the caret is", () => {
+		expect(shouldShowMarker(2, { ...on, hoveredLine: null, touch: true, cursorLine: 3 })).toBe(
+			true,
+		);
+	});
+
+	it("ignores hover on touch, so a stale pointer cannot leave a marker behind", () => {
+		// A tablet with a trackpad reports both; the caret is the deliberate act.
+		expect(shouldShowMarker(4, { ...on, hoveredLine: 4, touch: true, cursorLine: 3 })).toBe(
+			false,
+		);
 	});
 
 	it("hides a commented line when the gutter is switched off", () => {
@@ -93,9 +115,15 @@ describe("shouldShowMarker", () => {
 		expect(shouldShowMarker(3, { ...on, hoveredLine: 3, enabled: false })).toBe(false);
 	});
 
-	it("stays off on mobile, where every marker is otherwise forced on", () => {
+	it("stays off on touch too, caret line included", () => {
 		expect(
-			shouldShowMarker(1, { ...on, hoveredLine: null, alwaysVisible: true, enabled: false }),
+			shouldShowMarker(3, {
+				...on,
+				hoveredLine: null,
+				touch: true,
+				cursorLine: 3,
+				enabled: false,
+			}),
 		).toBe(false);
 	});
 });

@@ -27,6 +27,33 @@ function clamp(value: number, min: number, max: number): number {
 	return Math.max(min, Math.min(value, max));
 }
 
+/** What `window` has to offer for measuring the space actually on screen. */
+export interface ViewportSource {
+	innerWidth: number;
+	innerHeight: number;
+	visualViewport?: { width: number; height: number } | null;
+}
+
+/**
+ * The space actually visible, which on a phone is not the window.
+ *
+ * `window.innerHeight` does not shrink when the on-screen keyboard opens: the
+ * layout viewport stays the full height and the keyboard is drawn over it. A
+ * composer placed against that measurement is positioned correctly into a region
+ * the reader cannot see. `visualViewport` is what reports the part still on
+ * screen, and it is absent on old webviews, so the window is the fallback.
+ */
+export function visibleViewport(source: ViewportSource): Size {
+	const visual = source.visualViewport;
+	if (!visual) return { width: source.innerWidth, height: source.innerHeight };
+	// Never larger than the window: a pinch-zoomed visual viewport reports the
+	// magnified region, and trusting that would push the composer off-screen.
+	return {
+		width: Math.min(visual.width, source.innerWidth),
+		height: Math.min(visual.height, source.innerHeight),
+	};
+}
+
 /**
  * Place the composer beside the text being commented on.
  *

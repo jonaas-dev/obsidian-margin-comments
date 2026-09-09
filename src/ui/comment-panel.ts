@@ -59,6 +59,11 @@ export interface PanelHost extends ThreadActions {
 	setScope(scope: PanelScope): Promise<void>;
 	/** Report how many threads the panel just drew as orphaned. */
 	notifyOrphans(count: number): void;
+	/**
+	 * Whether this is a touch device. Injected rather than read from Platform
+	 * here so a test can turn it on and watch the panel redraw for it.
+	 */
+	touch(): boolean;
 }
 
 export class CommentPanelView extends ItemView {
@@ -174,6 +179,9 @@ export class CommentPanelView extends ItemView {
 		const container = this.contentEl;
 		container.empty();
 		container.addClass("inline-comment-panel");
+		// Every touch-sized rule hangs off this, so it is one class to set and
+		// one place to look when a control is too small to hit.
+		container.toggleClass("is-touch", this.host.touch());
 		// A landmark, so the panel can be jumped to rather than tabbed into from
 		// wherever the reader happens to be.
 		container.setAttribute("role", "complementary");
