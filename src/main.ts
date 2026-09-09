@@ -30,6 +30,7 @@ import {
 } from "./editor/hover-gutter";
 import { resolveMarkers } from "./editor/marker-pass";
 import { lineHighlights, updateHighlights } from "./editor/line-highlight";
+import { commentIntent } from "./editor/comment-intent";
 import { highlightsInBlock } from "./reading/reading-highlights";
 import { paintReadingMarks, READING_BLOCK_CLASS } from "./reading/reading-marks";
 import { debounce, type Debounced } from "./debounce";
@@ -674,9 +675,11 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	}
 
 	/**
-	 * Clicking a line that already has comments should show them, not silently
-	 * start a second one — reading is the more common intent, and there was no
-	 * way to read a comment at all before the panel existed.
+	 * Show the thread that is already here, or start a new one.
+	 *
+	 * The decision itself is `commentIntent`, which is where the reasoning and
+	 * its tests live. This half resolves the anchors it needs and acts on the
+	 * answer.
 	 */
 	private async showExistingOrCompose(
 		view: EditorView,
@@ -688,11 +691,25 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			fuzzy: true,
 			threshold: this.settings.fuzzyThreshold,
 		});
-		const thread = threads.find((candidate) => candidate.line === line);
-		if (!thread) {
-			this.compose(view, line, filePath);
+
+		const lineInfo = view.state.doc.line(line);
+		const anchored = threads
+			.filter((thread) => thread.position !== null && thread.end !== null)
+			.map((thread) => ({ id: thread.root.id, from: thread.position!, to: thread.end! }));
+		const selection = view.state.selection.main;
+
+		const intent = commentIntent(anchored, { from: lineInfo.from, to: lineInfo.to }, {
+			from: selection.from,
+			to: selection.to,
+		});
+
+		if (intent.kind === "compose") {
+			this.compose(view, filePath, intent.from, intent.to);
 			return;
 		}
+
+		const thread = threads.find((candidate) => candidate.root.id === intent.threadId);
+		if (!thread) return;
 
 		// With the panel already open, selecting there keeps everything in one
 		// place. With it closed, a popover beside the line beats yanking the
@@ -717,16 +734,18 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			: { left: 0, right: 0, top: 0, bottom: 0 };
 	}
 
-	private compose(view: EditorView, line: number, filePath: string): void {
+	/**
+	 * Open the composer over a span the caller has already decided on.
+	 *
+	 * The span is passed in rather than read from the selection here: this used
+	 * to take whatever was selected anywhere in the note, so a selection on one
+	 * line and a gutter click on another stored the comment against the
+	 * selection (#81).
+	 */
+	private compose(view: EditorView, filePath: string, from: number, to: number): void {
 		const file = { path: filePath };
 
-		const selection = view.state.selection.main;
-		const lineInfo = view.state.doc.line(line);
-		const [from, to] = selection.empty
-			? [lineInfo.from, lineInfo.from]
-			: [selection.from, selection.to];
-
-		const coords = view.coordsAtPos(selection.empty ? lineInfo.from : selection.from);
+		const coords = view.coordsAtPos(from);
 		const anchorRect = coords
 			? { left: coords.left, right: coords.right, top: coords.top, bottom: coords.bottom }
 			: { left: 0, right: 0, top: 0, bottom: 0 };
