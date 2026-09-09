@@ -30,14 +30,18 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      - name: Test
-        run: npm test
-
+      # Before the tests, not after: tests/unit/bundle.test.ts audits the built
+      # main.js for Node built-ins, which are fatal on mobile and which the
+      # build itself cannot catch — they are marked external, so an accidental
+      # import is left as a bare require and the build passes.
       - name: Build
         run: node esbuild.config.mjs production
 
       - name: Verify the build produced the release assets
         run: test -f main.js && test -f manifest.json && test -f styles.css
+
+      - name: Test
+        run: npm test
 
   leaks:
     # The pre-commit hook covers the same ground locally, but it is opt-in

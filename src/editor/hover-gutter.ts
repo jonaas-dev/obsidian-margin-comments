@@ -160,8 +160,16 @@ class HoverTracker implements PluginValue {
 }
 
 export interface GutterOptions {
-	/** True on mobile, where there is no hover to depend on. */
-	alwaysVisible: boolean;
+	/**
+	 * Whether this is a touch device, where there is no hover to depend on.
+	 *
+	 * A function, read at paint time. A CodeMirror extension is built once and
+	 * outlives every value handed to it at construction — the same reason the
+	 * gutter setting travels as an effect rather than a captured boolean.
+	 * `Platform.isMobile` does not change under a user, but a value that cannot
+	 * change is also a value no test can vary.
+	 */
+	touch: () => boolean;
 	/** Called with the clicked line, 1-based. */
 	onActivate: (view: EditorView, line: number) => void;
 }
@@ -178,10 +186,14 @@ export function commentGutter(options: GutterOptions): Extension {
 			lineMarker(view, line) {
 				const number = view.state.doc.lineAt(line.from).number;
 				const commented = view.state.field(commentedLinesField);
+				const touch = options.touch();
 				const visible = shouldShowMarker(number, {
 					hoveredLine: view.state.field(hoveredLineField),
 					commented,
-					alwaysVisible: options.alwaysVisible,
+					touch,
+					cursorLine: touch
+						? view.state.doc.lineAt(view.state.selection.main.head).number
+						: null,
 					enabled: view.state.field(gutterEnabledField),
 				});
 				return visible
@@ -192,6 +204,11 @@ export function commentGutter(options: GutterOptions): Extension {
 			// only recomputes on document and viewport changes, so the hover state
 			// would update in the field and never reach the screen.
 			lineMarkerChange(update) {
+				// The caret only drives a marker on touch, so only there is a
+				// selection change worth a gutter rebuild. On desktop this runs on
+				// every cursor move, which is the path #31 went to trouble to keep
+				// off the keystroke.
+				if (options.touch() && update.selectionSet) return true;
 				return (
 					update.startState.field(hoveredLineField) !== update.state.field(hoveredLineField) ||
 					update.startState.field(commentedLinesField) !==

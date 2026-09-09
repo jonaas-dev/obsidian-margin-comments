@@ -12,8 +12,10 @@ export interface MarkerContext {
 	 * Set so the gutter can pass the count map straight through.
 	 */
 	commented: { has(line: number): boolean };
-	/** Mobile has no hover, so the affordance cannot depend on one. */
-	alwaysVisible: boolean;
+	/** Touch has no hover, so the affordance cannot depend on one. */
+	touch: boolean;
+	/** Line the caret is on, 1-based. What replaces hover on touch. */
+	cursorLine: number | null;
 	/** The gutter setting. Off hides every marker, hovered and commented alike. */
 	enabled: boolean;
 }
@@ -52,11 +54,14 @@ export function markerLabel(count: number): string {
 }
 
 export function shouldShowMarker(line: number, context: MarkerContext): boolean {
-	// Checked before anything else, mobile included: "always visible" answers
-	// when a marker appears, not whether the reader wants markers at all.
+	// Checked before anything else, touch included: the setting answers whether
+	// the reader wants markers at all, not when one appears.
 	if (!context.enabled) return false;
-	if (context.alwaysVisible) return true;
 	if (context.commented.has(line)) return true;
+	// The caret's line rather than every line. Marking all of them was what
+	// "always visible" meant, and it puts a speech bubble beside every line of
+	// the note — the affordance stops reading as "something is here".
+	if (context.touch) return context.cursorLine === line;
 	return context.hoveredLine === line;
 }
 
