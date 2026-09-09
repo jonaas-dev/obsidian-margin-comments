@@ -1,4 +1,5 @@
 import { gutter, GutterMarker, EditorView, ViewPlugin, type PluginValue } from "@codemirror/view";
+import { setIcon } from "obsidian";
 import { StateEffect, StateField, type Extension } from "@codemirror/state";
 import {
 	countBadgeText,
@@ -12,6 +13,11 @@ import {
 const HOVER_DEBOUNCE_MS = 50;
 
 const GUTTER_CLASS = "inline-comment-gutter";
+
+/** A line that carries comments. The same family as the ribbon and the panel. */
+const MARKER_ICON = "message-square";
+/** The affordance: a bubble with a plus, which is what the click does. */
+const ADD_ICON = "message-square-plus";
 
 const setHoveredLine = StateEffect.define<number | null>();
 const setCommentedLines = StateEffect.define<Map<number, number>>();
@@ -89,13 +95,28 @@ class CommentMarker extends GutterMarker {
 	}
 
 	toDOM(): HTMLElement {
+		const commented = this.count > 0;
 		const span = document.createElement("span");
-		span.className =
-			this.count > 0
-				? "inline-comment-marker inline-comment-marker-active"
-				: "inline-comment-marker";
-		span.setAttribute("aria-label", markerLabel(this.count));
-		span.createSpan({ cls: "inline-comment-marker-icon", text: "💬" });
+		span.className = commented
+			? "inline-comment-marker inline-comment-marker-active"
+			: "inline-comment-marker";
+
+		// A tooltip, not an aria-label. The label this used to carry reached no
+		// screen reader at all, and no role can fix that: CodeMirror marks the
+		// whole gutter `aria-hidden="true"`, so nothing inside it is in the
+		// accessibility tree. Measured — the tree held no node for the marker
+		// even with role="img" on it (#84). A title is what a pointer user
+		// actually gets, and the panel is the surface a screen reader reads.
+		span.setAttribute("title", markerLabel(this.count));
+
+		// Obsidian's own icons rather than an emoji (#85): an emoji is painted by
+		// the system font in its own colours, so it cannot follow the theme, and
+		// it is drawn differently on every platform. The two states differ by
+		// glyph and colour rather than by opacity — "you may comment here" and
+		// "there are comments here" are different things.
+		const icon = span.createSpan({ cls: "inline-comment-marker-icon" });
+		setIcon(icon, commented ? MARKER_ICON : ADD_ICON);
+
 		const badge = this.showCount ? countBadgeText(this.count) : null;
 		if (badge !== null) span.createSpan({ cls: "inline-comment-marker-count", text: badge });
 		return span;

@@ -8,16 +8,36 @@
 
 /* Fixed width, and the count laid over it rather than beside it: the badge
    changes as threads are opened and resolved, and a marker that grew with it
-   would push the note's text sideways while it is being read (#68). */
+   would push the note's text sideways while it is being read (#68).
+
+   Colour rather than opacity tells the two states apart, now that they are two
+   different icons (#85): a themed glyph can be coloured from the theme, which
+   an emoji never could. */
 .inline-comment-marker {
 	position: relative;
-	display: inline-block;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
 	width: 1.5em;
 	font-size: 0.75em;
 	line-height: inherit;
-	text-align: center;
-	opacity: 0.35;
-	transition: opacity 100ms ease-in-out;
+	color: var(--text-faint);
+	transition: color 100ms ease-in-out;
+}
+
+.inline-comment-marker .svg-icon {
+	width: 1.25em;
+	height: 1.25em;
+}
+
+.inline-comment-marker:hover {
+	color: var(--text-muted);
+}
+
+/* A line that already carries an open comment, in the same colour as its
+   highlight so the two read as one thing. */
+.inline-comment-marker-active {
+	color: var(--ic-highlight, var(--text-accent));
 }
 
 .inline-comment-marker-count {
@@ -33,15 +53,6 @@
 	font-weight: var(--font-semibold);
 	line-height: 1.35;
 	text-align: center;
-}
-
-.inline-comment-marker:hover {
-	opacity: 1;
-}
-
-/* A line that already carries an open comment stays visible without hover. */
-.inline-comment-marker-active {
-	opacity: 0.9;
 }
 
 .inline-comment-composer {
