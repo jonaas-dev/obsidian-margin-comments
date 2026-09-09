@@ -97,12 +97,18 @@ describe("comment count in the gutter", () => {
 				),
 		);
 
-	/** What a screen reader would hear, per marker, in document order. */
+	/**
+	 * The tooltip on each marker, in document order.
+	 *
+	 * A title rather than an aria-label: CodeMirror marks the whole gutter
+	 * `aria-hidden`, so nothing in it reaches a screen reader whatever role it
+	 * carries (#84). This is what a pointer user gets.
+	 */
 	const labels = (): Promise<string[]> =>
 		page.evaluate(() =>
 			(Array.from(document.querySelectorAll(".inline-comment-marker-active")) as HTMLElement[])
 				.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
-				.map((m) => m.getAttribute("aria-label") ?? ""),
+				.map((m) => m.getAttribute("title") ?? ""),
 		);
 
 	/**
@@ -169,7 +175,8 @@ describe("comment count in the gutter", () => {
 	});
 
 	it("leaves a line carrying one thread as a bare icon", async () => {
-		// A badge saying "1" tells the reader nothing the icon does not.
+		// A badge saying "1" tells the reader nothing the icon does not; the
+		// tooltip says it, because that is where the exact number lives.
 		expect(await badges()).toEqual(["", "", ""]);
 		expect(await labels()).toEqual([
 			"1 comment on this line",
