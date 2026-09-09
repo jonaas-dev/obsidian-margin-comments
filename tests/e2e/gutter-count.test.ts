@@ -17,9 +17,9 @@ const BODY = ["alpha line", "beta line", "gamma line"].join("\n");
  * assertion reads the editor's gutter rather than the panel's cards.
  *
  * The several-threads state is reached by commenting separate lines and then
- * joining them, which is how it arises in use: a line cannot be given a second
- * thread directly — clicking or commanding on a commented line shows the thread
- * that is already there.
+ * joining them. Editing a note into that shape is the case the count exists for,
+ * and it exercises the re-anchoring on the way; #75 has since made a line's
+ * second thread reachable directly, which `second-thread.test.ts` covers.
  */
 describe("comment count in the gutter", () => {
 	/* eslint-disable @typescript-eslint/no-explicit-any */
