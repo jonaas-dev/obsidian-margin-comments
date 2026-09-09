@@ -50,16 +50,48 @@ describe("all-notes view", () => {
 	let page: any;
 	/* eslint-enable @typescript-eslint/no-explicit-any */
 
-	/** Count every sidecar read the plugin makes from here on. */
+	/**
+	 * Count sidecars actually opened from here on.
+	 *
+	 * At the adapter, not at `getCommentsForFile`. That method is cached, so
+	 * counting calls to it counts callers rather than reads — and any unrelated
+	 * one inflates the number without a file being touched, which is how this
+	 * came apart: the counter read 4 where the test wanted 1, in a full run,
+	 * passing on its own and on a re-run (#94). The index is skipped because it
+	 * is read to list the notes, which is the thing being shown to cost nothing.
+	 *
+	 * The cache is not touched here. Emptying it mid-run made things worse, not
+	 * better: a render still in flight re-read two sidecars the moment it was
+	 * cleared, and the count depended on how far that render had got. Where a
+	 * test needs a note to be cold, it evicts that one note, settled, below.
+	 */
 	async function watchReads(): Promise<void> {
-		await page.evaluate(() => {
+		await page.evaluate(async () => {
 			const storage = window.app.plugins.plugins["inline-comments"].storage;
 			if (window.__reads === undefined) {
-				const original = storage.getCommentsForFile.bind(storage);
-				storage.getCommentsForFile = (path: string) => {
-					window.__reads++;
+				const adapter = storage.adapter;
+				const original = adapter.read.bind(adapter);
+				adapter.read = (path: string) => {
+					// Our sidecars only. The adapter belongs to the whole app, and
+					// Obsidian reads its own .obsidian/app.json and appearance.json
+					// through it at moments of its own choosing — which is what made
+					// this count 2 instead of 0 about one run in three.
+					if (path.startsWith(".inline-comments/") && !path.endsWith("_index.json")) {
+						window.__reads++;
+					}
 					return original(path);
 				};
+				window.__reads = 0;
+			}
+
+			// Wait for the plugin to go quiet before zeroing. Work started before
+			// this call — a debounced refresh, a render still resolving — lands
+			// afterwards and is counted against whatever the test does next. That
+			// is the flake in #94: two sidecars, sometimes, arriving late.
+			for (let quiet = 0; quiet < 3; ) {
+				const before = window.__reads;
+				await new Promise((r) => setTimeout(r, 150));
+				quiet = window.__reads === before ? quiet + 1 : 0;
 			}
 			window.__reads = 0;
 		});
@@ -123,9 +155,25 @@ describe("all-notes view", () => {
 		vault?.remove();
 	});
 
+	/**
+	 * Load the index and let it be memoised before any read count is taken.
+	 *
+	 * `loadIndex` rebuilds from every sidecar when the index file cannot be read
+	 * or parsed. That is correct — the index is a derived cache, never the source
+	 * of truth — but it is two sidecar reads in this vault, and it is what made
+	 * the count below come out as 2 roughly one run in five (#94). What is being
+	 * tested is what listing costs *with* an index, not what a rebuild costs.
+	 */
+	async function primeIndex(): Promise<void> {
+		await page.evaluate(async () => {
+			await window.app.plugins.plugins["inline-comments"].storage.getCommentSummaries();
+		});
+	}
+
 	it("lists every commented note without opening a single sidecar", async () => {
 		// The whole point of the counts living in the index: switching to the
 		// vault view must not pay for one read per commented note.
+		await primeIndex();
 		await watchReads();
 		await setScope("vault");
 
@@ -163,7 +211,38 @@ describe("all-notes view", () => {
 		expect((await sectionPaths()).at(-1)).toBe(RENAMED);
 	});
 
+	/** Forget one note, so a test that is about opening it starts cold. */
+	async function forget(filePath: string): Promise<void> {
+		await page.evaluate((path: string) => {
+			window.app.plugins.plugins["inline-comments"].storage.cache.delete(path);
+		}, filePath);
+	}
+
+	it("cannot be moved by a caller that hits the cache", async () => {
+		// The counter's own guard, and the whole point of counting at the
+		// adapter. Asking for a note's comments three times opens the sidecar
+		// once; if this ever reads 3, the counter is measuring callers again and
+		// every assertion below is about the wrong thing.
+		await primeIndex();
+		await forget(ALPHA);
+		await watchReads();
+		const opened = await page.evaluate(async (path: string) => {
+			const storage = window.app.plugins.plugins["inline-comments"].storage;
+			await storage.getCommentsForFile(path);
+			const afterFirst = window.__reads;
+			await storage.getCommentsForFile(path);
+			await storage.getCommentsForFile(path);
+			return { afterFirst, afterThree: window.__reads };
+		}, ALPHA);
+		expect(opened).toEqual({ afterFirst: 1, afterThree: 1 });
+	});
+
 	it("reads a note only when its section is opened", async () => {
+		// Cold on purpose: the cache lives as long as the session, so whether
+		// expanding opens a sidecar otherwise depends on which earlier test
+		// happened to load this note first.
+		await primeIndex();
+		await forget(ALPHA);
 		await watchReads();
 		await page.locator(".inline-comment-section-head").first().click();
 		await page.waitForTimeout(700);
