@@ -774,9 +774,15 @@
    Which thread the marker just pointed at, so the panel answers the question
    that clicking a marker asks. */
 
+/* Selection is the accent; hover is a neutral tint. They used to be the same
+   declaration — `--background-modifier-hover` on both — so a hovered card was
+   indistinguishable from the selected one and two cards read as active at once
+   (#102). Fallback before color-mix, for the reason given at the top of this
+   file. */
 .inline-comment-card.is-selected {
-	background-color: var(--background-modifier-hover);
-	box-shadow: inset 2px 0 0 0 var(--text-accent);
+	background-color: var(--background-modifier-active-hover);
+	background-color: color-mix(in srgb, var(--text-accent) 10%, transparent);
+	box-shadow: inset 3px 0 0 0 var(--text-accent);
 }
 
 .inline-comment-panel-header .inline-comment-action {

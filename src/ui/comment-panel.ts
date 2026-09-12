@@ -141,6 +141,20 @@ export class CommentPanelView extends ItemView {
 		card.scrollIntoView({ block: "nearest", behavior: "smooth" });
 	}
 
+	/**
+	 * Forget where the reader arrived from.
+	 *
+	 * Selection answers "this is the thread you just clicked in the note", and
+	 * that stops being true the moment they start reading the panel instead. It
+	 * used to survive until the next repaint, so it went on pointing at a thread
+	 * long after it meant anything (#102).
+	 */
+	private clearSelection(): void {
+		if (this.pendingSelection === null) return;
+		this.pendingSelection = null;
+		for (const card of this.cards.values()) card.removeClass("is-selected");
+	}
+
 	async render(): Promise<void> {
 		if (this.host.scope() === "vault") await this.loadVault();
 		else this.active = await this.host.loadActive();
@@ -188,6 +202,9 @@ export class CommentPanelView extends ItemView {
 		container.setAttribute("aria-label", "Inline comments");
 		this.cards.clear();
 		this.resetCardScope();
+
+		// Any deliberate press in the panel does the same.
+		container.addEventListener("pointerdown", () => this.clearSelection());
 
 		const header = container.createDiv({ cls: "inline-comment-panel-header" });
 		if (this.host.scope() === "vault") {
@@ -325,6 +342,11 @@ export class CommentPanelView extends ItemView {
 	private renderCard(parent: HTMLElement, thread: Thread, filePath: string): HTMLElement {
 		const card = renderThreadCard(parent, thread, filePath, this.app, this.cardScope, this.host, {
 			onReveal: () => this.host.revealThread(thread),
+		});
+		// Reaching a different card is the reader turning their attention to the
+		// panel, which is exactly when the arrival marker has served its purpose.
+		card.addEventListener("mouseenter", () => {
+			if (thread.root.id !== this.pendingSelection) this.clearSelection();
 		});
 		this.cards.set(thread.root.id, card);
 		return card;
