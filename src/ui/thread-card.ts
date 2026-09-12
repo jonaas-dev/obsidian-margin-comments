@@ -33,6 +33,17 @@ export interface CardOptions {
 	 * take you to.
 	 */
 	onReveal?: () => void;
+	/**
+	 * The note as it stands, so the quote can show what the comment points at
+	 * rather than what it was made on.
+	 *
+	 * Without it the card quoted the stored anchor forever: a comment on an
+	 * empty line still said "Empty line" after the line was written on, and one
+	 * that moved through the fuzzy stage still quoted the words it used to sit
+	 * on (#115). #34 settled this for reading mode already — the document as it
+	 * stands is what the reader will find when they jump there.
+	 */
+	doc?: string;
 }
 
 const SHOW_MORE = "Show more";
@@ -71,6 +82,24 @@ function iconButton(parent: HTMLElement, options: IconButtonOptions): HTMLElemen
 	return button;
 }
 
+/**
+ * The text a thread points at now, falling back to what it was made on.
+ *
+ * No span means no current text to read, which covers an orphaned thread by
+ * construction: buildThreads sets `orphaned` and nulls `position` from the same
+ * failed match. A separate orphan check here read as more careful and was
+ * redundant — a negative that removed it changed no outcome, which is how it
+ * was found. An orphaned card keeps its stored words on purpose: that card
+ * already explains itself, and showing nothing would be worse than showing
+ * history. Same for a card drawn without the document at all.
+ */
+function currentText(thread: Thread, doc: string | undefined): string {
+	if (doc === undefined || thread.position === null || thread.end === null) {
+		return thread.root.anchor.selectedText;
+	}
+	return doc.slice(thread.position, thread.end);
+}
+
 /** Bind Enter to send and Shift+Enter to break the line. See keyIntent. */
 function submitOnEnter(input: HTMLTextAreaElement, submit: () => void, cancel: () => void): void {
 	input.addEventListener("keydown", (event) => {
@@ -103,7 +132,7 @@ export function renderThreadCard(
 	// An empty line has no text to quote, and the card used to render the blank:
 	// 263x30px of nothing with the accent rule beside it, and an accessible name
 	// reading `Go to "" in the note` (#97). What is named instead is the line.
-	const quoted = thread.root.anchor.selectedText;
+	const quoted = currentText(thread, options.doc);
 	const placeholder = quoted === "" ? emptyLineLabel(document.documentElement.lang) : null;
 	const quote = reveal
 		? card.createEl("button", {

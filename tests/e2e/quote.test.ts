@@ -141,6 +141,71 @@ describe("the quoted text", () => {
 		expect(clamped.title).toBe(450);
 	});
 
+	it("follows the line once an empty one is written on (#115)", async () => {
+		// "Empty line" is a placeholder this plugin invented, not the reader's
+		// words. Measured before: the line read "Ahora esta linea tiene texto"
+		// and the card still said "Empty line".
+		await page.evaluate(() => {
+			const editor = window.app.workspace.getLeavesOfType("markdown")[0].view.editor!;
+			editor.replaceRange("Ahora la línea tiene texto", { line: 4, ch: 0 }, { line: 4, ch: 0 });
+		});
+		await page.waitForTimeout(1600);
+
+		const texts = (await quotes()).map((q) => q.text);
+		expect(texts).not.toContain("Empty line");
+		expect(texts).toContain("Ahora la línea tiene texto");
+	});
+
+	it("follows a phrase that was rewritten under the comment (#115)", async () => {
+		// The case that proves this is not only about the placeholder: the quote
+		// came from the stored anchor, so a comment the re-anchoring found again
+		// still quoted the words it used to sit on.
+		//
+		// One letter inside a long phrase, deliberately: destroying the text
+		// outright orphans the comment, which is a different case with a
+		// different right answer (below). This edit is small enough that the
+		// anchor survives and lands on text that now reads differently.
+		await commentOn("tener contexto alrededor", 6, "Sobre una frase larga.");
+		expect((await quotes()).map((q) => q.text)).toContain("tener contexto alrededor");
+
+		await page.evaluate(() => {
+			const editor = window.app.workspace.getLeavesOfType("markdown")[0].view.editor!;
+			const line = editor.getLine(5);
+			editor.replaceRange(line.replace("contexto", "contexta"), { line: 5, ch: 0 }, { line: 5, ch: line.length });
+		});
+		await page.waitForTimeout(1800);
+
+		const texts = (await quotes()).map((q) => q.text);
+		expect(texts).toContain("tener contexta alrededor");
+		expect(texts).not.toContain("tener contexto alrededor");
+
+		// And it is still anchored, not orphaned — otherwise the assertion above
+		// would be about the fallback rather than about the live slice.
+		const orphans = await page.evaluate(
+			() => document.querySelectorAll(".inline-comment-card.is-orphaned").length,
+		);
+		expect(orphans).toBe(0);
+	});
+
+	it("keeps the stored words on an orphaned thread (#115)", async () => {
+		// There is no current span to read, and that card already explains
+		// itself. Showing nothing there would be worse than showing history.
+		await page.evaluate(() => {
+			const editor = window.app.workspace.getLeavesOfType("markdown")[0].view.editor!;
+			const line = editor.getLine(2);
+			editor.replaceRange("Nada de esto se parece a lo que había antes aquí.", { line: 2, ch: 0 }, { line: 2, ch: line.length });
+		});
+		await page.waitForTimeout(1800);
+
+		const orphaned: string[] = await page.evaluate(() =>
+			Array.from(document.querySelectorAll(".inline-comment-card.is-orphaned")).map((c) =>
+				(c.querySelector(".inline-comment-quote")?.textContent ?? "").trim(),
+			),
+		);
+		expect(orphaned.length).toBeGreaterThan(0);
+		expect(orphaned.every((t) => t.length > 0)).toBe(true);
+	});
+
 	it("gives a short quote no tooltip clutter it does not need", async () => {
 		// Every quote carrying a title would put a tooltip on text that is fully
 		// visible, which is noise.

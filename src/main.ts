@@ -775,7 +775,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		}
 
 		this.popoverFile = filePath;
-		this.popover?.open(thread, filePath, this.lineRect(view, line));
+		this.popover?.open(thread, filePath, this.lineRect(view, line), view.state.doc.toString());
 	}
 
 	/** Screen rect of a line, for anchoring the popover. */
