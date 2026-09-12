@@ -252,7 +252,7 @@ export class CommentPanelView extends ItemView {
 
 		const list = container.createDiv({ cls: "inline-comment-list", attr: { role: "list" } });
 		for (const thread of threads) {
-			const card = this.renderCard(list, thread, active.filePath);
+			const card = this.renderCard(list, thread, active.filePath, active.doc);
 			card.setAttribute("role", "listitem");
 			if (!thread.orphaned) {
 				card.addEventListener("click", () => this.host.revealThread(thread));
@@ -314,7 +314,7 @@ export class CommentPanelView extends ItemView {
 		);
 		const body = wrapper.createDiv({ cls: "inline-comment-section-body" });
 		for (const thread of threads) {
-			const card = this.renderCard(body, thread, section.filePath);
+			const card = this.renderCard(body, thread, section.filePath, data.doc);
 			if (!thread.orphaned) {
 				card.addEventListener("click", () => this.host.openThreadInNote(section.filePath, thread));
 			}
@@ -357,9 +357,15 @@ export class CommentPanelView extends ItemView {
 		this.addChild(this.cardScope);
 	}
 
-	private renderCard(parent: HTMLElement, thread: Thread, filePath: string): HTMLElement {
+	private renderCard(
+		parent: HTMLElement,
+		thread: Thread,
+		filePath: string,
+		doc: string,
+	): HTMLElement {
 		const card = renderThreadCard(parent, thread, filePath, this.app, this.cardScope, this.host, {
 			onReveal: () => this.host.revealThread(thread),
+			doc,
 		});
 		// Reaching a different card is the reader turning their attention to the
 		// panel, which is exactly when the arrival marker has served its purpose.
