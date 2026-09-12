@@ -24,7 +24,7 @@ export class ThreadPopover extends Component {
 		super();
 	}
 
-	open(thread: Thread, filePath: string, anchorRect: AnchorRect): void {
+	open(thread: Thread, filePath: string, anchorRect: AnchorRect, doc?: string): void {
 		this.close();
 
 		const el = document.body.createDiv({ cls: "inline-comment-popover" });
@@ -34,6 +34,7 @@ export class ThreadPopover extends Component {
 		renderThreadCard(el, thread, filePath, this.app, this.cardScope, this.actions, {
 			alwaysOpen: true,
 			onReplied: () => this.close(),
+			doc,
 		});
 
 		this.position(anchorRect);
