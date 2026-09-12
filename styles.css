@@ -296,6 +296,14 @@
 	text-align: center;
 }
 
+/* Only ever under the "nothing here yet" state, so it reads as the next step
+   rather than as permanent chrome. */
+.inline-comment-empty-hint {
+	margin-top: var(--ic-gap-xs);
+	color: var(--text-faint);
+	font-size: var(--font-smallest);
+}
+
 /* ---- Vault sections ----
    One row per commented note, collapsed. The row is the control, so it takes
    the whole width and reads as a list item rather than a button. */
