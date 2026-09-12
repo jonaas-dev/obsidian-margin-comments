@@ -287,7 +287,12 @@ function startEditing(
 
 	body.hide();
 	showMore.hide();
+	// Where the body was, not at the end of the parent. A root comment's parent
+	// is the whole card, so appending put the box under every reply and under
+	// the reply field — the text being edited and the box editing it separated
+	// by the entire conversation (#99).
 	const editor = parent.createDiv({ cls: "inline-comment-editor" });
+	body.insertAdjacentElement("afterend", editor);
 	const textarea = editor.createEl("textarea", {
 		cls: "inline-comment-editor-input",
 		attr: { "aria-label": "Edit comment" },
