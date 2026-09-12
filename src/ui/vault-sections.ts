@@ -58,8 +58,17 @@ export function vaultEmptyStateMessage(filter: ThreadFilter): string {
 
 export const PANEL_SCOPES: readonly PanelScope[] = ["note", "vault"];
 
+/**
+ * Short on purpose, and in Obsidian's own words.
+ *
+ * "This note" / "All notes" needed 80px of a 300px panel header once the
+ * control got back the room its arrow needs (#103), and at 200px that left the
+ * note's own name 59px — under the share #72 measured it needs. "Note" and
+ * "Vault" say the same thing in a third of the width, and "vault" is the word
+ * the app uses for the same idea everywhere else.
+ */
 export function scopeLabel(scope: PanelScope): string {
-	return scope === "note" ? "This note" : "All notes";
+	return scope === "note" ? "Note" : "Vault";
 }
 
 /** Read back a persisted scope, tolerating anything that is not one. */
