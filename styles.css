@@ -268,7 +268,8 @@
 	flex: 1;
 	min-width: 0;
 	height: auto;
-	padding: var(--ic-gap-xs) var(--ic-gap-sm);
+	padding-top: var(--ic-gap-xs);
+	padding-bottom: var(--ic-gap-xs);
 	font-size: var(--font-smallest);
 }
 
@@ -285,10 +286,16 @@
    One row per commented note, collapsed. The row is the control, so it takes
    the whole width and reads as a list item rather than a button. */
 
+/* Only the vertical padding is ours. Obsidian's .dropdown reserves the right
+   side for the arrow it draws as a background image, and overriding `padding`
+   wholesale took that room away — so "This note" rendered with the arrow on top
+   of its last glyph (#103). Nothing was overflowing: scrollWidth equalled
+   clientWidth, the control was simply narrower than its own label needs. */
 .inline-comment-scope {
 	flex: none;
 	height: auto;
-	padding: var(--ic-gap-xs) var(--ic-gap-sm);
+	padding-top: var(--ic-gap-xs);
+	padding-bottom: var(--ic-gap-xs);
 	font-size: var(--font-smallest);
 }
 
@@ -565,6 +572,12 @@
 	display: flex;
 }
 
+/* No font-size of its own, and that is the whole fix (#101). It carried
+   --font-smallest while the send button beside it sized from the card's
+   inherited font: the same 1.9em in two different ems, so the button came out
+   25px against the field's 20px. Inheriting puts both in one context, and it
+   also stops the place you write a reply being the smallest text in the card —
+   it measured 10.4px against the bodies above it. */
 .inline-comment-replybox-input {
 	flex: 1;
 	min-height: 1.9em;
@@ -575,7 +588,6 @@
 	background-color: var(--background-modifier-form-field);
 	color: var(--text-normal);
 	font-family: inherit;
-	font-size: var(--font-smallest);
 	line-height: 1.4;
 	resize: none;
 	overflow-y: auto;
