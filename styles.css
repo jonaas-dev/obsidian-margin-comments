@@ -143,6 +143,18 @@
 	border-radius: var(--radius-s);
 }
 
+/* Every rule that styles a <button> the plugin draws is scoped through an
+   ancestor of ours rather than written as a lone class. Obsidian styles
+   `button:not(.clickable-icon)` at specificity (0,1,1), which beats (0,1,0), so
+   a single class silently loses -- background, colour, padding and
+   justify-content included. Icon-only buttons take the `clickable-icon` class
+   instead, which is what that :not() exclusion is for. Measured in #96: five
+   families of button were being painted by Obsidian, not by this file.
+
+   Cards live in the panel *and* in the popover, so anything inside one scopes
+   through .inline-comment-card; panel furniture scopes through
+   .inline-comment-panel. */
+
 /* ---- Touch ----
    Set on the panel when the plugin is running on a touch device. Everything
    here is about the size of a target, not about how it looks: 44px is the
@@ -212,7 +224,7 @@
 	padding: 0 var(--ic-gap-sm) var(--ic-gap-xs);
 }
 
-.inline-comment-filter {
+.inline-comment-panel .inline-comment-filter {
 	display: flex;
 	flex: 1;
 	min-width: 0;
@@ -230,12 +242,12 @@
 	cursor: pointer;
 }
 
-.inline-comment-filter:hover {
+.inline-comment-panel .inline-comment-filter:hover {
 	background-color: var(--background-modifier-hover);
 	color: var(--text-normal);
 }
 
-.inline-comment-filter.is-active {
+.inline-comment-panel .inline-comment-filter.is-active {
 	background-color: var(--background-modifier-hover);
 	color: var(--text-normal);
 	font-weight: var(--font-medium);
@@ -280,7 +292,7 @@
 	font-size: var(--font-smallest);
 }
 
-.inline-comment-section-head {
+.inline-comment-panel .inline-comment-section-head {
 	display: flex;
 	align-items: center;
 	gap: var(--ic-gap-xs);
@@ -296,7 +308,7 @@
 	cursor: pointer;
 }
 
-.inline-comment-section-head:hover {
+.inline-comment-panel .inline-comment-section-head:hover {
 	background-color: var(--background-modifier-hover);
 }
 
@@ -373,6 +385,10 @@
    with it. */
 .inline-comment-card .inline-comment-quote {
 	width: 100%;
+	/* Obsidian's button rule brings justify-content: center, and this is a flex
+	   container — so the commented text sat in the middle of the card from the
+	   moment #33 made the quote a button. text-align alone does not undo it. */
+	justify-content: flex-start;
 	box-shadow: none;
 	background-color: transparent;
 	border: none;
@@ -452,7 +468,7 @@
 	mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
 }
 
-.inline-comment-showmore {
+.inline-comment-card .inline-comment-showmore {
 	background: none;
 	border: none;
 	box-shadow: none;
@@ -579,7 +595,7 @@
 	display: flex;
 }
 
-.inline-comment-send {
+.inline-comment-card .inline-comment-send {
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -598,7 +614,7 @@
 	height: 0.95em;
 }
 
-.inline-comment-send:hover {
+.inline-comment-card .inline-comment-send:hover {
 	background-color: var(--interactive-accent-hover);
 }
 
