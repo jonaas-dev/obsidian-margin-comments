@@ -344,7 +344,13 @@ function startEditing(
 	});
 	textarea.value = comment.content;
 
+	let onOutsidePress: ((event: MouseEvent) => void) | null = null;
+
 	const finish = (): void => {
+		if (onOutsidePress) {
+			document.removeEventListener("mousedown", onOutsidePress);
+			onOutsidePress = null;
+		}
 		editor.remove();
 		body.show();
 		// Only if there was one to begin with: is-available records that decision,
@@ -375,6 +381,30 @@ function startEditing(
 
 	editor.addEventListener("click", (event) => event.stopPropagation());
 	submitOnEnter(textarea, save, finish);
+
+	// A press outside commits, it does not discard.
+	//
+	// Editing works on text that already exists, so losing an edit loses a
+	// change to something real. The box had no rule at all before: a press
+	// elsewhere in the panel left it open, and a press in the note made it
+	// vanish with the draft inside it, because the panel repainted and took the
+	// box with it (#114). Committing makes closing safe, and Escape and Cancel
+	// stay the explicit way to throw a change away.
+	//
+	// `save` already declines an empty or unchanged body, so this closes quietly
+	// when there is nothing to keep.
+	//
+	// Deferred a tick for the same reason the composer defers: the click that
+	// opened this box is still propagating, and binding now would close it
+	// immediately. The composer cancels on an outside press rather than
+	// committing, deliberately — a new comment has nothing to preserve and an
+	// empty one is a mis-click.
+	window.setTimeout(() => {
+		onOutsidePress = (event: MouseEvent): void => {
+			if (!editor.contains(event.target as Node)) save();
+		};
+		document.addEventListener("mousedown", onOutsidePress);
+	}, 0);
 
 	textarea.focus();
 	textarea.setSelectionRange(textarea.value.length, textarea.value.length);
