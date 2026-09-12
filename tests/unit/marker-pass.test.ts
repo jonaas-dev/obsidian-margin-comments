@@ -34,6 +34,11 @@ function comment(doc: string, at: number, over = 20, extra: Partial<Comment> = {
 	};
 }
 
+/** A whole-line comment: from === to is how createAnchor is asked for one. */
+function lineComment(doc: string, at: number, extra: Partial<Comment> = {}): Comment {
+	return { ...comment(doc, at, 0, extra), anchor: createAnchor(doc, at, at) };
+}
+
 describe("resolveMarkers", () => {
 	const doc = "first line\nsecond line\nthird line\nfourth line";
 
@@ -48,23 +53,45 @@ describe("resolveMarkers", () => {
 		expect([...resolveMarkers(doc, [first, last]).counts.keys()].sort()).toEqual([1, 4]);
 	});
 
-	it("spans the whole line, not the commented words", () => {
+	it("spans the whole line for a whole-line comment", () => {
 		const at = doc.indexOf("second");
-		const [range] = resolveMarkers(doc, [comment(doc, at, 6)]).ranges;
-		expect(doc.slice(range.from, range.to)).toBe("second line");
+		const [line] = resolveMarkers(doc, [lineComment(doc, at)]).lines;
+		expect(doc.slice(line.from, line.to)).toBe("second line");
+	});
+
+	it("spans only the words for a comment made on a selection", () => {
+		// #100. Tinting the line claimed the comment was about all of it, which
+		// is the claim reading mode already refuses to make.
+		const at = doc.indexOf("second");
+		const pass = resolveMarkers(doc, [comment(doc, at, 6)]);
+		expect(pass.lines).toEqual([]);
+		expect(doc.slice(pass.ranges[0].from, pass.ranges[0].to)).toBe("second");
+	});
+
+	it("shows both layers when a line carries both kinds", () => {
+		const at = doc.indexOf("second");
+		const pass = resolveMarkers(doc, [lineComment(doc, at), comment(doc, at, 6)]);
+		expect(doc.slice(pass.lines[0].from, pass.lines[0].to)).toBe("second line");
+		expect(doc.slice(pass.ranges[0].from, pass.ranges[0].to)).toBe("second");
 	});
 
 	it("runs the last line to the end of the document", () => {
-		const [range] = resolveMarkers(doc, [comment(doc, doc.indexOf("fourth"), 6)]).ranges;
-		expect(range.to).toBe(doc.length);
-		expect(doc.slice(range.from, range.to)).toBe("fourth line");
+		const [line] = resolveMarkers(doc, [lineComment(doc, doc.indexOf("fourth"))]).lines;
+		expect(line.to).toBe(doc.length);
+		expect(doc.slice(line.from, line.to)).toBe("fourth line");
 	});
 
-	it("returns one range per line however many comments share it", () => {
+	it("returns one line span however many line comments share it", () => {
 		const at = doc.indexOf("second");
-		const pass = resolveMarkers(doc, [comment(doc, at, 6), comment(doc, at + 7, 4)]);
+		const pass = resolveMarkers(doc, [lineComment(doc, at), lineComment(doc, at + 2)]);
 		// Two tints on one line stack into a darker band that reads as a state
 		// nobody defined.
+		expect(pass.lines).toHaveLength(1);
+	});
+
+	it("merges two marks over the same words into one", () => {
+		const at = doc.indexOf("second");
+		const pass = resolveMarkers(doc, [comment(doc, at, 6), comment(doc, at, 6, { id: "twin" })]);
 		expect(pass.ranges).toHaveLength(1);
 	});
 
@@ -98,6 +125,13 @@ describe("resolveMarkers", () => {
 		const early = comment(doc, 0, 5);
 		const ranges = resolveMarkers(doc, [late, early]).ranges;
 		expect(ranges.map((r) => r.from)).toEqual([0, doc.indexOf("fourth")]);
+	});
+
+	it("returns line spans in document order too", () => {
+		const late = lineComment(doc, doc.indexOf("fourth"));
+		const early = lineComment(doc, 0);
+		const lines = resolveMarkers(doc, [late, early]).lines;
+		expect(lines.map((r) => r.from)).toEqual([0, doc.indexOf("fourth")]);
 	});
 
 	it("ignores resolved roots and replies", () => {

@@ -92,6 +92,10 @@
    "marked" in any theme rather than a fixed yellow. --ic-highlight is set only
    when the reader has chosen a colour of their own; unset, the accent wins, so
    the default costs no plugin code at all. */
+/* Two layers, and the weights are the point (#100). The line tint says "there
+   is a comment on this line"; the mark says "on *these words*". A comment on a
+   selection no longer tints its line at all — that claimed it was about the
+   whole line, which is the claim reading mode already refuses to make. */
 .inline-comment-active-line {
 	/* Order is the mechanism: a renderer without color-mix drops the second
 	   declaration and keeps this one. Every desktop build at minAppVersion 1.5
@@ -183,6 +187,16 @@
 .inline-comment-panel.is-touch .inline-comment-replybox {
 	opacity: 1;
 	display: flex;
+}
+
+/* The stronger of the two layers: it names particular words, so it carries the
+   accent rather than a flat surface tint. Fallback before color-mix for the
+   reason given above. */
+.inline-comment-active-range {
+	border-radius: var(--radius-s);
+	background-color: var(--background-modifier-border);
+	background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 28%, transparent);
+	box-shadow: inset 0 -1px 0 0 var(--ic-highlight, var(--text-accent));
 }
 
 /* ---- Comment panel ----------------------------------------------------
