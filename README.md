@@ -11,7 +11,7 @@ Everything below is implemented and covered by tests against a real Obsidian.
 - **Inline comments** — hover the left edge of a line to comment on it, or select text and comment on the selection
 - **Threaded replies** — reply to any comment; threads are flat, one level deep
 - **Edit, resolve, delete** — edit in place, resolve and reopen a thread, delete with the reply cascade named up front
-- **Line highlights and gutter markers** — lines carrying open comments are marked in the editor, with a count when a line carries several
+- **Highlights and gutter markers** — a comment on a selection marks those words; a comment on a whole line tints the line; a line with both shows both. The gutter marker carries a count when a line has several threads
 - **Keyboard and screen readers** — every control is reachable without a mouse, with a focus ring from your theme and a name on every icon
 - **Popover or panel** — click a marker to read the thread beside the line, or in the sidebar when it is open
 - **Sidebar panel** — filter by all / open / resolved, sort by document order, date or last activity, with counts that match what is shown

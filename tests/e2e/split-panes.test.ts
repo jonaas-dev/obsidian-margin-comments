@@ -28,13 +28,18 @@ describe("a note open in two panes", () => {
 	let page: any;
 	/* eslint-enable @typescript-eslint/no-explicit-any */
 
-	/** Markers and highlights per editor, in pane order. */
+	/**
+	 * Markers and highlights per editor, in pane order.
+	 *
+	 * The highlight here is the *mark* layer: this suite comments on a word, and
+	 * since #100 a word comment marks its range rather than tinting its line.
+	 */
 	const perPane = (): Promise<{ markers: number[]; highlights: number[] }> =>
 		page.evaluate(() => {
 			const editors = Array.from(document.querySelectorAll(".cm-editor"));
 			return {
 				markers: editors.map((e) => e.querySelectorAll(".inline-comment-marker-active").length),
-				highlights: editors.map((e) => e.querySelectorAll(".inline-comment-active-line").length),
+				highlights: editors.map((e) => e.querySelectorAll(".inline-comment-active-range").length),
 			};
 		});
 
@@ -117,9 +122,10 @@ describe("a note open in two panes", () => {
 
 		const lines = await page.evaluate(() =>
 			Array.from(document.querySelectorAll(".cm-editor")).map((editor) => {
-				const marked = editor.querySelector(".inline-comment-active-line");
+				const marked = editor.querySelector(".inline-comment-active-range");
+				const line = marked?.closest(".cm-line") ?? null;
 				const all = Array.from(editor.querySelectorAll(".cm-line"));
-				return marked ? all.indexOf(marked) : -1;
+				return line ? all.indexOf(line) : -1;
 			}),
 		);
 		// The commented text moved down a line, in both.
