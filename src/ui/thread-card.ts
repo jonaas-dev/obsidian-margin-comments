@@ -52,8 +52,13 @@ interface IconButtonOptions {
  * thing a screen reader or a tooltip has to go on.
  */
 function iconButton(parent: HTMLElement, options: IconButtonOptions): HTMLElement {
+	// clickable-icon is Obsidian's own class for icon buttons, and its form-button
+	// rule `button:not(.clickable-icon)` excludes it on purpose. Without it that
+	// rule wins on specificity (0,1,1 against a lone class) and paints every icon
+	// with a filled chip and no hover response — measured, the pencil's colour and
+	// background were identical with the pointer on it and off it (#96).
 	const button = parent.createEl("button", {
-		cls: `inline-comment-action${options.extraClass ? ` ${options.extraClass}` : ""}`,
+		cls: `clickable-icon inline-comment-action${options.extraClass ? ` ${options.extraClass}` : ""}`,
 		attr: { "aria-label": options.label, title: options.label },
 	});
 	setIcon(button, options.icon);
