@@ -355,7 +355,7 @@ export class CommentPanelView extends ItemView {
 		// A close control on the panel itself: the ribbon icon toggles it, but a
 		// panel with no visible way out reads as stuck.
 		const close = header.createEl("button", {
-			cls: "inline-comment-action",
+			cls: "clickable-icon inline-comment-action",
 			attr: { "aria-label": "Close comments panel", title: "Close comments panel" },
 		});
 		setIcon(close, "x");
