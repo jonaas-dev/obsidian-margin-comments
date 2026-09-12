@@ -738,8 +738,15 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		});
 
 		const lineInfo = view.state.doc.line(line);
+		// Open threads only. A resolved one is settled, and the editor shows no
+		// sign of it — resolveMarkers skips resolved comments, so there is no
+		// marker and no highlight. Letting it answer meant a line that looked
+		// uncommented offered the "add a comment" affordance and then produced a
+		// thread the reader could not see, with no way to comment those words
+		// again (#113). A hole in #75, which made the selection decide but kept
+		// handing over every thread.
 		const anchored = threads
-			.filter((thread) => thread.position !== null && thread.end !== null)
+			.filter((thread) => !thread.root.resolved && thread.position !== null && thread.end !== null)
 			.map((thread) => ({ id: thread.root.id, from: thread.position!, to: thread.end! }));
 		const selection = view.state.selection.main;
 

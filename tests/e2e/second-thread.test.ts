@@ -148,4 +148,70 @@ describe("asking for a comment", () => {
 		expect(anchors).toContain("LINE:eta theta iota on the third line");
 		expect(anchors).not.toContain("epsilon");
 	});
+
+	it("lets a resolved thread's own words be commented again (#113)", async () => {
+		// A resolved thread is settled, and the editor shows no sign of it: no
+		// marker, no highlight. It used to answer anyway, so selecting inside its
+		// words opened nothing and quietly selected the resolved card instead —
+		// measured, { composer: false, popover: false, selectedInPanel: 1 }.
+		// A word nothing has touched yet, so the only thread on it is the one
+		// this test resolves.
+		await askOn("epsilon", 2);
+		expect(await composerOpen()).toBe(true);
+		await submit("a comment that will be resolved");
+
+		await page.evaluate(async () => {
+			const plugin = window.app.plugins.plugins["inline-comments"];
+			const comments = await plugin.storage.getCommentsForFile("note.md");
+			const onEpsilon = comments.filter(
+				(c: { anchor: { selectedText: string } }) => c.anchor.selectedText === "epsilon",
+			);
+			for (const c of onEpsilon) await plugin.setResolved(c, true);
+		});
+		await page.waitForTimeout(1400);
+
+		// Selecting inside its words has to compose, not surface the settled one.
+		await askOn("epsilon", 2);
+		expect(await composerOpen()).toBe(true);
+		expect(await popoverOpen()).toBe(false);
+		await submit("a second comment, after the first was resolved");
+
+		expect(storedAnchors().filter((a) => a === "epsilon")).toHaveLength(2);
+	});
+
+	it("composes on a line whose only threads are resolved (#113)", async () => {
+		// No selection at all. The line looks uncommented — nothing is marked —
+		// so the affordance has to lead somewhere.
+		await page.evaluate(async () => {
+			const plugin = window.app.plugins.plugins["inline-comments"];
+			const comments = await plugin.storage.getCommentsForFile("note.md");
+			for (const c of comments) {
+				if (c.parentId === null) await plugin.setResolved(c, true);
+			}
+		});
+		await page.waitForTimeout(1400);
+
+		await askOn(null, 2);
+		expect(await composerOpen()).toBe(true);
+		await dismiss();
+	});
+
+	it("shows the marker's own thread again once it is reopened (#113)", async () => {
+		// The other half: reopening restores the behaviour #75 established, so
+		// the exclusion is about resolved state and not about forgetting threads.
+		await page.evaluate(async () => {
+			const plugin = window.app.plugins.plugins["inline-comments"];
+			const comments = await plugin.storage.getCommentsForFile("note.md");
+			const beta = comments.find(
+				(c: { anchor: { selectedText: string } }) => c.anchor.selectedText === "beta",
+			);
+			await plugin.setResolved(beta, false);
+		});
+		await page.waitForTimeout(1400);
+
+		await askOn("beta", 1);
+		expect(await composerOpen()).toBe(false);
+		expect(await popoverOpen()).toBe(true);
+		await dismiss();
+	});
 });
