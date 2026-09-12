@@ -17,8 +17,35 @@ export interface MarkerPass {
 	 * one thread, so the keys are still "the commented lines".
 	 */
 	counts: Map<number, number>;
-	/** One span per highlighted line, in document order. */
+	/**
+	 * One span per line carrying a whole-line comment, in document order.
+	 *
+	 * Only whole-line comments. A comment made on a selection marks that
+	 * selection instead (#100): tinting its whole line claimed the comment was
+	 * about all of it, which is the claim reading mode already refuses to make.
+	 */
+	lines: LineRange[];
+	/**
+	 * The anchored span of each comment made on a selection, in document order,
+	 * with overlaps merged.
+	 *
+	 * Merged because two marks over the same characters nest, and two tints add
+	 * up into a darker band that reads as a state nobody defined — the same
+	 * reason the line spans are keyed by line.
+	 */
 	ranges: LineRange[];
+}
+
+/** Spans in document order, with anything overlapping or touching joined. */
+export function mergeRanges(spans: LineRange[]): LineRange[] {
+	const sorted = [...spans].sort((a, b) => a.from - b.from || a.to - b.to);
+	const merged: LineRange[] = [];
+	for (const span of sorted) {
+		const last = merged[merged.length - 1];
+		if (last && span.from <= last.to) last.to = Math.max(last.to, span.to);
+		else merged.push({ ...span });
+	}
+	return merged;
 }
 
 /**
@@ -64,9 +91,11 @@ function lineIndexAt(starts: number[], offset: number): number {
 export function resolveMarkers(doc: string, comments: Comment[]): MarkerPass {
 	const starts = lineStarts(doc);
 	const counts = new Map<number, number>();
-	// Keyed by line start: two comments on one line must not stack two tints,
-	// which reads as a different, darker state rather than as two comments.
-	const ranges = new Map<number, LineRange>();
+	// Keyed by line start: two line comments on one line must not stack two
+	// tints, which reads as a different, darker state rather than as two
+	// comments.
+	const lines = new Map<number, LineRange>();
+	const ranges: LineRange[] = [];
 
 	for (const comment of comments) {
 		if (comment.resolved || comment.parentId !== null) continue;
@@ -75,16 +104,21 @@ export function resolveMarkers(doc: string, comments: Comment[]): MarkerPass {
 		if (!match) continue;
 
 		const index = lineIndexAt(starts, match.from);
-		const line = index + 1;
-		counts.set(line, (counts.get(line) ?? 0) + 1);
-		const from = starts[index];
-		const to = index + 1 < starts.length ? starts[index + 1] - 1 : doc.length;
-		ranges.set(from, { from, to });
+		counts.set(index + 1, (counts.get(index + 1) ?? 0) + 1);
+
+		if (comment.anchor.isLineComment) {
+			const from = starts[index];
+			const to = index + 1 < starts.length ? starts[index + 1] - 1 : doc.length;
+			lines.set(from, { from, to });
+		} else {
+			ranges.push({ from: match.from, to: match.to });
+		}
 	}
 
 	return {
 		counts,
 		// CodeMirror requires ranges in document order.
-		ranges: [...ranges.values()].sort((a, b) => a.from - b.from),
+		lines: [...lines.values()].sort((a, b) => a.from - b.from),
+		ranges: mergeRanges(ranges),
 	};
 }

@@ -824,7 +824,12 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			updateGutterEnabled(view, this.settings.showGutterIcons);
 			updateCountEnabled(view, this.settings.showCommentCount);
 			updateCommentedLines(view, markers.counts);
-			updateHighlights(view, this.settings.showLineHighlights ? markers.ranges : []);
+			updateHighlights(
+				view,
+				this.settings.showLineHighlights
+					? { lines: markers.lines, ranges: markers.ranges }
+					: { lines: [], ranges: [] },
+			);
 		}
 	}
 }
