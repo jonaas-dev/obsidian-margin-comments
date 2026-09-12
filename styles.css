@@ -410,8 +410,38 @@
 	color: var(--text-muted);
 	font-size: var(--font-smallest);
 	line-height: 1.4;
-	overflow-wrap: anywhere;
 	cursor: pointer;
+}
+
+/* Two lines at most, then an ellipsis. The quote says *which* text a comment is
+   about; it is not a place to reproduce it. A 450-character selection used to
+   render as one 30px line that left the card entirely — `overflow-wrap` could
+   not save it, because a flex item's min-width defaults to auto and it never
+   shrinks far enough to start wrapping (#98). */
+/* One line, ending in an ellipsis. The quote says *which* text a comment is
+   about; it is not a place to reproduce it. A 450-character selection used to
+   render as one 30px line whose scrollWidth was 2834px against a 256px box —
+   it left the card entirely, and `overflow-wrap` did nothing to stop it,
+   because a flex item's min-width defaults to auto and it never shrinks far
+   enough to start wrapping. So: min-width to let it shrink, and nowrap plus
+   text-overflow to end it honestly.
+
+   Not -webkit-line-clamp for two lines, which would be nicer: Chrome
+   blockifies the element (`display: -webkit-box` computed as `flow-root`, on
+   the flex item and on a nested span alike) and the clamp did nothing at all
+   through three attempts. A reliable one line beats an unreliable two. */
+.inline-comment-card .inline-comment-quote-text {
+	flex: 1;
+	min-width: 0;
+	overflow: hidden;
+	white-space: nowrap;
+	text-overflow: ellipsis;
+}
+
+/* Not the reader's words, so it does not borrow their weight. */
+.inline-comment-card .inline-comment-quote-text.is-placeholder {
+	color: var(--text-faint);
+	font-style: italic;
 }
 
 .inline-comment-card button.inline-comment-quote:hover {
