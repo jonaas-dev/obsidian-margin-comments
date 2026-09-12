@@ -1,4 +1,4 @@
-import { Component, ItemView, setIcon, type WorkspaceLeaf } from "obsidian";
+import { Component, ItemView, Platform, setIcon, type WorkspaceLeaf } from "obsidian";
 import type { Comment, PanelScope, SortOrder } from "../types";
 import { buildThreads, type Thread } from "./threads";
 import {
@@ -10,6 +10,7 @@ import {
 	type ThreadFilter,
 } from "./panel-filter";
 import { SORT_ORDERS, sortLabel, sortThreads, toSortOrder } from "./panel-sort";
+import { hotkeyHint, type Binding } from "./hotkey";
 import {
 	PANEL_SCOPES,
 	countSections,
@@ -64,6 +65,13 @@ export interface PanelHost extends ThreadActions {
 	 * here so a test can turn it on and watch the panel redraw for it.
 	 */
 	touch(): boolean;
+	/**
+	 * The binding in effect for "Add comment to selection", or null when the
+	 * reader has cleared it. Injected for the same reason as `touch`.
+	 */
+	addCommentBinding(): Binding | null;
+	/** The command's own name, for when there is no binding to name instead. */
+	addCommentName(): string;
 }
 
 export class CommentPanelView extends ItemView {
@@ -228,7 +236,17 @@ export class CommentPanelView extends ItemView {
 
 		const threads = filterThreads(all, filter);
 		if (threads.length === 0) {
-			this.renderEmpty(container, emptyStateMessage(filter));
+			// The hint only where it helps: a note with nothing in it yet. Saying
+			// how to add a comment under "no resolved comments" answers a
+			// question nobody asked, and a permanent hint would tax every reader
+			// forever to teach one thing once.
+			this.renderEmpty(
+				container,
+				emptyStateMessage(filter),
+				all.length === 0
+					? hotkeyHint(this.host.addCommentBinding(), Platform.isMacOS, this.host.addCommentName())
+					: null,
+			);
 			return;
 		}
 
@@ -455,9 +473,11 @@ export class CommentPanelView extends ItemView {
 		});
 	}
 
-	private renderEmpty(container: HTMLElement, message: string): void {
+	private renderEmpty(container: HTMLElement, message: string, hint: string | null = null): void {
 		// An empty state that says what to do next, so it never reads as broken.
-		container.createDiv({ cls: "inline-comment-empty", text: message });
+		const empty = container.createDiv({ cls: "inline-comment-empty" });
+		empty.createDiv({ text: message });
+		if (hint) empty.createDiv({ cls: "inline-comment-empty-hint", text: hint });
 	}
 }
 

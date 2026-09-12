@@ -31,6 +31,10 @@ import {
 import { resolveMarkers } from "./editor/marker-pass";
 import { lineHighlights, updateHighlights } from "./editor/line-highlight";
 import { commentIntent } from "./editor/comment-intent";
+import type { Binding } from "./ui/hotkey";
+
+/** Named once: the panel quotes it when no key is bound to it. */
+const ADD_COMMENT_NAME = "Add comment to selection";
 import { highlightsInBlock } from "./reading/reading-highlights";
 import { paintReadingMarks, READING_BLOCK_CLASS } from "./reading/reading-marks";
 import { debounce, type Debounced } from "./debounce";
@@ -146,6 +150,8 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 					openThreadInNote: (filePath, thread) => void this.openThreadInNote(filePath, thread),
 					notifyOrphans: (count) => this.announceOrphans(count),
 					touch: () => this.touch,
+					addCommentBinding: () => this.addCommentBinding(),
+					addCommentName: () => ADD_COMMENT_NAME,
 				}),
 		);
 
@@ -170,7 +176,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 
 		this.addCommand({
 			id: "add-comment",
-			name: "Add comment to selection",
+			name: ADD_COMMENT_NAME,
 			// Mod+Shift+M is free in a default Obsidian, and every binding here is
 			// a default: Obsidian's hotkey settings override all of them.
 			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "M" }],
@@ -591,6 +597,31 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	 * plugin agrees and a test can flip it and re-render.
 	 */
 	touch = Platform.isMobile;
+
+	/**
+	 * The binding in effect for the add-comment command, or null.
+	 *
+	 * The reader's own if they set one, the plugin's default otherwise, and null
+	 * when they have cleared it — at which point the panel names the command
+	 * instead of a key that would do nothing. The hotkey manager is not in
+	 * Obsidian's published types, so this stays defensive.
+	 */
+	private addCommentBinding(): Binding | null {
+		const manager = (
+			this.app as unknown as {
+				hotkeyManager?: {
+					getHotkeys?(id: string): Binding[] | null;
+					getDefaultHotkeys?(id: string): Binding[] | null;
+				};
+			}
+		).hotkeyManager;
+		if (!manager) return null;
+
+		const id = `${this.manifest.id}:add-comment`;
+		const custom = manager.getHotkeys?.(id);
+		if (custom) return custom[0] ?? null;
+		return manager.getDefaultHotkeys?.(id)?.[0] ?? null;
+	}
 
 	/** Redraw once typing stops. See the editor-change registration. */
 	private refreshSoon: Debounced = debounce(() => void this.refresh(), REFRESH_DEBOUNCE_MS);
