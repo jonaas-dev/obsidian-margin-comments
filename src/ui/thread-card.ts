@@ -4,6 +4,7 @@ import { formatRelativeTime, type Thread } from "./threads";
 import { orphanExplanation } from "./orphans";
 import { wasEdited } from "./comment-actions";
 import { keyIntent } from "./key-intent";
+import { emptyLineLabel } from "./labels";
 import { shouldClamp } from "./clamp";
 
 export interface ThreadActions {
@@ -99,16 +100,31 @@ export function renderThreadCard(
 	// A button only when there is somewhere to go: an orphaned thread's text is
 	// no longer in the note, so a control promising to reveal it would lie.
 	const reveal = options.onReveal !== undefined && !thread.orphaned;
+	// An empty line has no text to quote, and the card used to render the blank:
+	// 263x30px of nothing with the accent rule beside it, and an accessible name
+	// reading `Go to "" in the note` (#97). What is named instead is the line.
+	const quoted = thread.root.anchor.selectedText;
+	const placeholder = quoted === "" ? emptyLineLabel(document.documentElement.lang) : null;
 	const quote = reveal
 		? card.createEl("button", {
 				cls: "inline-comment-quote",
-				attr: { "aria-label": `Go to "${thread.root.anchor.selectedText}" in the note` },
+				attr: {
+					"aria-label": placeholder
+						? `Go to the ${placeholder.toLowerCase()} in the note`
+						: `Go to "${quoted}" in the note`,
+				},
 			})
 		: card.createDiv({ cls: "inline-comment-quote" });
 	if (thread.orphaned) {
 		setIcon(quote.createSpan({ cls: "inline-comment-quote-icon" }), "unlink");
 	}
-	quote.createSpan({ text: thread.root.anchor.selectedText });
+	// The full text as a tooltip, because the visible quote is clamped (#98) and
+	// a long selection has to stay readable somewhere.
+	if (!placeholder) quote.setAttribute("title", quoted);
+	quote.createSpan({
+		cls: placeholder ? "inline-comment-quote-text is-placeholder" : "inline-comment-quote-text",
+		text: placeholder ?? quoted,
+	});
 	if (reveal) {
 		quote.addEventListener("click", (event) => {
 			// The card navigates on click too; without this the reveal runs twice.
