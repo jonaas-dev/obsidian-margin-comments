@@ -244,7 +244,7 @@ export class CommentPanelView extends ItemView {
 			// forever to teach one thing once.
 			this.renderEmpty(
 				container,
-				emptyStateMessage(filter),
+				emptyStateMessage(filter, this.host.touch()),
 				all.length === 0
 					? hotkeyHint(this.host.addCommentBinding(), Platform.isMacOS, this.host.addCommentName())
 					: null,

@@ -118,3 +118,20 @@ describe("toThreadFilter", () => {
 		expect(toThreadFilter(3)).toBe("all");
 	});
 });
+
+describe("emptyStateMessage on touch (#126)", () => {
+	it("describes a tap rather than a hover", () => {
+		const message = emptyStateMessage("all", true);
+		expect(message).not.toMatch(/hover/i);
+		expect(message).toContain("Tap a line");
+	});
+
+	it("keeps the pointer wording off touch", () => {
+		expect(emptyStateMessage("all", false)).toContain("Hover the left edge");
+	});
+
+	it("leaves the filtered messages alone, which say nothing about how to comment", () => {
+		expect(emptyStateMessage("open", true)).toBe(emptyStateMessage("open", false));
+		expect(emptyStateMessage("resolved", true)).toBe(emptyStateMessage("resolved", false));
+	});
+});
