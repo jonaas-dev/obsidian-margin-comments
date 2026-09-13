@@ -13,7 +13,23 @@ export function reservedBottom(doc: Document = document, win: Window = window): 
 	const style = win.getComputedStyle(bar);
 	const rect = bar.getBoundingClientRect();
 	if (style.display === "none" || style.visibility === "hidden" || rect.height === 0) return 0;
+	// The bar hides by sliding below the screen while still displayed, and from
+	// there the gap below still counted it as a few pixels of bar (#160).
+	if (rect.top >= win.innerHeight) return 0;
 	return Math.max(0, Math.round(win.innerHeight - rect.top + GAP));
+}
+
+/**
+ * The on-screen keyboard as Obsidian's mobile app reports it.
+ *
+ * On Android the app keeps the keyboard from shrinking the visual viewport: it
+ * publishes the height as `--keyboard-height` on the root element and shrinks
+ * its own container instead. A sheet that trusted the viewport alone opened
+ * behind the keyboard (#159).
+ */
+export function keyboardHeight(doc: Document = document, win: Window = window): number {
+	const value = parseFloat(win.getComputedStyle(doc.documentElement).getPropertyValue("--keyboard-height"));
+	return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
 /** Pin a composer or popover to the bottom of the screen as a sheet. */
@@ -22,6 +38,7 @@ export function placeSheet(el: HTMLElement, win: Window = window): void {
 	const { bottom, maxHeight } = sheetPosition({
 		innerHeight: win.innerHeight,
 		visibleHeight: visual ? visual.height : win.innerHeight,
+		keyboardHeight: keyboardHeight(win.document, win),
 		reservedBottom: reservedBottom(win.document, win),
 	});
 	el.addClass("is-sheet");
@@ -30,4 +47,33 @@ export function placeSheet(el: HTMLElement, win: Window = window): void {
 	el.style.bottom = `${bottom}px`;
 	el.style.maxHeight = `${maxHeight}px`;
 	el.dataset.placement = "sheet";
+}
+
+/**
+ * Call `onChange` whenever the space a floating widget is placed in may have moved.
+ *
+ * A browser reports the keyboard through `visualViewport`. Obsidian's mobile app
+ * reports it by rewriting the root element's style, and hides its navigation bar
+ * by toggling a body class and sliding the bar away, so both are watched too.
+ * The slide is waited out as well: when the class changes the bar has not moved
+ * yet. Returns the function that stops watching.
+ */
+export function watchPlacement(onChange: () => void, win: Window = window): () => void {
+	const doc = win.document;
+	const visual = win.visualViewport;
+	visual?.addEventListener("resize", onChange);
+	visual?.addEventListener("scroll", onChange);
+	const observer = new MutationObserver(onChange);
+	observer.observe(doc.documentElement, { attributes: true, attributeFilter: ["style"] });
+	observer.observe(doc.body, { attributes: true, attributeFilter: ["class"] });
+	const onTransitionEnd = (event: TransitionEvent): void => {
+		if (event.target instanceof Element && event.target.matches(".mobile-navbar")) onChange();
+	};
+	doc.addEventListener("transitionend", onTransitionEnd, true);
+	return () => {
+		visual?.removeEventListener("resize", onChange);
+		visual?.removeEventListener("scroll", onChange);
+		observer.disconnect();
+		doc.removeEventListener("transitionend", onTransitionEnd, true);
+	};
 }

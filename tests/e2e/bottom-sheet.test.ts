@@ -64,6 +64,8 @@ describe("the bottom sheet", () => {
 			plugin.composer?.close();
 			plugin.popover?.close();
 			document.querySelector(".mobile-navbar.qa-fake")?.remove();
+			document.documentElement.style.removeProperty("--keyboard-height");
+			document.body.removeClass("is-hidden-nav");
 		});
 		await page.waitForTimeout(300);
 	}
@@ -151,6 +153,57 @@ describe("the bottom sheet", () => {
 		});
 		expect(m.bottom).toBeLessThanOrEqual(m.keyboardTop);
 		expect(m.innerHeight).toBeGreaterThan(m.keyboardTop);
+	});
+
+	it("moves above a keyboard Obsidian reports only through --keyboard-height (#159)", async () => {
+		// Obsidian's Android app leaves visualViewport at full height and publishes
+		// the keyboard on the root element, after the composer has already opened.
+		await openOn(COMMENTED - 5, ".inline-comment-composer");
+		const m = await page.evaluate(async () => {
+			const bottom = () =>
+				(document.querySelector(".inline-comment-composer") as HTMLElement).getBoundingClientRect().bottom;
+			const before = bottom();
+			document.documentElement.style.setProperty("--keyboard-height", "300px");
+			await new Promise((r) => setTimeout(r, 300));
+			const withKeyboard = bottom();
+			document.documentElement.style.removeProperty("--keyboard-height");
+			await new Promise((r) => setTimeout(r, 300));
+			return {
+				before,
+				withKeyboard,
+				after: bottom(),
+				innerHeight: window.innerHeight,
+				visual: window.visualViewport?.height,
+			};
+		});
+		// Guard: the viewport really is untouched, as it is on Android.
+		expect(m.visual).toBe(m.innerHeight);
+		expect(Math.round(m.before)).toBe(m.innerHeight);
+		expect(Math.round(m.withKeyboard)).toBe(m.innerHeight - 300);
+		expect(Math.round(m.after)).toBe(m.innerHeight);
+		await closeAll();
+	});
+
+	it("drops the navigation bar's reservation once the bar slides away (#160)", async () => {
+		await page.evaluate(() => {
+			const bar = document.body.createDiv({ cls: "mobile-navbar qa-fake" });
+			Object.assign(bar.style, { position: "fixed", left: "0", right: "0", bottom: "20px", height: "52px" });
+		});
+		await openOn(COMMENTED - 5, ".inline-comment-composer");
+		const m = await page.evaluate(async () => {
+			const bottom = () =>
+				(document.querySelector(".inline-comment-composer") as HTMLElement).getBoundingClientRect().bottom;
+			const withBar = bottom();
+			// As Obsidian hides it: a body class, and the bar moved just below the
+			// screen, 2px past the edge as measured on a Pixel 8.
+			(document.querySelector(".mobile-navbar.qa-fake") as HTMLElement).style.bottom = "-54px";
+			document.body.addClass("is-hidden-nav");
+			await new Promise((r) => setTimeout(r, 300));
+			return { withBar, hidden: bottom(), innerHeight: window.innerHeight };
+		});
+		expect(m.withBar).toBeLessThanOrEqual(m.innerHeight - 20 - 52);
+		expect(Math.round(m.hidden)).toBe(m.innerHeight);
+		await closeAll();
 	});
 
 	it("is not a sheet when the flag is off", async () => {
