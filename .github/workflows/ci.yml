@@ -76,7 +76,12 @@ jobs:
         # an addition here and fail the PR for someone else's change.
         run: python3 ops/check-secrets.py --range "$BASE_SHA...$HEAD_SHA"
 
+      # The squash-merge commit GitHub creates on main carries the author's
+      # public profile name, which we do not control. PR commits are already
+      # checked here and by the pre-commit hook, so only run the identity guard
+      # on pull requests.
       - name: Verify maintainer identity
+        if: github.event_name == 'pull_request'
         env:
           BASE_SHA: ${{ steps.range.outputs.base }}
           HEAD_SHA: ${{ steps.range.outputs.head }}
