@@ -119,3 +119,15 @@ describe("recovering an orphan", () => {
 		expect(original.anchor).toEqual(stored);
 	});
 });
+
+describe("OrphanNotice with the panel on screen (#143)", () => {
+	it("does not tell the reader to open a panel they are already looking at", () => {
+		const message = new OrphanNotice().take(1, true);
+		expect(message).toContain("1 comment lost its anchor");
+		expect(message).not.toContain("Open the comments panel");
+	});
+
+	it("still points to the panel when it is not on screen", () => {
+		expect(new OrphanNotice().take(2, false)).toContain("Open the comments panel to see which.");
+	});
+});

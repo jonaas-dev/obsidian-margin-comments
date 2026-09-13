@@ -34,11 +34,18 @@ export function filterLabel(filter: ThreadFilter): string {
 	}
 }
 
-/** What an empty list means depends on the filter; one generic line would lie. */
-export function emptyStateMessage(filter: ThreadFilter): string {
+/**
+ * What an empty list means depends on the filter; one generic line would lie.
+ *
+ * On touch the first step is a tap: there is no hover to describe, and the
+ * marker shows on the caret's line (#126).
+ */
+export function emptyStateMessage(filter: ThreadFilter, touch = false): string {
 	switch (filter) {
 		case "all":
-			return "Hover the left edge of a line to add the first comment.";
+			return touch
+				? "Tap a line, then the comment icon beside it, to add the first comment."
+				: "Hover the left edge of a line to add the first comment.";
 		case "open":
 			return "No open comments. Everything on this note is resolved.";
 		case "resolved":
