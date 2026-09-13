@@ -423,7 +423,10 @@ export class CommentPanelView extends ItemView {
 		counts: Record<ThreadFilter, number>,
 		selected: ThreadFilter,
 	): void {
-		const bar = container.createDiv({ cls: "inline-comment-filters", attr: { role: "group" } });
+		// Filter and sort share a wrapper so a panel with the width can put them on
+		// one row (#139); a narrow one still stacks them, which #72 measured.
+		const controls = container.createDiv({ cls: "inline-comment-controls" });
+		const bar = controls.createDiv({ cls: "inline-comment-filters", attr: { role: "group" } });
 
 		for (const filter of THREAD_FILTERS) {
 			const button = bar.createEl("button", {
@@ -440,7 +443,7 @@ export class CommentPanelView extends ItemView {
 			});
 		}
 
-		this.renderSortControl(container);
+		this.renderSortControl(controls);
 	}
 
 	/**
