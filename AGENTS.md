@@ -67,6 +67,17 @@ confirmed false positive by appending `# pragma: allowlist secret` or
 
 Once the toolchain lands (#1), extend `.githooks/pre-commit` with lint and typecheck.
 
+## Committer identity
+
+The published history must not contain the author's real name. Commits should be authored as `jonaas-dev` with a GitHub noreply address.
+
+GitHub's merge buttons write the resulting commit themselves, and they use the account's public profile name as author or committer. That name re-enters history unless:
+
+- the GitHub profile name is set to `jonaas-dev`; or
+- merges are done by fast-forwarding the reviewed branch to `main` (no merge commit authored by GitHub).
+
+If the real name appears in `main` again, rewrite it before the repository becomes public (`git filter-branch` or `git filter-repo`), and reset every local clone and open branch.
+
 ## Proving a check works
 
 **A check is not verified until you have watched it fail on bad input.** Confirming it
