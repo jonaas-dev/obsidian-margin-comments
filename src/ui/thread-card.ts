@@ -88,6 +88,34 @@ function iconButton(parent: HTMLElement, options: IconButtonOptions): HTMLElemen
 	return button;
 }
 
+interface TextButtonOptions {
+	text: string;
+	label: string;
+	onClick: () => void;
+	extraClass?: string;
+}
+
+/**
+ * A worded action, for the choices that end an edit.
+ *
+ * Words rather than icons (#138): a tick and a cross stacked beside the field
+ * were small, pale and easy to miss. Obsidian's own button, as in the composer,
+ * so both ways of writing a comment end the same way.
+ */
+function textButton(parent: HTMLElement, options: TextButtonOptions): HTMLElement {
+	const button = parent.createEl("button", {
+		cls: `inline-comment-btn${options.extraClass ? ` ${options.extraClass}` : ""}`,
+		text: options.text,
+		attr: { "aria-label": options.label },
+	});
+	button.addEventListener("click", (event) => {
+		// The card navigates on click.
+		event.stopPropagation();
+		options.onClick();
+	});
+	return button;
+}
+
 /**
  * The text a thread points at now, falling back to what it was made on.
  *
@@ -351,6 +379,9 @@ function startEditing(
 ): void {
 	if (parent.querySelector(".inline-comment-editor")) return;
 
+	// One text field at a time: the card's reply field hides while this is open (#138).
+	const card = parent.closest(".inline-comment-card");
+	card?.addClass("is-editing");
 	body.hide();
 	showMore.hide();
 	// Where the body was, not at the end of the parent. A root comment's parent
@@ -373,6 +404,7 @@ function startEditing(
 			onOutsidePress = null;
 		}
 		editor.remove();
+		card?.removeClass("is-editing");
 		body.show();
 		// Only if there was one to begin with: is-available records that decision,
 		// which the expanded state does not — an expanded body has no is-clipped.
@@ -392,13 +424,8 @@ function startEditing(
 	};
 
 	const buttons = editor.createDiv({ cls: "inline-comment-editor-actions" });
-	iconButton(buttons, { icon: "x", label: "Cancel edit", onClick: finish });
-	iconButton(buttons, {
-		icon: "check",
-		label: "Save changes",
-		extraClass: "inline-comment-action-save",
-		onClick: save,
-	});
+	textButton(buttons, { text: "Cancel", label: "Cancel edit", onClick: finish });
+	textButton(buttons, { text: "Save", label: "Save changes", onClick: save, extraClass: "mod-cta" });
 
 	editor.addEventListener("click", (event) => event.stopPropagation());
 	submitOnEnter(textarea, save, finish);
