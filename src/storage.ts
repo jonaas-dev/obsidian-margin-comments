@@ -1,5 +1,5 @@
 import { normalizePath } from "obsidian";
-import type { Comment } from "./types";
+import type { Comment, TextAnchor } from "./types";
 import { hashString, noteName } from "./utils";
 
 function basename(path: string): string {
@@ -63,24 +63,82 @@ function isEntry(value: unknown): value is IndexEntry {
 	return typeof entry?.hash === "string" && typeof entry.threads === "number";
 }
 
+/** A sidecar as parsed, before anything inside it is trusted. */
+interface RawSidecar {
+	filePath: unknown;
+	comments: unknown[];
+}
+
 /** The sidecar in `text`, or null when the text is not one. */
-function parseSidecar(text: string): Sidecar | null {
+function parseSidecar(text: string): RawSidecar | null {
 	try {
-		const parsed = JSON.parse(text) as Sidecar | null;
-		return Array.isArray(parsed?.comments) ? parsed : null;
+		const parsed = JSON.parse(text) as { comments?: unknown } | null;
+		return Array.isArray(parsed?.comments) ? (parsed as RawSidecar) : null;
 	} catch {
 		return null;
 	}
 }
 
+const isText = (value: unknown): value is string => typeof value === "string";
+const isNumber = (value: unknown): value is number =>
+	typeof value === "number" && Number.isFinite(value);
+
+function isAnchor(value: unknown): value is TextAnchor {
+	if (typeof value !== "object" || value === null) return false;
+	const anchor = value as Partial<TextAnchor>;
+	return (
+		isText(anchor.selectedText) &&
+		isText(anchor.textHash) &&
+		typeof anchor.isLineComment === "boolean" &&
+		isText(anchor.contextBefore) &&
+		isText(anchor.contextAfter) &&
+		isNumber(anchor.lineHint) &&
+		isNumber(anchor.startOffset) &&
+		isNumber(anchor.endOffset)
+	);
+}
+
+/**
+ * Whether `value` is a comment the plugin can use, stored under the note it claims.
+ *
+ * The rest of the plugin reads every field without checking, so one malformed comment
+ * took down every thread in its note (#195). A comment naming another note is invalid
+ * too: an edit would be written to that note's sidecar, where it does not exist.
+ */
+function isCommentOf(filePath: string, value: unknown): value is Comment {
+	if (typeof value !== "object" || value === null) return false;
+	const comment = value as Partial<Comment>;
+	return (
+		isText(comment.id) &&
+		comment.id !== "" &&
+		comment.filePath === filePath &&
+		isAnchor(comment.anchor) &&
+		isText(comment.content) &&
+		isText(comment.author) &&
+		isNumber(comment.createdAt) &&
+		isNumber(comment.updatedAt) &&
+		(comment.editedAt === undefined || isNumber(comment.editedAt)) &&
+		typeof comment.resolved === "boolean" &&
+		(comment.parentId === null || (isText(comment.parentId) && comment.parentId !== ""))
+	);
+}
+
 export interface StorageOptions {
 	/** Told once per unreadable sidecar, after its text has been kept at `keptAt`. */
 	onUnreadable?: (filePath: string, keptAt: string) => void;
+	/** Told once per sidecar holding invalid comments, after they were kept at `keptAt`. */
+	onInvalid?: (filePath: string, count: number, keptAt: string) => void;
 }
 
 /** Said when a note's comments could not be read, so the loss is visible and recoverable. */
 export function describeUnreadableSidecar(filePath: string, keptAt: string): string {
 	return `Comments for ${noteName(filePath)} could not be read. Their file was kept as ${keptAt}.`;
+}
+
+/** Said when some of a note's comments were set aside, so they are not silently gone. */
+export function describeInvalidComments(filePath: string, count: number, keptAt: string): string {
+	const [noun, verb] = count === 1 ? ["comment", "was"] : ["comments", "were"];
+	return `${count} ${noun} in ${noteName(filePath)} could not be read and ${verb} set aside in ${keptAt}.`;
 }
 
 export class CommentStorage {
@@ -178,10 +236,7 @@ export class CommentStorage {
 		const path = this.sidecarPath(filePath);
 		if (!(await this.adapter.exists(path))) {
 			const recovered = await this.recoverReplacement(path);
-			if (recovered) {
-				this.cache.set(filePath, recovered.comments);
-				return recovered.comments;
-			}
+			if (recovered) return this.accept(filePath, recovered);
 			// A stale index entry survives a half-finished sync. Clearing it here,
 			// where the miss is already paid for, keeps getCommentSummaries free of
 			// an existence check per note — which is the whole point of the index.
@@ -202,8 +257,29 @@ export class CommentStorage {
 			return [];
 		}
 
-		this.cache.set(filePath, sidecar.comments);
-		return sidecar.comments;
+		return this.accept(filePath, sidecar);
+	}
+
+	/**
+	 * Caches a note's valid comments and sets the others aside, rewriting the sidecar
+	 * without them. They are kept before the rewrite, so a crash in between leaves them
+	 * in two places rather than none.
+	 */
+	private async accept(filePath: string, sidecar: RawSidecar): Promise<Comment[]> {
+		const valid = sidecar.comments.filter((c): c is Comment => isCommentOf(filePath, c));
+		if (valid.length === sidecar.comments.length) {
+			this.cache.set(filePath, valid);
+			return valid;
+		}
+
+		const invalid = sidecar.comments.filter((c) => !isCommentOf(filePath, c));
+		const path = this.sidecarPath(filePath);
+		console.warn(`margin-comments: setting aside ${invalid.length} invalid comments from ${basename(path)}`);
+		const keptAt = normalizePath(`${path}.invalid-${Date.now()}`);
+		await this.adapter.write(keptAt, JSON.stringify({ filePath, comments: invalid }, null, 2));
+		await this.writeComments(filePath, valid);
+		this.options.onInvalid?.(filePath, invalid.length, keptAt);
+		return valid;
 	}
 
 	/**
@@ -234,7 +310,7 @@ export class CommentStorage {
 	}
 
 	/** A sidecar whose replacement was written but never moved into place, moved now. */
-	private async recoverReplacement(path: string): Promise<Sidecar | null> {
+	private async recoverReplacement(path: string): Promise<RawSidecar | null> {
 		const temporary = `${path}.tmp`;
 		if (!(await this.adapter.exists(temporary))) return null;
 		const sidecar = parseSidecar(await this.adapter.read(temporary));
@@ -416,10 +492,15 @@ export class CommentStorage {
 			// Skipped, not set aside: the note it belongs to is named inside the text
 			// that failed to parse, so it is set aside once that note is opened.
 			const sidecar = parseSidecar(await this.adapter.read(path).catch(() => ""));
-			if (!sidecar?.filePath) continue;
-			index[sidecar.filePath] = {
-				hash: hashString(sidecar.filePath),
-				...summarise(sidecar.comments),
+			if (!sidecar || !isText(sidecar.filePath)) continue;
+			const filePath = sidecar.filePath;
+			// A file not named after its own note was copied or renamed by hand. Indexed
+			// under the note it claims, the vault view would list a note whose sidecar does
+			// not exist.
+			if (path !== this.sidecarPath(filePath)) continue;
+			index[filePath] = {
+				hash: hashString(filePath),
+				...summarise(sidecar.comments.filter((c): c is Comment => isCommentOf(filePath, c))),
 			};
 		}
 		return index;
