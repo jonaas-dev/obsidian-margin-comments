@@ -1,8 +1,6 @@
 # AGENTS.md — obsidian-margin-comments
 
-Project-specific instructions. The cross-repo rules in `~/Repos/AGENTS.md` also apply
-(branch + PR, Conventional Commits in Spanish, PRs under 400 lines, pre-commit linting,
-WHY-only comments).
+Project-specific instructions for agents working on this repository.
 
 ## Language
 
@@ -11,9 +9,15 @@ identifiers, code comments, docstrings, CSS classes, file names, README, issues,
 request titles and bodies, and **commit messages**.
 
 Commit messages follow Conventional Commits, written in English: `feat: add threaded
-replies`, never `feat: añadir respuestas en hilo`. This overrides the Spanish-subject
-convention in `~/Repos/AGENTS.md` — that rule assumes a private repo, and this history
-gets published in full at 1.0, where a bilingual log is noise for every reader.
+replies`, never `feat: añadir respuestas en hilo`. This history gets published in full
+at 1.0, where a bilingual log is noise for every reader.
+
+## Workflow
+
+- Work on a branch and open a pull request; do not commit directly to `main`.
+- Keep pull requests small when possible, ideally under 400 lines.
+- Run the pre-commit hook (`sh ops/install-hooks.sh`) and the project's linting
+  before committing.
 
 ## What this is
 
@@ -34,6 +38,12 @@ vault root.
 - Register every event with `registerEvent()` and every interval with `registerInterval()`;
   tear everything down in `onunload()`.
 - No `console.log` left in shipped code.
+
+## Comments
+
+A comment only survives if it explains the **why**, not the **what**. Keep the reason
+for a non-obvious decision, a workaround, or a measured behaviour; remove comments
+that paraphrase the code, decorative separators, and commented-out code.
 
 ## Pre-commit hooks
 
@@ -395,7 +405,4 @@ a real fix that had not been committed yet — once caught only because the test
 followed exercised the reverted code. Commit or stash before resetting, and when a reset
 follows an experiment, check `git status` first to see what else is riding along.
 
-## Task tracking
 
-Work items live in the GitHub Project, not in this repo. The design document is kept
-outside the repo and is not published.

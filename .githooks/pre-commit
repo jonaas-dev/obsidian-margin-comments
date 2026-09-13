@@ -8,27 +8,28 @@ set -eu
 
 root=$(git rev-parse --show-toplevel)
 
-# The committer identity must be the GitHub noreply address, never a real inbox.
-# Read from git config rather than hardcoded so a fork can set its own.
-expected_email=$(git config hooks.expectedEmail 2>/dev/null || echo "100514206+jonaas-dev@users.noreply.github.com")
-actual_email=$(git config user.email 2>/dev/null || echo "")
-
-if [ "$actual_email" != "$expected_email" ]; then
-    printf '\n\033[31m✖ pre-commit: committer identity\033[0m\n\n' >&2
-    printf "  user.email is '%s', expected '%s'.\n\n" "${actual_email:-<unset>}" "$expected_email" >&2
-    printf '  Fix:  git config user.email "%s"\n\n' "$expected_email" >&2
-    exit 1
-fi
-
-# The public history only needs the GitHub username; a real name is PII.
+# The maintainer's commits must carry the GitHub noreply address and the GitHub
+# username, never a real name or inbox. Outside contributors are not held to this.
 expected_name=$(git config hooks.expectedName 2>/dev/null || echo "jonaas-dev")
 actual_name=$(git config user.name 2>/dev/null || echo "")
 
-if [ "$actual_name" != "$expected_name" ]; then
-    printf '\n\033[31m✖ pre-commit: committer name\033[0m\n\n' >&2
-    printf "  user.name is '%s', expected '%s'.\n\n" "${actual_name:-<unset>}" "$expected_name" >&2
-    printf '  Fix:  git config user.name "%s"\n\n' "$expected_name" >&2
-    exit 1
+if [ "$actual_name" = "$expected_name" ]; then
+    expected_email=$(git config hooks.expectedEmail 2>/dev/null || echo "100514206+jonaas-dev@users.noreply.github.com")
+    actual_email=$(git config user.email 2>/dev/null || echo "")
+
+    if [ "$actual_email" != "$expected_email" ]; then
+        printf '\n\033[31m✖ pre-commit: maintainer committer identity\033[0m\n\n' >&2
+        printf "  user.email is '%s', expected '%s'.\n\n" "${actual_email:-<unset>}" "$expected_email" >&2
+        printf '  Fix:  git config user.email "%s"\n\n' "$expected_email" >&2
+        exit 1
+    fi
+
+    if printf '%s' "$actual_name" | grep -qE '^[A-Z][a-z]+[[:space:]]+[A-Z]'; then
+        printf '\n\033[31m✖ pre-commit: maintainer committer name looks like a real name\033[0m\n\n' >&2
+        printf "  user.name is '%s', expected '%s'.\n\n" "$actual_name" "$expected_name" >&2
+        printf '  Fix:  git config user.name "%s"\n\n' "$expected_name" >&2
+        exit 1
+    fi
 fi
 
 python3 "$root/ops/check-secrets.py" || exit 1

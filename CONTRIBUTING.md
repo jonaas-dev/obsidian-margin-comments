@@ -19,16 +19,10 @@ sh ops/install-hooks.sh
 does not travel with the repository, so a fresh clone has no pre-commit protection
 until you run it. See the hooks section of [AGENTS.md](AGENTS.md) for what it blocks.
 
-**If you are not the maintainer**, tell the hook which address to expect before your
-first commit, otherwise it rejects every one of them:
-
-```sh
-git config hooks.expectedEmail "$(git config user.email)"
-```
-
-The check exists so the published history never carries a personal inbox. Use your
-own GitHub noreply address (`ID+username@users.noreply.github.com`, shown in GitHub
-under Settings → Emails) rather than a real one.
+**Identity checks only apply to the maintainer.** If your `user.name` is not
+`jonaas-dev`, the hook does not enforce a particular email or name. The scanner
+still blocks secrets and personal data (home paths, real email addresses in code,
+etc.) in the staged diff.
 
 ## Development vault
 

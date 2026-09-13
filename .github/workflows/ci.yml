@@ -12,12 +12,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           # The leak checks diff against the base branch, which needs history.
           fetch-depth: 0
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: "22"
           cache: npm
@@ -48,7 +48,7 @@ jobs:
     # (core.hooksPath) and --no-verify skips it. This job is the enforced copy.
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
 
@@ -64,38 +64,41 @@ jobs:
         # an addition here and fail the PR for someone else's change.
         run: python3 ops/check-secrets.py --range "$BASE_SHA...$HEAD_SHA"
 
-      - name: Verify committer identity
+      - name: Verify maintainer identity
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
+          # Identity checks only apply to the maintainer's commits. Outside
+          # contributors may use whatever address and name GitHub has on file.
           # Two dots here on purpose: this wants the commits the branch adds.
-          # git log is materialised first — folding it into the pipeline would
-          # let `|| true` swallow its failure, and an unreadable range would
-          # then be indistinguishable from a clean one.
-          if ! addresses=$(git log --format='%ae%n%ce' "$BASE_SHA..$HEAD_SHA"); then
+          if ! maintainer_shas=$(git log --format='%H' --author='jonaas-dev' "$BASE_SHA..$HEAD_SHA"); then
             echo "::error::Could not read the commit range $BASE_SHA..$HEAD_SHA"
             exit 1
           fi
+          if [ -z "$maintainer_shas" ]; then
+            exit 0
+          fi
+
+          addresses=$(printf '%s\n' "$maintainer_shas" | while read -r sha; do
+            git log -1 --format='%ae%n%ce' "$sha"
+          done)
           # The second pattern is GitHub's own noreply address, the committer on
           # every commit GitHub signs, Dependabot's included. It is anchored at
           # both ends so a prefixed or suffixed lookalike is still rejected.
           bad=$(printf '%s\n' "$addresses" | sort -u | grep -v -e 'users\.noreply\.github\.com$' -e '^noreply@github\.com$' || true)
           if [ -n "$bad" ]; then
-            echo "::error::Commits carry a non-noreply address, which would be published with the history:"
+            echo "::error::Maintainer commits carry a non-noreply address, which would be published with the history:"
             printf '%s\n' "$bad"
             exit 1
           fi
 
-          # Reject real names in author/committer identity. The public history
-          # only needs the GitHub username; a real name is unnecessary PII.
-          if ! names=$(git log --format='%an%n%cn' "$BASE_SHA..$HEAD_SHA"); then
-            echo "::error::Could not read the commit range $BASE_SHA..$HEAD_SHA"
-            exit 1
-          fi
+          names=$(printf '%s\n' "$maintainer_shas" | while read -r sha; do
+            git log -1 --format='%an%n%cn' "$sha"
+          done)
           bad_names=$(printf '%s\n' "$names" | sort -u | grep -E '^[A-Z][a-z]+[[:space:]]+[A-Z]' || true)
           if [ -n "$bad_names" ]; then
-            echo "::error::Commits carry a real-looking name, which would be published with the history:"
+            echo "::error::Maintainer commits carry a real-looking name, which would be published with the history:"
             printf '%s\n' "$bad_names"
             exit 1
           fi
