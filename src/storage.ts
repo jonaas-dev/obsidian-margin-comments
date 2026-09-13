@@ -65,10 +65,8 @@ function isEntry(value: unknown): value is IndexEntry {
 export class CommentStorage {
 	private cache = new Map<string, Comment[]>();
 	private index: Index | null = null;
-	/** Serialises writes per sidecar; interleaved writes would lose comments. */
+	/** Serialises each note's read, change and write; interleaved ones lose comments. */
 	private queues = new Map<string, Promise<unknown>>();
-	/** Notes whose comments are mid-move. See moveComments. */
-	private moving = new Set<string>();
 
 	constructor(private adapter: StorageAdapter) {}
 
@@ -91,7 +89,55 @@ export class CommentStorage {
 		return next;
 	}
 
+	/**
+	 * Runs work while holding the queue of every note it touches.
+	 *
+	 * The queues are taken in sorted order, not call order. A move holds two notes,
+	 * and two moves in opposite directions — a rename undone before the first one
+	 * finished — would otherwise each wait forever on the note the other holds.
+	 */
+	private exclusive<T>(filePaths: string[], work: () => Promise<T>): Promise<T> {
+		const [first, ...rest] = [...new Set(filePaths)].sort();
+		if (first === undefined) return work();
+		return this.enqueue(first, () => this.exclusive(rest, work));
+	}
+
+	/**
+	 * Reads a note's comments, changes them and writes the result in one turn of its
+	 * queue. Reading before the queue is what lost writes: two overlapping mutations
+	 * read the same list, and the second write replaced the first.
+	 *
+	 * `change` returns null to leave the note untouched. Resolves to the comments as
+	 * they were before the change.
+	 */
+	private mutate(
+		filePath: string,
+		change: (existing: Comment[]) => Comment[] | null,
+	): Promise<Comment[]> {
+		return this.exclusive([filePath], async () => {
+			const existing = await this.loadComments(filePath);
+			const next = change(existing);
+			if (next) await this.writeComments(filePath, next);
+			return existing;
+		});
+	}
+
+	/**
+	 * A note's comments, from the cache or its sidecar.
+	 *
+	 * A read that misses the cache waits its turn in the note's queue. Unqueued, a
+	 * read that started before a save could finish after it and cache the list as it
+	 * was, and the next save would build on that list and drop the first.
+	 */
 	async getCommentsForFile(filePath: string): Promise<Comment[]> {
+		return (
+			this.cache.get(filePath) ??
+			this.exclusive([filePath], () => this.loadComments(filePath))
+		);
+	}
+
+	/** The read itself, for code that already holds the note's queue. */
+	private async loadComments(filePath: string): Promise<Comment[]> {
 		const cached = this.cache.get(filePath);
 		if (cached) return cached;
 
@@ -124,24 +170,21 @@ export class CommentStorage {
 	}
 
 	async saveComment(comment: Comment): Promise<void> {
-		const existing = await this.getCommentsForFile(comment.filePath);
-		await this.writeComments(comment.filePath, [...existing, comment]);
+		await this.mutate(comment.filePath, (existing) => [...existing, comment]);
 	}
 
 	async updateComment(comment: Comment): Promise<void> {
-		const existing = await this.getCommentsForFile(comment.filePath);
-		await this.writeComments(
-			comment.filePath,
+		await this.mutate(comment.filePath, (existing) =>
 			existing.map((c) => (c.id === comment.id ? comment : c)),
 		);
 	}
 
 	async deleteComment(filePath: string, id: string): Promise<void> {
-		const existing = await this.getCommentsForFile(filePath);
 		// Deleting a thread root takes its replies with it: a reply whose root is
 		// gone can never be displayed or re-anchored.
-		const remaining = existing.filter((c) => c.id !== id && c.parentId !== id);
-		await this.writeComments(filePath, remaining);
+		await this.mutate(filePath, (existing) =>
+			existing.filter((c) => c.id !== id && c.parentId !== id),
+		);
 	}
 
 	/**
@@ -160,32 +203,28 @@ export class CommentStorage {
 	 * will not rename a note onto an existing one, so a sidecar there belongs to
 	 * a note that is already gone — its comments are orphaned, not disposable.
 	 *
-	 * A second move of the same note is refused while one is in flight, because
-	 * keeping the target's comments is what makes overlapping moves dangerous.
-	 * Obsidian emits a folder rename once for the folder and again for every
-	 * descendant, so the same note genuinely arrives twice; between the target
-	 * being written and the source being removed, the second mover reads the
-	 * comments off the still-present source and appends them to the target it
-	 * just found them in. Reproduced, and covered by a test that fails without
-	 * this line.
+	 * The whole move holds both notes' queues, because keeping the target's
+	 * comments is what makes overlapping moves dangerous. Obsidian emits a folder
+	 * rename once for the folder and again for every descendant, so the same note
+	 * genuinely arrives twice. Unqueued, the second mover read the comments off the
+	 * still-present source, between the target being written and the source being
+	 * removed, and appended them to the target it had just found them in. Queued,
+	 * it finds the source already empty.
 	 */
 	async moveComments(from: string, to: string): Promise<void> {
-		if (from === to || this.moving.has(from)) return;
+		if (from === to) return;
 
-		this.moving.add(from);
-		try {
-			const moving = await this.getCommentsForFile(from);
+		await this.exclusive([from, to], async () => {
+			const moving = await this.loadComments(from);
 			if (moving.length === 0) return;
 
-			const existing = await this.getCommentsForFile(to);
+			const existing = await this.loadComments(to);
 			await this.writeComments(to, [
 				...existing,
 				...moving.map((c) => ({ ...c, filePath: to })),
 			]);
 			await this.writeComments(from, []);
-		} finally {
-			this.moving.delete(from);
-		}
+		});
 	}
 
 	/**
@@ -197,10 +236,7 @@ export class CommentStorage {
 	 * being the last place they existed.
 	 */
 	async takeComments(filePath: string): Promise<Comment[]> {
-		const comments = await this.getCommentsForFile(filePath);
-		if (comments.length === 0) return [];
-		await this.writeComments(filePath, []);
-		return comments;
+		return this.mutate(filePath, (existing) => (existing.length === 0 ? null : []));
 	}
 
 	/**
@@ -211,34 +247,35 @@ export class CommentStorage {
 	 */
 	async restoreComments(filePath: string, comments: Comment[]): Promise<void> {
 		if (comments.length === 0) return;
-		const existing = await this.getCommentsForFile(filePath);
-		const known = new Set(existing.map((comment) => comment.id));
-		await this.writeComments(filePath, [
-			...existing,
-			...comments.filter((comment) => !known.has(comment.id)),
-		]);
+		await this.mutate(filePath, (existing) => {
+			const known = new Set(existing.map((comment) => comment.id));
+			return [...existing, ...comments.filter((comment) => !known.has(comment.id))];
+		});
 	}
 
+	/**
+	 * Replaces a note's comments on disk. Only safe inside that note's queue: it does
+	 * not take the queue itself, because every caller already holds it and taking it
+	 * again would wait on itself.
+	 */
 	private async writeComments(filePath: string, comments: Comment[]): Promise<void> {
-		return this.enqueue(filePath, async () => {
-			const path = this.sidecarPath(filePath);
+		const path = this.sidecarPath(filePath);
 
-			if (comments.length === 0) {
-				this.cache.delete(filePath);
-				if (await this.adapter.exists(path)) await this.adapter.remove(path);
-				await this.updateIndex((index) => {
-					delete index[filePath];
-				});
-				return;
-			}
-
-			await this.ensureDir();
-			const sidecar: Sidecar = { filePath, comments };
-			await this.adapter.write(path, JSON.stringify(sidecar, null, 2));
-			this.cache.set(filePath, comments);
+		if (comments.length === 0) {
+			this.cache.delete(filePath);
+			if (await this.adapter.exists(path)) await this.adapter.remove(path);
 			await this.updateIndex((index) => {
-				index[filePath] = { hash: hashString(filePath), ...summarise(comments) };
+				delete index[filePath];
 			});
+			return;
+		}
+
+		await this.ensureDir();
+		const sidecar: Sidecar = { filePath, comments };
+		await this.adapter.write(path, JSON.stringify(sidecar, null, 2));
+		this.cache.set(filePath, comments);
+		await this.updateIndex((index) => {
+			index[filePath] = { hash: hashString(filePath), ...summarise(comments) };
 		});
 	}
 

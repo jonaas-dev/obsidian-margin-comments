@@ -435,3 +435,153 @@ describe("takeComments and restoreComments", () => {
 		expect(await storage.getCommentsForFile("notes/meeting.md")).toHaveLength(1);
 	});
 });
+
+// These calls come from independent UI events: a resolve tapped while a reply is
+// still being sent, or an edit saved while a delete runs. Nothing but timing keeps
+// them apart, so each test starts two at once and reads what landed on disk through
+// a fresh store, because the cache could hide a write the file never got.
+describe("overlapping mutations of one note", () => {
+	const NOTE = "notes/meeting.md";
+	const onDisk = async (adapter: MemoryAdapter, filePath = NOTE) =>
+		new CommentStorage(adapter).getCommentsForFile(filePath);
+	const ids = (comments: Comment[]) => comments.map((c) => c.id).sort();
+
+	it("keeps both of two comments saved at once", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment({ id: "seed" }));
+
+		await Promise.all([
+			storage.saveComment(makeComment({ id: "a" })),
+			storage.saveComment(makeComment({ id: "b" })),
+		]);
+
+		expect(ids(await onDisk(adapter))).toEqual(["a", "b", "seed"]);
+	});
+
+	it("keeps a resolve that overlaps a reply to the same thread", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter);
+		const root = makeComment({ id: "root" });
+		await storage.saveComment(root);
+
+		await Promise.all([
+			storage.updateComment({ ...root, resolved: true }),
+			storage.saveComment(makeComment({ id: "reply", parentId: "root" })),
+		]);
+
+		const stored = await onDisk(adapter);
+		expect(ids(stored)).toEqual(["reply", "root"]);
+		expect(stored.find((c) => c.id === "root")?.resolved).toBe(true);
+	});
+
+	it("keeps a comment saved while another is deleted", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment({ id: "gone" }));
+		await storage.saveComment(makeComment({ id: "kept" }));
+
+		await Promise.all([
+			storage.deleteComment(NOTE, "gone"),
+			storage.saveComment(makeComment({ id: "new" })),
+		]);
+
+		expect(ids(await onDisk(adapter))).toEqual(["kept", "new"]);
+	});
+
+	it("neither loses nor doubles a comment saved while the note's comments are taken", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment({ id: "a" }));
+
+		const [taken] = await Promise.all([
+			storage.takeComments(NOTE),
+			storage.saveComment(makeComment({ id: "b" })),
+		]);
+
+		expect(ids([...taken, ...(await onDisk(adapter))])).toEqual(["a", "b"]);
+	});
+
+	it("keeps a comment saved while a restore runs", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment({ id: "old" }));
+		const taken = await storage.takeComments(NOTE);
+
+		await Promise.all([
+			storage.restoreComments(NOTE, taken),
+			storage.saveComment(makeComment({ id: "new" })),
+		]);
+
+		expect(ids(await onDisk(adapter))).toEqual(["new", "old"]);
+	});
+
+	it("keeps a comment saved on the target while a move writes to it", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment({ id: "moving" }));
+
+		await Promise.all([
+			storage.moveComments(NOTE, "notes/standup.md"),
+			storage.saveComment(makeComment({ id: "local", filePath: "notes/standup.md" })),
+		]);
+
+		expect(ids(await onDisk(adapter, "notes/standup.md"))).toEqual(["local", "moving"]);
+		expect(await onDisk(adapter)).toEqual([]);
+	});
+
+	it("does not let a slow first read put an old list back in the cache after a save", async () => {
+		// Opening a note reads its sidecar. If a save lands while that read is still
+		// in flight, the read resolves with the file as it was and must not replace
+		// what the save cached: the next save would build on it and drop the first.
+		class HeldRead extends MemoryAdapter {
+			private held: Promise<void> | null = null;
+			release: () => void = () => {};
+			hold(): void {
+				this.held = new Promise((resolve) => {
+					this.release = resolve;
+				});
+			}
+			async read(path: string): Promise<string> {
+				const content = await super.read(path);
+				const held = this.held;
+				this.held = null;
+				if (held) await held;
+				return content;
+			}
+		}
+		const adapter = new HeldRead();
+		await new CommentStorage(adapter).saveComment(makeComment({ id: "seed" }));
+		const storage = new CommentStorage(adapter);
+
+		adapter.hold();
+		const opening = storage.getCommentsForFile(NOTE);
+		const saving = storage.saveComment(makeComment({ id: "first" }));
+		await new Promise((resolve) => setTimeout(resolve, 10));
+		adapter.release();
+		await Promise.all([opening, saving]);
+		await storage.saveComment(makeComment({ id: "second" }));
+
+		expect(ids(await onDisk(adapter))).toEqual(["first", "second", "seed"]);
+	});
+
+	it("settles a rename undone while the first move is still running", async () => {
+		// A move holds both notes, so two moves in opposite directions would each
+		// wait on the note the other holds if they took them in call order.
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment({ id: "c1" }));
+
+		const settled = await Promise.race([
+			Promise.all([
+				storage.moveComments(NOTE, "notes/renamed.md"),
+				storage.moveComments("notes/renamed.md", NOTE),
+			]).then(() => true),
+			new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1000)),
+		]);
+
+		expect(settled).toBe(true);
+		const everywhere = [...(await onDisk(adapter)), ...(await onDisk(adapter, "notes/renamed.md"))];
+		expect(ids(everywhere)).toEqual(["c1"]);
+	});
+});
