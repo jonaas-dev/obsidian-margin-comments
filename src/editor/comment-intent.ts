@@ -12,7 +12,7 @@ export interface AnchoredThread extends Span {
 /** What a click on the gutter, or the add-comment command, should do. */
 export type CommentIntent =
 	| { kind: "compose"; from: number; to: number }
-	| { kind: "show"; threadId: string };
+	| { kind: "show"; threadIds: string[] };
 
 /**
  * Whether a thread's anchor covers any of a line.
@@ -63,11 +63,13 @@ export function commentIntent(
 
 	if (usable) {
 		const covering = inOrder.find((thread) => overlaps(thread, usable));
-		if (covering) return { kind: "show", threadId: covering.id };
+		if (covering) return { kind: "show", threadIds: [covering.id] };
 		return { kind: "compose", from: usable.from, to: usable.to };
 	}
 
-	if (inOrder.length > 0) return { kind: "show", threadId: inOrder[0].id };
+	// Every thread on the line, not the first: the marker counts all of them, and
+	// answering a "2" with one thread left the other unreachable from the note (#137).
+	if (inOrder.length > 0) return { kind: "show", threadIds: inOrder.map((thread) => thread.id) };
 	// from === to is how a whole-line comment is asked for: createAnchor widens
 	// it to the line and marks it as one.
 	return { kind: "compose", from: line.from, to: line.from };
