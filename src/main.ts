@@ -447,11 +447,13 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	private async editComment(comment: Comment, content: string): Promise<void> {
 		await this.storage.updateComment(withEditedContent(comment, content));
 		await this.refresh();
+		await this.refreshPopover();
 	}
 
 	private async setResolved(root: Comment, resolved: boolean): Promise<void> {
 		await this.storage.updateComment(withResolved(root, resolved));
 		await this.refresh();
+		await this.refreshPopover();
 	}
 
 	private confirmDelete(comment: Comment): void {
@@ -460,6 +462,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			new ConfirmModal(this.app, describeDeletion(comment, all), async () => {
 				await this.storage.deleteComment(comment.filePath, comment.id);
 				await this.refresh();
+				await this.refreshPopover();
 			}).open();
 		})();
 	}
@@ -580,8 +583,54 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 
 	private async refreshPanel(): Promise<void> {
 		for (const leaf of this.app.workspace.getLeavesOfType(COMMENT_PANEL_VIEW)) {
-			await (leaf.view as CommentPanelView).render();
+			// A deferred leaf has no panel view yet and builds a fresh one when it is
+			// shown, so there is nothing to redraw. Casting it threw on every refresh
+			// after a restart (#129).
+			if (leaf.view instanceof CommentPanelView) await leaf.view.render();
 		}
+	}
+
+	/**
+	 * The panel, if it is loaded and actually on screen.
+	 *
+	 * A leaf existing is not the panel being visible: on a phone the sidebars are
+	 * drawers that sit collapsed nearly all the time, and a leaf restored with the
+	 * layout stays deferred until it is shown. Answering in either selected a card
+	 * nobody could see (#125).
+	 */
+	private visiblePanel(): CommentPanelView | null {
+		const workspace = this.app.workspace;
+		for (const leaf of workspace.getLeavesOfType(COMMENT_PANEL_VIEW)) {
+			if (!(leaf.view instanceof CommentPanelView)) continue;
+			const root = leaf.getRoot();
+			if (root === workspace.leftSplit && workspace.leftSplit.collapsed) continue;
+			if (root === workspace.rightSplit && workspace.rightSplit.collapsed) continue;
+			// A background tab in an open sidebar is not on screen either.
+			if (!leaf.view.containerEl.isShown()) continue;
+			return leaf.view;
+		}
+		return null;
+	}
+
+	/** Redraw the popover with what it was showing that is still open (#133). */
+	private async refreshPopover(): Promise<void> {
+		const shown = this.popover?.current();
+		if (!shown) return;
+		const view = this.markdownViewFor(shown.filePath);
+		if (!view) {
+			this.popover?.close();
+			return;
+		}
+		const doc = view.editor.getValue();
+		const comments = await this.storage.getCommentsForFile(shown.filePath);
+		const threads = buildThreads(doc, comments, {
+			fuzzy: true,
+			threshold: this.settings.fuzzyThreshold,
+		})
+			.filter((thread) => shown.threadIds.includes(thread.root.id))
+			.filter((thread) => !thread.root.resolved && !thread.orphaned)
+			.sort((a, b) => shown.threadIds.indexOf(a.root.id) - shown.threadIds.indexOf(b.root.id));
+		this.popover?.redraw(threads, doc);
 	}
 
 	/**
@@ -760,22 +809,22 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			return;
 		}
 
-		const thread = threads.find((candidate) => candidate.root.id === intent.threadId);
-		if (!thread) return;
+		const shown = intent.threadIds
+			.map((id) => threads.find((candidate) => candidate.root.id === id))
+			.filter((thread): thread is Thread => thread !== undefined);
+		if (shown.length === 0) return;
 
-		// With the panel already open, selecting there keeps everything in one
-		// place. With it closed, a popover beside the line beats yanking the
-		// reader's attention across the window to a panel that just appeared.
-		const panels = this.app.workspace.getLeavesOfType(COMMENT_PANEL_VIEW);
-		if (panels.length > 0) {
-			for (const leaf of panels) {
-				await (leaf.view as CommentPanelView).select(thread.root.id);
-			}
+		// With the panel on screen, selecting there keeps everything in one place.
+		// Otherwise a popover beside the line beats yanking the reader's attention
+		// across the window, or pulling a drawer over the note on a phone (#125).
+		const panel = this.visiblePanel();
+		if (panel) {
+			await panel.select(shown[0].root.id);
 			return;
 		}
 
 		this.popoverFile = filePath;
-		this.popover?.open(thread, filePath, this.lineRect(view, line), view.state.doc.toString());
+		this.popover?.open(shown, filePath, this.lineRect(view, line), view.state.doc.toString());
 	}
 
 	/** Screen rect of a line, for anchoring the popover. */
