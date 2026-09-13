@@ -20,4 +20,15 @@ if [ "$actual_email" != "$expected_email" ]; then
     exit 1
 fi
 
+# The public history only needs the GitHub username; a real name is PII.
+expected_name=$(git config hooks.expectedName 2>/dev/null || echo "jonaas-dev")
+actual_name=$(git config user.name 2>/dev/null || echo "")
+
+if [ "$actual_name" != "$expected_name" ]; then
+    printf '\n\033[31m✖ pre-commit: committer name\033[0m\n\n' >&2
+    printf "  user.name is '%s', expected '%s'.\n\n" "${actual_name:-<unset>}" "$expected_name" >&2
+    printf '  Fix:  git config user.name "%s"\n\n' "$expected_name" >&2
+    exit 1
+fi
+
 python3 "$root/ops/check-secrets.py" || exit 1

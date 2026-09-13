@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
-const OBSIDIAN = "/Applications/Obsidian.app/Contents/MacOS/Obsidian";
+const OBSIDIAN = process.env.OBSIDIAN_APP ?? "/Applications/Obsidian.app/Contents/MacOS/Obsidian";
 const REPO = fileURLToPath(new URL("../..", import.meta.url));
 const PORT = 9333;
 

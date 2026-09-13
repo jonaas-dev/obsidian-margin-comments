@@ -2,7 +2,7 @@
 
 ## Requirements
 
-- Node.js 20 or newer
+- Node.js 22 or newer
 - Obsidian (any recent desktop version)
 - Python 3 (for the pre-commit checks)
 
@@ -88,7 +88,9 @@ needs a full Obsidian restart.
 
 `npm run test:e2e` launches a real Obsidian, loads the plugin into a throwaway vault
 and drives it with Playwright. It needs Obsidian installed at
-`/Applications/Obsidian.app` and currently runs on macOS only.
+`/Applications/Obsidian.app` and currently runs on macOS only. On Linux or Windows,
+or if your Obsidian binary lives elsewhere, set the `OBSIDIAN_APP` environment
+variable to the full path of the executable.
 
 **Run `npm run build` first, every time.** The suite loads `main.js`, not the
 TypeScript, so without a build you are testing the previous version — and the symptom

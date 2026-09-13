@@ -74,7 +74,7 @@ try {
   await page.locator(".inline-comment-card").first().hover();
   await panel.screenshot({ path: "/tmp/panel-dark.png" });
 
-  console.log("capturas guardadas");
+  console.log("screenshots saved");
 } finally {
   await session.close();
   vault.remove();
