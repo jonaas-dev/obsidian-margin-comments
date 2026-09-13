@@ -78,7 +78,7 @@ describe("highlightsInBlock", () => {
 		// marks the block rather than guessing at a range.
 		const line = thread("line", 1, 0, 10);
 		line.root.anchor.isLineComment = true;
-		expect(highlightsInBlock(doc, [line], 0, 0)).toEqual([{ id: "line", text: "" }]);
+		expect(highlightsInBlock(doc, [line], 0, 0)).toEqual([{ id: "line", text: "", occurrence: 0 }]);
 	});
 
 	it("orders by position, so nested marks are applied outermost first", () => {
@@ -88,6 +88,25 @@ describe("highlightsInBlock", () => {
 			"earlier",
 			"later",
 		]);
+	});
+
+	it("counts earlier appearances of the same words inside the block (#175)", () => {
+		const list = "Numbered zero\n\n1. Numbered one\n2. Numbered two";
+		const first = list.indexOf("Numbered one");
+		const second = list.indexOf("Numbered two");
+		const threads = [thread("two", 4, second, second + 8), thread("one", 3, first, first + 8)];
+		// The block is lines 2 and 3, so the appearance above it does not count.
+		expect(highlightsInBlock(list, threads, 2, 3).map((h) => [h.id, h.occurrence])).toEqual([
+			["one", 0],
+			["two", 1],
+		]);
+	});
+
+	it("counts whitespace the way the search does", () => {
+		// A soft-wrapped repeat still counts: the renderer turns the newline into a space.
+		const text = "red\nfox and red fox";
+		const at = text.lastIndexOf("red fox");
+		expect(highlightsInBlock(text, [thread("b", 2, at, at + 7)], 0, 1)[0].occurrence).toBe(1);
 	});
 });
 
@@ -137,5 +156,16 @@ describe("locateAcrossSegments", () => {
 		// An empty slice would wrap nothing and leave a stray span behind.
 		const slices = locateAcrossSegments(["first", "second"], "first")!;
 		expect(slices).toEqual([{ index: 0, start: 0, end: 5 }]);
+	});
+
+	it("finds a later appearance when asked for it (#175)", () => {
+		expect(locateAcrossSegments(["Numbered one", "Numbered two"], "Numbered", 1)).toEqual([
+			{ index: 1, start: 0, end: 8 },
+		]);
+	});
+
+	it("gives up when the block has fewer appearances than asked for", () => {
+		// The renderer consumed one: marking another appearance would be a guess.
+		expect(locateAcrossSegments(["Numbered one"], "Numbered", 1)).toBeNull();
 	});
 });
