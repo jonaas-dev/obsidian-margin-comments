@@ -208,7 +208,8 @@ describe("all-notes view", () => {
 		const missing = page.locator(".inline-comment-section.is-missing");
 		expect(await missing.count()).toBe(1);
 		expect(await missing.locator(".inline-comment-section-path").innerText()).toBe(RENAMED);
-		expect((await sectionPaths()).at(-1)).toBe(RENAMED);
+		const paths = await sectionPaths();
+		expect(paths[paths.length - 1]).toBe(RENAMED);
 	});
 
 	/** Forget one note, so a test that is about opening it starts cold. */
