@@ -118,6 +118,11 @@ export class CommentPanelView extends ItemView {
 	}
 
 	async onOpen(): Promise<void> {
+		// The whole document, not the panel: clicking back into the note is the
+		// commonest way to move on, and a panel-only listener never heard it
+		// (#119). pointerdown precedes the marker's own click, so pressing another
+		// marker clears first and selects after.
+		this.registerDomEvent(document, "pointerdown", () => this.clearSelection());
 		await this.render();
 	}
 
@@ -210,9 +215,6 @@ export class CommentPanelView extends ItemView {
 		container.setAttribute("aria-label", "Inline comments");
 		this.cards.clear();
 		this.resetCardScope();
-
-		// Any deliberate press in the panel does the same.
-		container.addEventListener("pointerdown", () => this.clearSelection());
 
 		const header = container.createDiv({ cls: "inline-comment-panel-header" });
 		if (this.host.scope() === "vault") {
