@@ -27,7 +27,7 @@ describe("touch devices", () => {
 
 	async function setTouch(touch: boolean): Promise<void> {
 		await page.evaluate(async (on: boolean) => {
-			const plugin = window.app.plugins.plugins["inline-comments"];
+			const plugin = window.app.plugins.plugins["margin-comments"];
 			plugin.touch = on;
 			await plugin.refresh();
 		}, touch);
@@ -65,7 +65,7 @@ describe("touch devices", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(false).openFile(file, { state: { mode: "source" } });
@@ -87,7 +87,7 @@ describe("touch devices", () => {
 		await page.waitForTimeout(1500);
 
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
 		// The pointer is parked away from the gutter for the rest of the suite:
@@ -174,7 +174,7 @@ describe("touch devices", () => {
 				},
 			});
 
-			const plugin = window.app.plugins.plugins["inline-comments"];
+			const plugin = window.app.plugins.plugins["margin-comments"];
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: unknown }).cm;
 			plugin.openComposer(cm, 3);
@@ -196,7 +196,7 @@ describe("touch devices", () => {
 		await page.evaluate(() => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			leaf.view.editor.setCursor({ line: 2, ch: 0 });
-			const plugin = window.app.plugins.plugins["inline-comments"];
+			const plugin = window.app.plugins.plugins["margin-comments"];
 			const cm = (leaf.view.editor as unknown as { cm: unknown }).cm;
 			plugin.openComposer(cm, 3);
 		});
@@ -214,7 +214,7 @@ describe("touch devices", () => {
 		expect(width.clamped).toBe(320);
 
 		await page.evaluate(() => {
-			window.app.plugins.plugins["inline-comments"].composer.close();
+			window.app.plugins.plugins["margin-comments"].composer.close();
 		});
 	});
 });

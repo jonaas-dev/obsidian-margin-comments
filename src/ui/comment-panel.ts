@@ -23,7 +23,7 @@ import {
 import { renderThreadCard, type ThreadActions } from "./thread-card";
 import { orphanCount } from "./orphans";
 
-export const COMMENT_PANEL_VIEW = "inline-comments-panel";
+export const COMMENT_PANEL_VIEW = "margin-comments-panel";
 
 /** A note's text and comments, as the panel needs them. */
 export interface NoteData {
@@ -110,7 +110,7 @@ export class CommentPanelView extends ItemView {
 	}
 
 	getDisplayText(): string {
-		return "Inline comments";
+		return "Margin comments";
 	}
 
 	getIcon(): string {
@@ -212,7 +212,7 @@ export class CommentPanelView extends ItemView {
 		// A landmark, so the panel can be jumped to rather than tabbed into from
 		// wherever the reader happens to be.
 		container.setAttribute("role", "complementary");
-		container.setAttribute("aria-label", "Inline comments");
+		container.setAttribute("aria-label", "Margin comments");
 		this.cards.clear();
 		this.resetCardScope();
 

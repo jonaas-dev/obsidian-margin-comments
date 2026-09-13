@@ -1,4 +1,4 @@
-# AGENTS.md — obsidian-inline-comments
+# AGENTS.md — obsidian-margin-comments
 
 Project-specific instructions. The cross-repo rules in `~/Repos/AGENTS.md` also apply
 (branch + PR, Conventional Commits in Spanish, PRs under 400 lines, pre-commit linting,
@@ -18,13 +18,13 @@ gets published in full at 1.0, where a bilingual log is noise for every reader.
 ## What this is
 
 An Obsidian plugin that adds inline comments to notes without ever modifying the
-Markdown files. Comment data lives in JSON sidecars under `.inline-comments/` at the
+Markdown files. Comment data lives in JSON sidecars under `.margin-comments/` at the
 vault root.
 
 ## Hard constraints
 
 - **Never write to the user's `.md` files.** Comments are sidecar-only.
-- **`.inline-comments/` is a dotfolder**, therefore invisible to the Obsidian Vault API.
+- **`.margin-comments/` is a dotfolder**, therefore invisible to the Obsidian Vault API.
   Use `app.vault.adapter` (`read`/`write`/`exists`/`list`/`mkdir`) with `normalizePath()`
   for every path. `vault.create`, `vault.getAbstractFileByPath` and `vault.on('modify')`
   will not see it.

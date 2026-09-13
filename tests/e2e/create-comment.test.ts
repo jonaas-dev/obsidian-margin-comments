@@ -24,7 +24,7 @@ describe("creating a comment end to end", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(true).openFile(file, { state: { mode: "source" } });
@@ -62,7 +62,7 @@ describe("creating a comment end to end", () => {
 		// The sidecar is written asynchronously after the composer closes.
 		await page.waitForTimeout(1500);
 
-		const dir = join(vault.path, ".inline-comments");
+		const dir = join(vault.path, ".margin-comments");
 		const files = readdirSync(dir).filter((f) => f !== "_index.json");
 		expect(files).toHaveLength(1);
 
@@ -111,7 +111,7 @@ describe("creating a comment end to end", () => {
 		// Reloading drops every in-memory cache, so the highlight coming back
 		// proves it was rebuilt from the sidecar rather than left over in state.
 		await page.evaluate(async () => {
-			await window.app.plugins.disablePlugin("inline-comments");
+			await window.app.plugins.disablePlugin("margin-comments");
 		});
 		await page.waitForFunction(
 			() => document.querySelector(".inline-comment-active-line") === null,
@@ -120,7 +120,7 @@ describe("creating a comment end to end", () => {
 		);
 
 		await page.evaluate(async () => {
-			await window.app.plugins.enablePlugin("inline-comments");
+			await window.app.plugins.enablePlugin("margin-comments");
 		});
 		await page.waitForSelector(".inline-comment-active-line", { timeout: 15000 });
 		expect(await page.locator(".inline-comment-active-line").count()).toBe(1);

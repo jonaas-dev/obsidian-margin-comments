@@ -48,7 +48,7 @@ describe("markdown in comment cards", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(false).openFile(file, { state: { mode: "source" } });
@@ -60,7 +60,7 @@ describe("markdown in comment cards", () => {
 		await addComment(2, LONG_COMMENT);
 
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-body", { timeout: 10000 });
 		await page.waitForTimeout(1000);
@@ -156,7 +156,7 @@ describe("markdown in comment cards", () => {
 		// hung off the view directly is never unloaded.
 		const count = async (): Promise<number> =>
 			page.evaluate(() => {
-				const leaf = window.app.workspace.getLeavesOfType("inline-comments-panel")[0];
+				const leaf = window.app.workspace.getLeavesOfType("margin-comments-panel")[0];
 				const total = (component: any): number =>
 					1 +
 					(component._children ?? []).reduce((sum: number, c: any) => sum + total(c), 0);

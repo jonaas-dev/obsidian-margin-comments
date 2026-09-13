@@ -1,5 +1,5 @@
 {
-	"name": "obsidian-inline-comments",
+	"name": "obsidian-margin-comments",
 	"version": "0.1.0",
 	"description": "Add inline comments to your Obsidian notes with threaded replies, resolve/unresolve, and a sidebar panel.",
 	"main": "main.js",

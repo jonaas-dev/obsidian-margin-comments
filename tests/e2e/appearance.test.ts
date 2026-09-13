@@ -25,7 +25,7 @@ describe("appearance settings", () => {
 	async function setSetting(key: string, value: unknown): Promise<void> {
 		await page.evaluate(
 			async ([name, next]: [string, unknown]) => {
-				const plugin = window.app.plugins.plugins["inline-comments"];
+				const plugin = window.app.plugins.plugins["margin-comments"];
 				(plugin.settings as Record<string, unknown>)[name] = next;
 				plugin.applyHighlightColour();
 				window.app.workspace.trigger("editor-change");
@@ -52,7 +52,7 @@ describe("appearance settings", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(false).openFile(file, { state: { mode: "source" } });

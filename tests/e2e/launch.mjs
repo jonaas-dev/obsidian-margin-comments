@@ -100,14 +100,14 @@ export async function enablePlugin(page, id, timeout = 30000) {
 export function createTempVault(seed = {}) {
 	const vault = join(tmpdir(), `obsidian-vault-${Date.now()}`);
 	mkdirSync(join(vault, ".obsidian", "plugins"), { recursive: true });
-	symlinkSync(REPO, join(vault, ".obsidian", "plugins", "inline-comments"));
+	symlinkSync(REPO, join(vault, ".obsidian", "plugins", "margin-comments"));
 	// The plugin directory is the repo itself, so its data.json outlives the
 	// throwaway vault. Left in place, settings a test chose leak into the next
 	// run and it starts against state no fresh install would have.
 	rmSync(join(REPO, "data.json"), { force: true });
-	writeFileSync(join(vault, ".obsidian", "community-plugins.json"), '["inline-comments"]');
+	writeFileSync(join(vault, ".obsidian", "community-plugins.json"), '["margin-comments"]');
 	for (const [name, content] of Object.entries(seed)) {
-		// Seeds may name a path inside a folder — a sidecar under .inline-comments,
+		// Seeds may name a path inside a folder — a sidecar under .margin-comments,
 		// say — so the folder is created rather than assumed.
 		mkdirSync(dirname(join(vault, name)), { recursive: true });
 		writeFileSync(join(vault, name), content);

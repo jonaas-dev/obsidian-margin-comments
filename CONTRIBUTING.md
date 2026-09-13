@@ -9,8 +9,8 @@
 ## Setup
 
 ```sh
-git clone https://github.com/jonaas-dev/obsidian-inline-comments.git
-cd obsidian-inline-comments
+git clone https://github.com/jonaas-dev/obsidian-margin-comments.git
+cd obsidian-margin-comments
 npm install
 sh ops/install-hooks.sh
 ```
@@ -33,23 +33,23 @@ under Settings → Emails) rather than a real one.
 ## Development vault
 
 **Never develop against a vault you care about.** This plugin writes to a
-`.inline-comments/` folder at the vault root, and a bug during development can put
+`.margin-comments/` folder at the vault root, and a bug during development can put
 unexpected files there.
 
-1. In Obsidian: **File → New vault**, name it something like `dev-inline-comments`.
+1. In Obsidian: **File → New vault**, name it something like `dev-margin-comments`.
 2. Link this repository into that vault's plugin folder:
 
    ```sh
    # macOS / Linux, from the repository root
-   ln -s "$(pwd)" <vault>/.obsidian/plugins/inline-comments
+   ln -s "$(pwd)" <vault>/.obsidian/plugins/margin-comments
    ```
 
    ```powershell
    # Windows, from the repository root
-   New-Item -ItemType Junction -Path <vault>\.obsidian\plugins\inline-comments -Target (Get-Location)
+   New-Item -ItemType Junction -Path <vault>\.obsidian\plugins\margin-comments -Target (Get-Location)
    ```
 
-3. Enable **Inline Comments** in **Settings → Community plugins**. You will need
+3. Enable **Margin Comments** in **Settings → Community plugins**. You will need
    community plugins turned on and restricted mode off.
 
 ## Hot reload
