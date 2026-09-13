@@ -44,6 +44,12 @@ export interface CardOptions {
 	 * stands is what the reader will find when they jump there.
 	 */
 	doc?: string;
+	/**
+	 * A touch device, where nothing hovers. The reply field folds behind a Reply
+	 * button there instead of standing open under every card, which left about
+	 * three cards to a phone screen (#136).
+	 */
+	touch?: boolean;
 }
 
 const SHOW_MORE = "Show more";
@@ -125,6 +131,7 @@ export function renderThreadCard(
 	if (thread.orphaned) card.addClass("is-orphaned");
 	if (thread.root.resolved) card.addClass("is-resolved");
 	if (options.alwaysOpen) card.addClass("is-open");
+	if (options.touch) card.addClass("is-touch");
 
 	// A button only when there is somewhere to go: an orphaned thread's text is
 	// no longer in the note, so a control promising to reveal it would lie.
@@ -271,6 +278,9 @@ function renderReplyBox(
 	actions: ThreadActions,
 	options: CardOptions,
 ): void {
+	const toggle = options.touch
+		? card.createEl("button", { cls: "inline-comment-reply-toggle", text: "Reply" })
+		: null;
 	const box = card.createDiv({ cls: "inline-comment-replybox" });
 	const input = box.createEl("textarea", {
 		cls: "inline-comment-replybox-input",
@@ -287,6 +297,7 @@ function renderReplyBox(
 		input.value = "";
 		input.style.height = "";
 		box.removeClass("is-active");
+		toggle?.show();
 	};
 
 	const submit = (): void => {
@@ -300,7 +311,17 @@ function renderReplyBox(
 	};
 
 	box.addEventListener("click", (event) => event.stopPropagation());
-	input.addEventListener("focus", () => box.addClass("is-active"));
+	input.addEventListener("focus", () => {
+		box.addClass("is-active");
+		toggle?.hide();
+	});
+	toggle?.addEventListener("click", (event) => {
+		// The card navigates to the anchor on click.
+		event.stopPropagation();
+		box.addClass("is-active");
+		toggle.hide();
+		input.focus();
+	});
 	input.addEventListener("blur", () => {
 		// Keep the box open while it holds a draft: collapsing it on blur would
 		// throw away half-written text the moment the pointer wandered off.
