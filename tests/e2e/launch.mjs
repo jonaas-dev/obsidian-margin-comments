@@ -31,10 +31,21 @@ export async function launchObsidian(vaultPath) {
 		stdio: ["ignore", "pipe", "pipe"],
 	});
 
-	const browser = await waitForCdp();
-	const context = browser.contexts()[0];
-	const page = context.pages().find((p) => !p.url().startsWith("devtools://")) ?? context.pages()[0];
-	await page.waitForLoadState("domcontentloaded");
+	let browser;
+	let page;
+	try {
+		browser = await waitForCdp();
+		const context = browser.contexts()[0];
+		page = context.pages().find((p) => !p.url().startsWith("devtools://")) ?? context.pages()[0];
+		await page.waitForLoadState("domcontentloaded");
+	} catch (error) {
+		// Nothing else will ever stop this process. Left running, it keeps the
+		// debugging port, and every later test file attaches to it or fails the
+		// same way, leaving another instance behind each time (#227).
+		await browser?.close().catch(() => {});
+		proc.kill();
+		throw error;
+	}
 
 	return {
 		page,
@@ -55,14 +66,19 @@ export async function launchObsidian(vaultPath) {
 }
 
 async function waitForCdp(attempts = 30) {
+	let lastError;
 	for (let i = 0; i < attempts; i++) {
 		try {
 			return await chromium.connectOverCDP(`http://127.0.0.1:${PORT}`);
-		} catch {
+		} catch (error) {
+			lastError = error;
 			await new Promise((r) => setTimeout(r, 1000));
 		}
 	}
-	throw new Error(`No CDP endpoint on port ${PORT} after ${attempts}s`);
+	// The last error, not just the attempt count: an endpoint that answers but
+	// cannot be driven (an Electron too old for this Playwright) otherwise reads
+	// exactly like one that never came up.
+	throw new Error(`Could not attach over CDP on port ${PORT} after ${attempts}s: ${lastError?.message ?? lastError}`);
 }
 
 /** Wait until Obsidian's app object exists and the workspace is ready. */
