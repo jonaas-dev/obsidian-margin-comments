@@ -309,7 +309,8 @@ Two consequences. The per-file events alone would move every sidecar today, so a
 test over a folder rename proves nothing about folder handling; the unit tests on
 `movedPath` are what cover it. And the same note arrives twice, from overlapping
 async handlers that each read the index before they write — which lands its
-comments twice unless a move already in flight is refused, as `moveComments` does.
+comments twice unless the second move waits for the first, as `moveComments` does by
+holding both notes' queues.
 
 `vault.on('delete')` also fires per descendant, but **innermost first**, with the
 folder last:
