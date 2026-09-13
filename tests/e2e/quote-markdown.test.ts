@@ -47,7 +47,7 @@ describe("Markdown in the quoted text", () => {
 			}).cm;
 			// from === to: a whole-line comment, which quotes the line as written.
 			const from = cm.state.doc.line(3).from;
-			await plugin.createComment(cm, leaf.view.file.path, from, from, "On the formatted line.");
+			await plugin.routing.createComment(cm, leaf.view.file.path, from, from, "On the formatted line.");
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-panel .inline-comment-quote", { timeout: 10000 });

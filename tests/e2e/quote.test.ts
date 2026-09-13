@@ -43,7 +43,7 @@ describe("the quoted text", () => {
 				const doc = cm.state.doc.toString();
 				const from = n === null ? cm.state.doc.line(ln).from : doc.indexOf(n);
 				const to = n === null ? from : from + n.length;
-				await plugin.createComment(cm, leaf.view.file.path, from, to, body);
+				await plugin.routing.createComment(cm, leaf.view.file.path, from, to, body);
 			},
 			[needle, line, text],
 		);

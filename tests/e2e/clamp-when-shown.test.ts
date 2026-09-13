@@ -48,7 +48,7 @@ describe("clipping a long body painted while the panel was hidden", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf("beta");
-			await plugin.createComment(cm, leaf.view.file.path, at, at + 4, long);
+			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, long);
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		}, LONG);
 		await page.waitForSelector(".inline-comment-panel .inline-comment-body", { timeout: 10000 });

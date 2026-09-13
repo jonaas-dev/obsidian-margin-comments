@@ -63,7 +63,7 @@ describe("the plugin's buttons", () => {
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const doc = cm.state.doc.toString();
 			const at = doc.indexOf("target word");
-			await plugin.createComment(cm, leaf.view.file.path, at, at + "target word".length, "A comment.");
+			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + "target word".length, "A comment.");
 		});
 		await page.waitForTimeout(1200);
 		await page.evaluate(async () => {

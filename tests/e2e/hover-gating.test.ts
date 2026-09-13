@@ -47,7 +47,7 @@ describe("hover styling", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf("beta");
-			await plugin.createComment(cm, leaf.view.file.path, at, at + 4, "On beta.");
+			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, "On beta.");
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-panel .inline-comment-card", { timeout: 10000 });

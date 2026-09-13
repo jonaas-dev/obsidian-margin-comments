@@ -12,7 +12,6 @@ import {
 	describeNewerFormat,
 	describeUnreadableSidecar,
 } from "./storage";
-import { createAnchor } from "./anchor";
 import { NoteEvents } from "./vault-events";
 import { HIGHLIGHT_VARIABLE, highlightOverride } from "./appearance";
 import { InlineCommentsSettingTab, type SettingsHost } from "./settings";
@@ -31,15 +30,13 @@ import {
 } from "./editor/hover-gutter";
 import { resolveMarkers } from "./editor/marker-pass";
 import { lineHighlights, updateHighlights } from "./editor/line-highlight";
-import { commentIntent } from "./editor/comment-intent";
+import { ThreadRouting } from "./editor/thread-routing";
 import type { Binding } from "./ui/hotkey";
 
 /** Named once: the panel quotes it when no key is bound to it. */
 const ADD_COMMENT_NAME = "Add comment to selection";
-import { ReadingMode } from "./reading/reading-mode";
+import { ReadingMode, type ReadingModeHost } from "./reading/reading-mode";
 import { debounce, type Debounced } from "./debounce";
-import { FloatingComposer } from "./editor/floating-comment";
-import type { AnchorRect } from "./editor/floating-position";
 import {
 	DEFAULT_SETTINGS,
 	type Comment,
@@ -89,7 +86,7 @@ const REFRESH_DEBOUNCE_MS = 300;
 export default class InlineCommentsPlugin extends Plugin implements SettingsHost {
 	storage!: CommentStorage;
 	settings: PluginSettings = DEFAULT_SETTINGS;
-	private composer: FloatingComposer | null = null;
+	private routing!: ThreadRouting;
 	private popover: ThreadPopover | null = null;
 	/** Note the open popover belongs to, so a genuine note switch closes it. */
 	private popoverFile: string | null = null;
@@ -179,16 +176,26 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		});
 
 		this.applyHighlightColour();
+		const openPopover: ReadingModeHost["openPopover"] = (threads, filePath, rect, doc) => {
+			this.popoverFile = filePath;
+			this.popover?.open(threads, filePath, rect, doc);
+		};
 		this.reading = new ReadingMode({
 			app: this.app,
 			storage: this.storage,
 			settings: () => this.settings,
 			visiblePanel: () => this.visiblePanel(),
 			sheet: () => this.sheet,
-			openPopover: (threads, filePath, rect, doc) => {
-				this.popoverFile = filePath;
-				this.popover?.open(threads, filePath, rect, doc);
-			},
+			openPopover,
+		});
+		this.routing = new ThreadRouting({
+			app: this.app,
+			storage: this.storage,
+			settings: () => this.settings,
+			visiblePanel: () => this.visiblePanel(),
+			sheet: () => this.sheet,
+			openPopover,
+			refresh: () => this.refresh(),
 		});
 		this.registerMarkdownPostProcessor((el, ctx) => this.reading.markBlock(el, ctx));
 		this.registerDomEvent(document, "click", (event) => void this.reading.openFrom(event));
@@ -196,7 +203,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		this.registerEditorExtension(
 			commentGutter({
 				touch: () => this.touch,
-				onActivate: (view, line, lastLine) => this.openComposer(view, line, lastLine),
+				onActivate: (view, line, lastLine) => this.routing.open(view, line, lastLine),
 			}),
 		);
 
@@ -208,7 +215,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			// it, the panel's empty state names the command instead (#122).
 			editorCallback: (_editor, ctx) => {
 				const view = (ctx as MarkdownView).editor as unknown as { cm?: EditorView };
-				if (view.cm) this.openComposer(view.cm, view.cm.state.doc.lineAt(view.cm.state.selection.main.head).number);
+				if (view.cm) this.routing.open(view.cm, view.cm.state.doc.lineAt(view.cm.state.selection.main.head).number);
 			},
 		});
 
@@ -275,8 +282,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		// Before anything else: a pending pass firing after teardown would reach
 		// for an editor and a store this plugin no longer owns.
 		this.refreshSoon.cancel();
-		this.composer?.close();
-		this.composer = null;
+		this.routing?.close();
 		this.popover?.close();
 		// The custom property is set on a document the plugin does not own, so
 		// leaving it behind would keep tinting lines after the plugin is gone.
@@ -684,156 +690,6 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		await this.refreshMarkers();
 		this.reading.rerender();
 		await this.refreshPanel();
-	}
-
-	/**
-	 * Comment the selection, or the whole line when there is none.
-	 *
-	 * The anchor is built from the document as it stands now, so what gets stored
-	 * is the text the author was actually looking at.
-	 */
-	private openComposer(view: EditorView, line: number, lastLine = line): void {
-		const file = this.app.workspace.getActiveFile();
-		if (!file) return;
-
-		void this.showExistingOrCompose(view, line, file.path, lastLine);
-	}
-
-	/**
-	 * Show the thread that is already here, or start a new one.
-	 *
-	 * The decision itself is `commentIntent`, which is where the reasoning and
-	 * its tests live. This half resolves the anchors it needs and acts on the
-	 * answer.
-	 */
-	private async showExistingOrCompose(
-		view: EditorView,
-		line: number,
-		filePath: string,
-		lastLine = line,
-	): Promise<void> {
-		const comments = await this.storage.getCommentsForFile(filePath);
-		const threads = buildThreads(view.state.doc.toString(), comments, {
-			fuzzy: true,
-			threshold: this.settings.fuzzyThreshold,
-		});
-
-		const lineInfo = view.state.doc.line(line);
-		// Open threads only. A resolved one is settled, and the editor shows no
-		// sign of it — resolveMarkers skips resolved comments, so there is no
-		// marker and no highlight. Letting it answer meant a line that looked
-		// uncommented offered the "add a comment" affordance and then produced a
-		// thread the reader could not see, with no way to comment those words
-		// again (#113). A hole in #75, which made the selection decide but kept
-		// handing over every thread.
-		const anchored = threads
-			.filter((thread) => !thread.root.resolved && thread.position !== null && thread.end !== null)
-			.map((thread) => ({ id: thread.root.id, from: thread.position!, to: thread.end! }));
-		const selection = view.state.selection.main;
-
-		// The whole block the reader acted on: a rendered table's marker stands for
-		// every row, so its threads have to be found on every row (#140).
-		const block = { from: lineInfo.from, to: view.state.doc.line(lastLine).to };
-		const intent = commentIntent(anchored, block, {
-			from: selection.from,
-			to: selection.to,
-		});
-
-		if (intent.kind === "compose") {
-			this.compose(view, filePath, intent.from, intent.to);
-			return;
-		}
-
-		const shown = intent.threadIds
-			.map((id) => threads.find((candidate) => candidate.root.id === id))
-			.filter((thread): thread is Thread => thread !== undefined);
-		if (shown.length === 0) return;
-
-		// With the panel on screen, selecting there keeps everything in one place.
-		// Otherwise a popover beside the line beats yanking the reader's attention
-		// across the window, or pulling a drawer over the note on a phone (#125).
-		const panel = this.visiblePanel();
-		if (panel) {
-			await panel.select(shown[0].root.id);
-			return;
-		}
-
-		this.popoverFile = filePath;
-		this.popover?.open(shown, filePath, this.lineRect(view, line), view.state.doc.toString());
-		if (this.sheet) this.keepAboveSheet(view, view.state.doc.line(line).from);
-	}
-
-	/**
-	 * Scroll the note so a line sits near the top, clear of a bottom sheet.
-	 *
-	 * The sheet covers the lower half of the screen, which is exactly where a
-	 * tapped line near the bottom would otherwise be left hidden under it (#135).
-	 * The margin keeps the line below the floating buttons over a phone's note.
-	 */
-	private keepAboveSheet(view: EditorView, pos: number): void {
-		view.dispatch({ effects: EditorView.scrollIntoView(pos, { y: "start", yMargin: 96 }) });
-	}
-
-	/** Screen rect of a line, for anchoring the popover. */
-	private lineRect(view: EditorView, line: number): AnchorRect {
-		const coords = view.coordsAtPos(view.state.doc.line(line).from);
-		return coords
-			? { left: coords.left, right: coords.right, top: coords.top, bottom: coords.bottom }
-			: { left: 0, right: 0, top: 0, bottom: 0 };
-	}
-
-	/**
-	 * Open the composer over a span the caller has already decided on.
-	 *
-	 * The span is passed in rather than read from the selection here: this used
-	 * to take whatever was selected anywhere in the note, so a selection on one
-	 * line and a gutter click on another stored the comment against the
-	 * selection (#81).
-	 */
-	private compose(view: EditorView, filePath: string, from: number, to: number): void {
-		const file = { path: filePath };
-
-		const coords = view.coordsAtPos(from);
-		const anchorRect = coords
-			? { left: coords.left, right: coords.right, top: coords.top, bottom: coords.bottom }
-			: { left: 0, right: 0, top: 0, bottom: 0 };
-
-		this.composer?.close();
-		this.composer = new FloatingComposer({
-			anchorRect,
-			sheet: this.sheet,
-			onSubmit: async (content) => {
-				await this.createComment(view, file.path, from, to, content);
-			},
-			onCancel: () => {
-				this.composer = null;
-			},
-		});
-		this.composer.open();
-		if (this.sheet) this.keepAboveSheet(view, from);
-	}
-
-	private async createComment(
-		view: EditorView,
-		filePath: string,
-		from: number,
-		to: number,
-		content: string,
-	): Promise<void> {
-		const now = Date.now();
-		const comment: Comment = {
-			id: crypto.randomUUID(),
-			filePath,
-			anchor: createAnchor(view.state.doc.toString(), from, to),
-			content,
-			author: this.settings.author,
-			createdAt: now,
-			updatedAt: now,
-			resolved: false,
-			parentId: null,
-		};
-		await this.storage.saveComment(comment);
-		await this.refresh();
 	}
 
 	private async refreshMarkers(): Promise<void> {

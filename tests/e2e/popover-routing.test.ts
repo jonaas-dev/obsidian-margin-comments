@@ -42,7 +42,7 @@ describe("routing a marker activation", () => {
 				const start = needle === null ? 0 : doc.indexOf(needle);
 				const end = needle === null ? 0 : start + needle.length;
 				cm.dispatch({ selection: { anchor: start, head: end } });
-				plugin.openComposer(cm, at);
+				plugin.routing.open(cm, at);
 			},
 			[line, text],
 		);
@@ -63,7 +63,7 @@ describe("routing a marker activation", () => {
 		await page.evaluate(() => {
 			const plugin = window.app.plugins.plugins["margin-comments"];
 			plugin.popover?.close();
-			plugin.composer?.close();
+			plugin.routing.close();
 		});
 		await page.waitForTimeout(300);
 	}
@@ -99,7 +99,7 @@ describe("routing a marker activation", () => {
 			// Created out of document order, so document order has to be imposed.
 			for (const word of ["gamma", "beta", "epsilon"]) {
 				const at = doc.indexOf(word);
-				await plugin.createComment(cm, leaf.view.file.path, at, at + word.length, `On ${word}.`);
+				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + word.length, `On ${word}.`);
 			}
 		});
 		await page.waitForTimeout(1200);
@@ -179,7 +179,7 @@ describe("routing a marker activation", () => {
 			const at = cm.state.doc.toString().indexOf("delta");
 			let outcome = "resolved";
 			try {
-				await plugin.createComment(cm, leaf.view.file.path, at, at + 5, "Written while deferred.");
+				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 5, "Written while deferred.");
 			} catch (error) {
 				outcome = String(error);
 			}

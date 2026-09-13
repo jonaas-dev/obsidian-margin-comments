@@ -72,7 +72,7 @@ describe("the gutter marker", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf("beta");
-			await plugin.createComment(cm, leaf.view.file.path, at, at + 4, "a comment on beta");
+			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, "a comment on beta");
 		});
 		await page.waitForTimeout(1500);
 	}, 240000);
@@ -165,7 +165,7 @@ describe("the gutter marker", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf("gamma");
-			await plugin.createComment(cm, leaf.view.file.path, at, at + 5, "a second thread");
+			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 5, "a second thread");
 		});
 		await page.waitForTimeout(1500);
 

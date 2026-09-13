@@ -59,7 +59,7 @@ describe("asking for a comment", () => {
 					const start = doc.indexOf(needle);
 					cm.dispatch({ selection: { anchor: start, head: start + needle.length } });
 				}
-				plugin.openComposer(cm, at);
+				plugin.routing.open(cm, at);
 			},
 			[text, line],
 		);
@@ -82,7 +82,7 @@ describe("asking for a comment", () => {
 	async function dismiss(): Promise<void> {
 		await page.evaluate(() => {
 			const plugin = window.app.plugins.plugins["margin-comments"];
-			plugin.composer?.close();
+			plugin.routing.close();
 			plugin.popover?.close?.();
 		});
 		await page.waitForTimeout(400);

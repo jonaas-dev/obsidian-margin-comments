@@ -80,7 +80,7 @@ describe("focus after navigating from the panel", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf(`Line ${target} `);
-			await plugin.createComment(cm, leaf.view.file.path, at, at + 4, "Far down the note.");
+			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, "Far down the note.");
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		}, TARGET_LINE);
 		await page.waitForSelector(".inline-comment-panel .inline-comment-card", { timeout: 10000 });

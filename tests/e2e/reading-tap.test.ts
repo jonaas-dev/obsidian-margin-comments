@@ -69,7 +69,7 @@ describe("opening a thread from reading mode", () => {
 				const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 				const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 				const at = cm.state.doc.toString().indexOf(text);
-				await plugin.createComment(cm, leaf.view.file.path, at, at + text.length, body);
+				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + text.length, body);
 			},
 			[needle, content],
 		);

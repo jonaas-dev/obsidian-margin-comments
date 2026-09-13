@@ -63,7 +63,7 @@ describe("reading mode", () => {
 				const doc = cm.state.doc.toString();
 				const at = doc.indexOf(text);
 				cm.dispatch({ selection: { anchor: at, head: at + text.length } });
-				await plugin.createComment(cm, leaf.view.file.path, at, at + text.length, content);
+				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + text.length, content);
 			},
 			[needle, body],
 		);

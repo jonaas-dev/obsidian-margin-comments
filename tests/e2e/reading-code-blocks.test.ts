@@ -52,7 +52,7 @@ describe("reading mode and code blocks", () => {
 				const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 				const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 				const at = cm.state.doc.toString().indexOf(text);
-				await plugin.createComment(cm, leaf.view.file.path, at, at + text.length, content);
+				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + text.length, content);
 			},
 			[needle, body],
 		);

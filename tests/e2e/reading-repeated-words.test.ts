@@ -51,7 +51,7 @@ describe("marking repeated words in reading mode", () => {
 				["Numbered two", "On the second item."],
 			]) {
 				const at = doc.indexOf(item);
-				await plugin.createComment(cm, leaf.view.file.path, at, at + "Numbered".length, content);
+				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + "Numbered".length, content);
 			}
 			await leaf.setViewState({ type: "markdown", state: { file: leaf.view.file.path, mode: "preview" } });
 		});

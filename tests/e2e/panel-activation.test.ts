@@ -50,7 +50,7 @@ describe("activating the panel's own leaf", () => {
 			const doc = cm.state.doc.toString();
 			for (const word of ["beta", "epsilon"]) {
 				const at = doc.indexOf(word);
-				await plugin.createComment(cm, leaf.view.file.path, at, at + word.length, `On ${word}.`);
+				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + word.length, `On ${word}.`);
 			}
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});

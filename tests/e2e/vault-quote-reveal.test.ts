@@ -55,7 +55,7 @@ describe("the quote of a card in the all-notes view", () => {
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			// The trailing period, so line 3 does not match the start of line 30.
 			const at = cm.state.doc.toString().indexOf(`Other line ${target}.`);
-			await plugin.createComment(cm, leaf.view.file.path, at, at + 5, "On the other note.");
+			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 5, "On the other note.");
 		}, TARGET_LINE);
 
 		await openNote(ACTIVE);

@@ -59,7 +59,7 @@ describe("the selected card", () => {
 			const doc = cm.state.doc.toString();
 			for (const word of ["alpha", "beta", "gamma"]) {
 				const at = doc.indexOf(word);
-				await plugin.createComment(cm, leaf.view.file.path, at, at + word.length, `On ${word}.`);
+				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + word.length, `On ${word}.`);
 			}
 		});
 		await page.waitForTimeout(1500);

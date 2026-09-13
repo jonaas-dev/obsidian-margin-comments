@@ -84,7 +84,7 @@ describe("editing a comment in place", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf("beta");
-			await plugin.createComment(cm, leaf.view.file.path, at, at + 4, "The root comment.");
+			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, "The root comment.");
 		});
 		await page.waitForTimeout(1200);
 		await page.evaluate(async () => {

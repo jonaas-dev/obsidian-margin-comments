@@ -61,7 +61,7 @@ describe("a note open in two panes", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf("beta");
-			await plugin.createComment(cm, leaf.view.file.path, at, at + 4, "a comment on beta");
+			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, "a comment on beta");
 		});
 		await page.waitForTimeout(1500);
 

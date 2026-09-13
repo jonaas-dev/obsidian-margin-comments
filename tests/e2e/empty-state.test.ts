@@ -136,7 +136,7 @@ describe("the panel's empty state", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: { state: { doc: { toString(): string } } } }).cm;
 			const at = cm.state.doc.toString().indexOf("beta");
-			await plugin.createComment(cm, leaf.view.file.path, at, at + 4, "A comment.");
+			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, "A comment.");
 		});
 		await page.waitForTimeout(1400);
 

@@ -244,12 +244,12 @@ describe("touch devices", () => {
 			const plugin = window.app.plugins.plugins["margin-comments"];
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: unknown }).cm;
-			plugin.openComposer(cm, 3);
+			plugin.routing.open(cm, 3);
 			await new Promise((resolve) => setTimeout(resolve, 400));
 
 			const composer = document.querySelector(".inline-comment-composer") as HTMLElement;
 			const rect = composer.getBoundingClientRect();
-			plugin.composer.close();
+			plugin.routing.close();
 			Object.defineProperty(window, "visualViewport", { configurable: true, value: real });
 			return { bottom: Math.round(rect.bottom), keyboardTop, windowHeight: window.innerHeight };
 		});
@@ -265,7 +265,7 @@ describe("touch devices", () => {
 			leaf.view.editor.setCursor({ line: 2, ch: 0 });
 			const plugin = window.app.plugins.plugins["margin-comments"];
 			const cm = (leaf.view.editor as unknown as { cm: unknown }).cm;
-			plugin.openComposer(cm, 3);
+			plugin.routing.open(cm, 3);
 		});
 		await page.waitForSelector(".inline-comment-composer", { timeout: 5000 });
 
@@ -281,7 +281,7 @@ describe("touch devices", () => {
 		expect(width.clamped).toBe(320);
 
 		await page.evaluate(() => {
-			window.app.plugins.plugins["margin-comments"].composer.close();
+			window.app.plugins.plugins["margin-comments"].routing.close();
 		});
 	});
 });

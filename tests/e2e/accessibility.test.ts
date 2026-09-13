@@ -188,11 +188,11 @@ describe("keyboard and screen reader access", () => {
 			filter.focus();
 			const held = document.activeElement === filter;
 
-			plugin.openComposer(cm, 3);
+			plugin.routing.open(cm, 3);
 			await new Promise((resolve) => setTimeout(resolve, 500));
 			const composer = document.querySelector(".inline-comment-composer");
 
-			plugin.composer.close();
+			plugin.routing.close();
 			return { held, opened: composer !== null, restored: document.activeElement === filter };
 		});
 

@@ -56,14 +56,14 @@ describe("layout and colour adjustments", () => {
 			const doc = cm.state.doc.toString();
 			const on = async (needle: string) => {
 				const at = doc.indexOf(needle);
-				await plugin.createComment(cm, leaf.view.file.path, at, at + needle.length, `On ${needle}.`);
+				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + needle.length, `On ${needle}.`);
 			};
 			await on("beta");
 			await on("gamma");
 			await on("answer = 42");
 			// from === to asks for a whole-line comment, which is what tints a line.
 			const delta = cm.state.doc.line(7).from;
-			await plugin.createComment(cm, leaf.view.file.path, delta, delta, "On the whole line.");
+			await plugin.routing.createComment(cm, leaf.view.file.path, delta, delta, "On the whole line.");
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-panel .inline-comment-card", { timeout: 10000 });

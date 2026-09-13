@@ -47,7 +47,7 @@ describe("the panel's scroll position", () => {
 				const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 				for (let i = 1; i <= count; i++) {
 					const at = cm.state.doc.toString().indexOf(`${label} line ${i} has`);
-					await plugin.createComment(
+					await plugin.routing.createComment(
 						cm,
 						leaf.view.file.path,
 						at,

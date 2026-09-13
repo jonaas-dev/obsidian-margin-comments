@@ -41,7 +41,7 @@ describe("the bottom sheet", () => {
 				const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 				const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 				cm.dispatch({ selection: { anchor: 0, head: 0 } });
-				plugin.openComposer(cm, at);
+				plugin.routing.open(cm, at);
 				await new Promise((r) => setTimeout(r, 900));
 				const el = document.querySelector(sel) as HTMLElement | null;
 				const rect = (r: DOMRect) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
@@ -61,7 +61,7 @@ describe("the bottom sheet", () => {
 	async function closeAll(): Promise<void> {
 		await page.evaluate(() => {
 			const plugin = window.app.plugins.plugins["margin-comments"];
-			plugin.composer?.close();
+			plugin.routing.close();
 			plugin.popover?.close();
 			document.querySelector(".mobile-navbar.qa-fake")?.remove();
 			document.documentElement.style.removeProperty("--keyboard-height");
@@ -87,7 +87,7 @@ describe("the bottom sheet", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const from = cm.state.doc.line(commented).from;
-			await plugin.createComment(cm, leaf.view.file.path, from, from + 4, "A comment far down the note.");
+			await plugin.routing.createComment(cm, leaf.view.file.path, from, from + 4, "A comment far down the note.");
 			plugin.sheet = true;
 		}, COMMENTED);
 		await page.waitForTimeout(800);
@@ -144,10 +144,10 @@ describe("the bottom sheet", () => {
 			});
 			const plugin = window.app.plugins.plugins["margin-comments"];
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
-			plugin.openComposer((leaf.view.editor as unknown as { cm: unknown }).cm, 10);
+			plugin.routing.open((leaf.view.editor as unknown as { cm: unknown }).cm, 10);
 			await new Promise((r) => setTimeout(r, 600));
 			const bottom = (document.querySelector(".inline-comment-composer") as HTMLElement).getBoundingClientRect().bottom;
-			plugin.composer.close();
+			plugin.routing.close();
 			Object.defineProperty(window, "visualViewport", { configurable: true, value: real });
 			return { bottom, keyboardTop, innerHeight: window.innerHeight };
 		});
