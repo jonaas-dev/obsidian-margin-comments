@@ -275,11 +275,37 @@ function renderComment(
 		// Measured after rendering because the height is a property of the output,
 		// not of the Markdown: a table and a paragraph of the same length are not
 		// the same number of lines.
-		if (!shouldClamp(body.scrollHeight)) return;
-		body.addClass("is-clipped");
-		showMore.addClass("is-available");
-		showMore.show();
+		whenLaidOut(body, component, () => {
+			if (!shouldClamp(body.scrollHeight)) return;
+			body.addClass("is-clipped");
+			showMore.addClass("is-available");
+			showMore.show();
+		});
 	});
+}
+
+/**
+ * Run `measure` once `el` has a layout to measure.
+ *
+ * A card painted while its panel is off screen (a collapsed sidebar, a closed
+ * drawer, a leaf not yet revealed) reads a height of 0, so a long body was never
+ * clipped. The panel used to be repainted when it became the active leaf, which
+ * hid this until #158 stopped that repaint.
+ */
+function whenLaidOut(el: HTMLElement, owner: Component, measure: () => void): void {
+	const laidOut = (): boolean => el.isShown() && el.getBoundingClientRect().width > 0;
+	if (laidOut()) {
+		measure();
+		return;
+	}
+	const observer = new ResizeObserver(() => {
+		if (!laidOut()) return;
+		observer.disconnect();
+		measure();
+	});
+	observer.observe(el);
+	// A repaint can replace the card before it is ever shown; its observer goes with it.
+	owner.register(() => observer.disconnect());
 }
 
 /**
