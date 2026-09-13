@@ -434,7 +434,7 @@ function startEditing(
 
 	const finish = (): void => {
 		if (onOutsidePress) {
-			document.removeEventListener("mousedown", onOutsidePress);
+			editor.ownerDocument.removeEventListener("mousedown", onOutsidePress);
 			onOutsidePress = null;
 		}
 		editor.remove();
@@ -485,7 +485,9 @@ function startEditing(
 		onOutsidePress = (event: MouseEvent): void => {
 			if (!editor.contains(event.target as Node)) save();
 		};
-		document.addEventListener("mousedown", onOutsidePress);
+		// The card's own document: in a popout window, presses never reach the main
+		// window's (#236).
+		editor.ownerDocument.addEventListener("mousedown", onOutsidePress);
 	}, 0);
 
 	textarea.focus();

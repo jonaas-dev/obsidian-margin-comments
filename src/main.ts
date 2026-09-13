@@ -171,9 +171,9 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		});
 
 		this.applyHighlightColour();
-		const openPopover: ReadingModeHost["openPopover"] = (threads, filePath, rect, doc) => {
+		const openPopover: ReadingModeHost["openPopover"] = (threads, filePath, rect, doc, owner) => {
 			this.popoverFile = filePath;
-			this.popover?.open(threads, filePath, rect, doc);
+			this.popover?.open(threads, filePath, rect, doc, owner);
 		};
 		this.reading = new ReadingMode({
 			app: this.app,
@@ -193,7 +193,15 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			refresh: () => this.refresh(),
 		});
 		this.registerMarkdownPostProcessor((el, ctx) => this.reading.markBlock(el, ctx));
-		this.registerDomEvent(document, "click", (event) => void this.reading.openFrom(event));
+		const openFromReading = (event: MouseEvent): void => void this.reading.openFrom(event);
+		this.registerDomEvent(document, "click", openFromReading);
+		// Every popout window is a document of its own, and a click there never reaches
+		// the main window's (#236).
+		this.registerEvent(
+			this.app.workspace.on("window-open", (win) =>
+				this.registerDomEvent(win.doc, "click", openFromReading),
+			),
+		);
 		this.registerEditorExtension(lineHighlights());
 		this.registerEditorExtension(
 			commentGutter({
