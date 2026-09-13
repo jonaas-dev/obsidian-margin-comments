@@ -588,8 +588,7 @@
 	color: var(--text-normal);
 }
 
-.inline-comment-action-resolve:hover,
-.inline-comment-action-save:hover {
+.inline-comment-action-resolve:hover {
 	color: var(--text-success);
 }
 
@@ -725,9 +724,11 @@
 
 /* ---- Inline editor ---- */
 
+/* The field on top and its buttons in a row beneath, as in the composer (#138). */
 .inline-comment-editor {
 	display: flex;
-	align-items: flex-end;
+	flex-direction: column;
+	align-items: stretch;
 	gap: var(--ic-gap-xs);
 	margin-top: var(--ic-gap-xs);
 }
@@ -748,8 +749,12 @@
 
 .inline-comment-editor-actions {
 	display: flex;
-	flex-direction: column;
+	justify-content: flex-end;
 	gap: var(--ic-gap-xs);
+}
+
+.inline-comment-card.is-touch .inline-comment-editor-actions .inline-comment-btn {
+	min-height: 44px;
 }
 
 /* ---- States ---- */
@@ -878,4 +883,14 @@
 
 .inline-comment-panel-header .inline-comment-action {
 	flex: none;
+}
+
+/* ---- Editing ----
+   One text field at a time (#138): while a comment in a card is being edited,
+   the reply field under it is hidden, so a card never holds two boxes. Last in
+   the file on purpose — it has to win over every rule that shows the field,
+   the hover, focus, touch and popover ones included. */
+.inline-comment-card.is-editing .inline-comment-replybox,
+.inline-comment-card.is-editing .inline-comment-reply-toggle {
+	display: none;
 }

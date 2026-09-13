@@ -217,4 +217,39 @@ describe("editing a comment in place", () => {
 		});
 		expect(where).toEqual({ insideAReply: true, directChildOfCard: false });
 	});
+
+	it("hides the reply field while a comment is being edited (#138)", async () => {
+		// Two text fields in one card: the edit box and, under it, the reply box.
+		const replyDisplay = (): Promise<string> =>
+			page.evaluate(
+				() => getComputedStyle(document.querySelector(".inline-comment-card .inline-comment-replybox")!).display,
+			);
+		await openEditor();
+		await page.locator(".inline-comment-card").first().hover();
+		await page.waitForTimeout(300);
+		const whileEditing = await replyDisplay();
+
+		await page.locator('[aria-label="Cancel edit"]').first().click();
+		await page.waitForTimeout(600);
+		await page.locator(".inline-comment-card").first().hover();
+		await page.waitForTimeout(300);
+		// Hovered both times, so "none" can only come from the edit.
+		expect({ whileEditing, afterwards: await replyDisplay() }).toEqual({ whileEditing: "none", afterwards: "flex" });
+	});
+
+	it("ends an edit with worded buttons that keep their names (#138)", async () => {
+		await openEditor();
+		const buttons = await page.evaluate(() =>
+			Array.from(document.querySelectorAll(".inline-comment-editor-actions button")).map((b) => ({
+				text: b.textContent?.trim(),
+				label: b.getAttribute("aria-label"),
+			})),
+		);
+		expect(buttons).toEqual([
+			{ text: "Cancel", label: "Cancel edit" },
+			{ text: "Save", label: "Save changes" },
+		]);
+		await page.locator('[aria-label="Cancel edit"]').first().click();
+		await page.waitForTimeout(600);
+	});
 });
