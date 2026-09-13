@@ -293,7 +293,12 @@ export class CommentPanelView extends ItemView {
 		});
 		const chevron = head.createSpan({ cls: "inline-comment-section-chevron" });
 		setIcon(chevron, expanded ? "chevron-down" : "chevron-right");
-		head.createSpan({ cls: "inline-comment-section-path", text: section.filePath });
+		// The text in its own isolated run: the box is right-to-left so a long path
+		// is cut at its start, and without isolation that same direction reorders
+		// leading digits and brackets — "01 Long note.md" drew as "Long note.md 01" (#130).
+		head
+			.createSpan({ cls: "inline-comment-section-path" })
+			.createSpan({ cls: "inline-comment-section-path-text", text: section.filePath });
 		if (section.missing) {
 			// Named rather than hidden: the note was renamed or deleted, and its
 			// comments are still here to be read or cleaned up.
