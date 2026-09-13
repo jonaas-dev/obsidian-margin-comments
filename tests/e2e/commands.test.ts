@@ -97,13 +97,13 @@ describe("commands", () => {
 		vault?.remove();
 	});
 
-	it("registers a default hotkey for adding a comment", async () => {
-		// A default, not a lock: Obsidian's hotkey settings override it, which is
-		// the acceptance criterion this covers.
+	it("ships no default hotkey for adding a comment", async () => {
+		// #122: Obsidian's plugin guidelines ask plugins not to bind keys by
+		// default. Read from defaultKeys, which only a registration can fill.
 		const hotkeys = await page.evaluate(
-			() => window.app.hotkeyManager.defaultKeys["margin-comments:add-comment"],
+			() => window.app.hotkeyManager.defaultKeys["margin-comments:add-comment"] ?? [],
 		);
-		expect(hotkeys).toEqual([{ modifiers: ["Mod", "Shift"], key: "M" }]);
+		expect(hotkeys).toEqual([]);
 	});
 
 	it("opens the composer from the add-comment command", async () => {
