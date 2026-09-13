@@ -115,6 +115,21 @@ describe("the panel's empty state", () => {
 		expect(await hint()).toBe("Select some text and run “Add comment to selection”.");
 	});
 
+	it("describes a tap rather than a hover on a touch device (#126)", async () => {
+		const message = await page.evaluate(async () => {
+			const plugin = window.app.plugins.plugins["margin-comments"];
+			plugin.touch = true;
+			await plugin.refresh();
+			await new Promise((r) => setTimeout(r, 600));
+			const text = document.querySelector(".inline-comment-empty")?.firstElementChild?.textContent ?? null;
+			plugin.touch = false;
+			await plugin.refresh();
+			return text;
+		});
+		await page.waitForTimeout(600);
+		expect(message).toBe("Tap a line, then the comment icon beside it, to add the first comment.");
+	});
+
 	it("says nothing once the note has a comment", async () => {
 		await page.evaluate(async () => {
 			const plugin = window.app.plugins.plugins["margin-comments"];

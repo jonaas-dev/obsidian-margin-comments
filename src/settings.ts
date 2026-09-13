@@ -82,7 +82,7 @@ export class InlineCommentsSettingTab extends PluginSettingTab {
 		new Setting(container)
 			.setName("Gutter icons")
 			.setDesc(
-				"The markers in the left margin. With these off, comments can only be added through the command or its hotkey.",
+				"The markers in the left margin. With these off, comments can only be added with the Add comment to selection command.",
 			)
 			.addToggle((toggle) =>
 				toggle

@@ -105,8 +105,12 @@ describe("orphaned comments", () => {
 		expect(reason).toContain("line 2");
 	});
 
-	it("announces the loss once", async () => {
-		expect(await page.locator(".notice").last().innerText()).toContain("lost its anchor");
+	it("announces the loss once, without pointing to the panel already open (#143)", async () => {
+		// The panel is on screen for this whole suite, so the pointer to it has to
+		// be left out: this is what proves the visibility reaches the notice.
+		const notice = await page.locator(".notice").last().innerText();
+		expect(notice).toContain("lost its anchor");
+		expect(notice).not.toContain("Open the comments panel");
 	});
 
 	it("stays quiet on later notes, which is the whole point of once per session", async () => {

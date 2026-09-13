@@ -43,12 +43,19 @@ export class OrphanNotice {
 		return this.announced;
 	}
 
-	/** The message to show, or null when there is nothing new to say. */
-	take(count: number): string | null {
+	/**
+	 * The message to show, or null when there is nothing new to say.
+	 *
+	 * The pointer to the panel only when the panel is not already on screen:
+	 * telling a reader to open what they are looking at reads as the plugin not
+	 * knowing its own state (#143).
+	 */
+	take(count: number, panelVisible = false): string | null {
 		if (this.announced || count === 0) return null;
 		this.announced = true;
 		const plural = count === 1 ? "comment" : "comments";
 		const possessive = count === 1 ? "its" : "their";
-		return `${count} ${plural} lost ${possessive} anchor. Open the comments panel to see which.`;
+		const lost = `${count} ${plural} lost ${possessive} anchor.`;
+		return panelVisible ? lost : `${lost} Open the comments panel to see which.`;
 	}
 }
