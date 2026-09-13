@@ -156,4 +156,31 @@ describe("the selected card", () => {
 		await page.waitForTimeout(700);
 		expect(await selectedCount()).toBe(0);
 	});
+
+	it("lets go on a press outside the panel", async () => {
+		// #119: only presses inside the panel reached the listener, so clicking
+		// back into the note left the card marked indefinitely.
+		await arriveFrom(1);
+		expect(await selectedCount()).toBe(1);
+
+		// Past the end of the text, so no comment highlight takes the press.
+		const line = await page.locator(".cm-line").nth(0).boundingBox();
+		await page.mouse.click(line.x + line.width - 10, line.y + line.height / 2);
+		await page.waitForTimeout(700);
+		expect(await selectedCount()).toBe(0);
+	});
+
+	it("moves to the new card when another marker is pressed", async () => {
+		// Clearing on every press also fires for the marker press itself, so the
+		// clear must land before the new selection rather than wipe it.
+		await arriveFrom(1);
+		await arriveFrom(2);
+		const selected = await page.evaluate(() =>
+			Array.from(document.querySelectorAll(".inline-comment-card.is-selected")).map(
+				(card) => card.textContent ?? "",
+			),
+		);
+		expect(selected).toHaveLength(1);
+		expect(selected[0]).toContain("On gamma.");
+	});
 });
