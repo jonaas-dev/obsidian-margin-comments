@@ -517,6 +517,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 
 		const leaf = this.app.workspace.getLeaf(false);
 		await leaf.openFile(file);
+		this.getPanelOutOfTheWay();
 		if (leaf.view instanceof MarkdownView) goToLine(leaf.view, thread.line);
 	}
 
@@ -524,7 +525,25 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		const file = this.app.workspace.getActiveFile();
 		const view = file ? this.markdownViewFor(file.path) : null;
 		if (!view || thread.line === null) return;
+		this.getPanelOutOfTheWay();
 		goToLine(view, thread.line);
+	}
+
+	/**
+	 * On a touch device, collapse the sidebar holding the panel after it navigates.
+	 *
+	 * The sidebars there are drawers laid over the note, so a jump made from a
+	 * card happened behind the panel and nothing on screen changed (#131). Pinned
+	 * desktop sidebars sit beside the note, where closing one would be a surprise.
+	 */
+	private getPanelOutOfTheWay(): void {
+		if (!this.touch) return;
+		const workspace = this.app.workspace;
+		for (const leaf of workspace.getLeavesOfType(COMMENT_PANEL_VIEW)) {
+			const root = leaf.getRoot();
+			if (root === workspace.leftSplit) workspace.leftSplit.collapse();
+			if (root === workspace.rightSplit) workspace.rightSplit.collapse();
+		}
 	}
 
 	/** Move the cursor to the next or previous commented line in this note. */
