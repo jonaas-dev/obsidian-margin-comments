@@ -14,10 +14,17 @@ at 1.0, where a bilingual log is noise for every reader.
 
 ## Workflow
 
-- Work on a branch and open a pull request; do not commit directly to `main`.
+- Work on a branch and open a pull request; do not commit directly to `main`, and never
+  push to `main` a commit that has not been through a pull request.
 - Keep pull requests small when possible, ideally under 400 lines.
 - Run the pre-commit hook (`sh ops/install-hooks.sh`) and the project's linting
   before committing.
+- **Merge by pushing the reviewed head to `main` as a fast-forward**:
+  `git push origin <sha>:main`, once the branch is rebased onto `main` and CI is green
+  on that exact commit. GitHub marks the pull request merged when its head lands on
+  `main`. Never use GitHub's merge button or `gh pr merge`, in any mode: measured here,
+  a squash merge put the profile name in as author (#213, #219) and a rebase merge as
+  committer (#223). See [Committer identity](#committer-identity).
 
 ## What this is
 
