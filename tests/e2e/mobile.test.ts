@@ -140,18 +140,85 @@ describe("touch devices", () => {
 		}
 	});
 
-	it("shows the actions without a hover, since there is none to give", async () => {
+	it("shows the actions without a hover, and folds the reply behind a button (#136)", async () => {
 		// Hidden until hover on a pointer. On a phone that leaves resolving and
-		// deleting behind an affordance that cannot happen.
+		// deleting behind an affordance that cannot happen. The reply field is the
+		// exception: open under every card it made each one a form.
 		const visible = await page.evaluate(() => {
-			const actions = document.querySelector(".inline-comment-actions")!;
-			const reply = document.querySelector(".inline-comment-replybox")!;
+			const card = document.querySelector(".inline-comment-panel .inline-comment-card")!;
 			return {
-				actions: getComputedStyle(actions).opacity,
-				reply: getComputedStyle(reply).display,
+				actions: getComputedStyle(card.querySelector(".inline-comment-actions")!).opacity,
+				reply: getComputedStyle(card.querySelector(".inline-comment-replybox")!).display,
+				toggle: getComputedStyle(card.querySelector(".inline-comment-reply-toggle")!).display,
 			};
 		});
-		expect(visible).toEqual({ actions: "1", reply: "flex" });
+		expect(visible).toEqual({ actions: "1", reply: "none", toggle: "flex" });
+	});
+
+	it("centres a one-line quote in its thumb-sized row (#127)", async () => {
+		const gaps = await page.evaluate(() => {
+			const quote = document.querySelector(".inline-comment-panel .inline-comment-quote")!;
+			const text = quote.querySelector(".inline-comment-quote-text")!;
+			const q = quote.getBoundingClientRect();
+			const t = text.getBoundingClientRect();
+			return { height: Math.round(q.height), above: Math.round(t.top - q.top), below: Math.round(q.bottom - t.bottom) };
+		});
+		expect(gaps.height).toBeGreaterThanOrEqual(44);
+		expect(Math.abs(gaps.above - gaps.below)).toBeLessThanOrEqual(2);
+	});
+
+	it("unfolds and focuses the reply field when Reply is pressed (#136)", async () => {
+		// Read in the same evaluate as the click: the harness holds focus only
+		// inside one synchronous block.
+		const state = await page.evaluate(() => {
+			const card = document.querySelector(".inline-comment-panel .inline-comment-card")!;
+			(card.querySelector(".inline-comment-reply-toggle") as HTMLElement).click();
+			const input = card.querySelector(".inline-comment-replybox-input");
+			return {
+				box: getComputedStyle(card.querySelector(".inline-comment-replybox")!).display,
+				toggle: getComputedStyle(card.querySelector(".inline-comment-reply-toggle")!).display,
+				focused: document.activeElement === input,
+			};
+		});
+		expect(state).toEqual({ box: "flex", toggle: "none", focused: true });
+	});
+
+	it("gives the unfolded field and its send button one thumb-sized height (#127)", async () => {
+		const heights = await page.evaluate(() => {
+			const card = document.querySelector(".inline-comment-panel .inline-comment-card")!;
+			// Unfolded here rather than trusted from the test above: between two
+			// evaluates the harness moves focus to <body>, and an empty field that
+			// loses focus folds again.
+			(card.querySelector(".inline-comment-reply-toggle") as HTMLElement).click();
+			const field = card.querySelector(".inline-comment-replybox-input")!.getBoundingClientRect();
+			const send = card.querySelector(".inline-comment-send")!.getBoundingClientRect();
+			return { field: Math.round(field.height), send: Math.round(send.height) };
+		});
+		expect(heights.field).toBe(heights.send);
+		expect(heights.field).toBeGreaterThanOrEqual(44);
+	});
+
+	it("keeps a draft open when the field loses focus, and folds an empty one", async () => {
+		const states = await page.evaluate(() => {
+			const card = document.querySelector(".inline-comment-panel .inline-comment-card")!;
+			const box = card.querySelector(".inline-comment-replybox")!;
+			const input = card.querySelector(".inline-comment-replybox-input") as HTMLTextAreaElement;
+			// Through the button, as a reader gets there: a folded field is
+			// display: none and cannot take focus at all.
+			(card.querySelector(".inline-comment-reply-toggle") as HTMLElement).click();
+			input.value = "half a reply";
+			input.blur();
+			const withDraft = getComputedStyle(box).display;
+			input.focus();
+			input.value = "";
+			input.blur();
+			return {
+				withDraft,
+				empty: getComputedStyle(box).display,
+				toggle: getComputedStyle(card.querySelector(".inline-comment-reply-toggle")!).display,
+			};
+		});
+		expect(states).toEqual({ withDraft: "flex", empty: "none", toggle: "flex" });
 	});
 
 	it("places the composer above the on-screen keyboard", async () => {
