@@ -433,6 +433,13 @@
 	white-space: nowrap;
 }
 
+/* The box's direction decides which end is cut; the text keeps its own. Without
+   the isolation, rtl moved a leading number or bracket to the far end (#130). */
+.inline-comment-section-path-text {
+	direction: ltr;
+	unicode-bidi: isolate;
+}
+
 .inline-comment-section-missing {
 	flex: none;
 	color: var(--text-error);
