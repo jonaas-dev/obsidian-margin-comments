@@ -3,7 +3,9 @@ import {
 	CommentStorage,
 	STORAGE_DIR,
 	INDEX_FILE,
+	FORMAT_VERSION,
 	describeInvalidComments,
+	describeNewerFormat,
 	describeUnreadableSidecar,
 } from "../../src/storage";
 import { buildThreads } from "../../src/ui/threads";
@@ -346,7 +348,7 @@ describe("CommentStorage", () => {
 			const adapter = new MemoryAdapter();
 			await new CommentStorage(adapter).saveComment(makeComment());
 			const index = JSON.parse(adapter.snapshot()[`${STORAGE_DIR}/${INDEX_FILE}`]);
-			expect(index["notes/meeting.md"]).toEqual({
+			expect(index.notes["notes/meeting.md"]).toEqual({
 				hash: hashString("notes/meeting.md"),
 				threads: 1,
 				open: 1,
@@ -954,5 +956,152 @@ describe("sidecar contents that do not fit the data model", () => {
 		expect(message).not.toContain("notes/deep");
 		expect(message).toContain(keptAt);
 		expect(describeInvalidComments(NOTE, 1, keptAt)).toContain("1 comment ");
+	});
+});
+
+// Once 1.0 is public the on-disk format is a contract with every vault holding
+// comments: without a version, a later change has to be guessed at from shapes, and
+// an older plugin rewrites files a newer one wrote.
+describe("format versions", () => {
+	const NOTE = "notes/meeting.md";
+	const OTHER = "notes/elsewhere.md";
+	const INDEX = `${STORAGE_DIR}/${INDEX_FILE}`;
+	const quiet = () => vi.spyOn(console, "warn").mockImplementation(() => {});
+
+	it("writes the format version into every sidecar", async () => {
+		const adapter = new MemoryAdapter();
+		await new CommentStorage(adapter).saveComment(makeComment());
+
+		expect(JSON.parse(adapter.snapshot()[sidecarFor(NOTE)]).version).toBe(FORMAT_VERSION);
+	});
+
+	it("writes the format version into the index, beside the notes it lists", async () => {
+		const adapter = new MemoryAdapter();
+		await new CommentStorage(adapter).saveComment(makeComment());
+
+		const index = JSON.parse(adapter.snapshot()[INDEX]);
+		expect(index.version).toBe(FORMAT_VERSION);
+		expect(Object.keys(index.notes)).toEqual([NOTE]);
+	});
+
+	it("reads a sidecar written before versions existed, and versions it on the next write", async () => {
+		const adapter = new MemoryAdapter({
+			[sidecarFor(NOTE)]: JSON.stringify({ filePath: NOTE, comments: [makeComment({ id: "old" })] }),
+		});
+		const storage = new CommentStorage(adapter);
+
+		expect((await storage.getCommentsForFile(NOTE)).map((c) => c.id)).toEqual(["old"]);
+		await storage.saveComment(makeComment({ id: "new" }));
+
+		const written = JSON.parse(adapter.snapshot()[sidecarFor(NOTE)]);
+		expect(written.version).toBe(FORMAT_VERSION);
+		expect(written.comments.map((c: Comment) => c.id)).toEqual(["old", "new"]);
+	});
+
+	it("reads an index written before versions existed, and versions it on the next write", async () => {
+		const adapter = new MemoryAdapter({
+			[INDEX]: JSON.stringify({ [OTHER]: { hash: hashString(OTHER), threads: 2, open: 1 } }),
+		});
+		const storage = new CommentStorage(adapter);
+
+		expect(await storage.getCommentSummaries()).toEqual([{ filePath: OTHER, threads: 2, open: 1 }]);
+		await storage.saveComment(makeComment());
+
+		const index = JSON.parse(adapter.snapshot()[INDEX]);
+		expect(index.version).toBe(FORMAT_VERSION);
+		expect(Object.keys(index.notes).sort()).toEqual([NOTE, OTHER].sort());
+	});
+
+	it("sets aside a sidecar whose version is not a whole number, as unreadable", async () => {
+		const warn = quiet();
+		const odd = JSON.stringify({ version: "2", filePath: NOTE, comments: [makeComment()] });
+		const adapter = new MemoryAdapter({ [sidecarFor(NOTE)]: odd });
+
+		expect(await new CommentStorage(adapter).getCommentsForFile(NOTE)).toEqual([]);
+
+		expect(await adapter.exists(sidecarFor(NOTE))).toBe(false);
+		expect(Object.values(adapter.snapshot())).toContain(odd);
+		warn.mockRestore();
+	});
+
+	describe("written by a newer version of the plugin", () => {
+		const newer = JSON.stringify({
+			version: FORMAT_VERSION + 1,
+			filePath: NOTE,
+			comments: [makeComment({ id: "future" }), { shape: "this version does not know" }],
+			somethingNew: true,
+		});
+		const other = JSON.stringify({
+			version: FORMAT_VERSION,
+			filePath: OTHER,
+			comments: [makeComment({ id: "other", filePath: OTHER })],
+		});
+
+		it("shows the comments this version can read", async () => {
+			const adapter = new MemoryAdapter({ [sidecarFor(NOTE)]: newer });
+
+			const loaded = await new CommentStorage(adapter).getCommentsForFile(NOTE);
+
+			expect(loaded.map((c) => c.id)).toEqual(["future"]);
+		});
+
+		it("never rewrites the sidecar, not even to set an unknown comment aside", async () => {
+			const adapter = new MemoryAdapter({ [sidecarFor(NOTE)]: newer });
+			const storage = new CommentStorage(adapter);
+
+			await storage.getCommentsForFile(NOTE);
+
+			expect(adapter.snapshot()[sidecarFor(NOTE)]).toBe(newer);
+			expect(Object.keys(adapter.snapshot()).filter((p) => p.includes(".invalid-"))).toEqual([]);
+		});
+
+		it.each([
+			["save", (s: CommentStorage) => s.saveComment(makeComment({ id: "mine" }))],
+			["update", (s: CommentStorage) => s.updateComment({ ...makeComment({ id: "future" }), content: "edited" })],
+			["delete", (s: CommentStorage) => s.deleteComment(NOTE, "future")],
+			["take", (s: CommentStorage) => s.takeComments(NOTE)],
+			["restore", (s: CommentStorage) => s.restoreComments(NOTE, [makeComment({ id: "back" })])],
+			["move away", (s: CommentStorage) => s.moveComments(NOTE, OTHER)],
+			["move onto", (s: CommentStorage) => s.moveComments(OTHER, NOTE)],
+		])("refuses to %s, and leaves both files as they were", async (_, act) => {
+			const adapter = new MemoryAdapter({ [sidecarFor(NOTE)]: newer, [sidecarFor(OTHER)]: other });
+			const storage = new CommentStorage(adapter);
+
+			await expect(act(storage)).rejects.toThrow();
+
+			expect(adapter.snapshot()[sidecarFor(NOTE)]).toBe(newer);
+			expect(adapter.snapshot()[sidecarFor(OTHER)]).toBe(other);
+		});
+
+		it("tells the owner once", async () => {
+			const adapter = new MemoryAdapter({ [sidecarFor(NOTE)]: newer });
+			const told: string[] = [];
+			const storage = new CommentStorage(adapter, { onNewerFormat: (filePath) => told.push(filePath) });
+
+			await storage.getCommentsForFile(NOTE);
+			await storage.saveComment(makeComment({ id: "mine" })).catch(() => undefined);
+			await storage.getCommentsForFile(NOTE);
+
+			expect(told).toEqual([NOTE]);
+		});
+
+		it("leaves a newer index untouched, and counts from the sidecars instead", async () => {
+			const newerIndex = JSON.stringify({ version: FORMAT_VERSION + 1, notes: {}, somethingNew: true });
+			const adapter = new MemoryAdapter({ [INDEX]: newerIndex });
+			await adapter.mkdir(STORAGE_DIR);
+			const storage = new CommentStorage(adapter);
+
+			await storage.saveComment(makeComment());
+
+			expect(adapter.snapshot()[INDEX]).toBe(newerIndex);
+			expect(await storage.getCommentSummaries()).toEqual([{ filePath: NOTE, threads: 1, open: 1 }]);
+		});
+	});
+
+	it("is announced with the note's name", () => {
+		const message = describeNewerFormat("notes/deep/meeting.md");
+		expect(message).toContain("meeting");
+		expect(message).not.toContain("notes/deep");
+		expect(message).toContain("newer version");
 	});
 });

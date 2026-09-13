@@ -8,7 +8,12 @@ import {
 	type TAbstractFile,
 } from "obsidian";
 import { EditorView } from "@codemirror/view";
-import { CommentStorage, describeInvalidComments, describeUnreadableSidecar } from "./storage";
+import {
+	CommentStorage,
+	describeInvalidComments,
+	describeNewerFormat,
+	describeUnreadableSidecar,
+} from "./storage";
 import { createAnchor } from "./anchor";
 import { movesFor } from "./note-moves";
 import { hashString } from "./utils";
@@ -137,6 +142,9 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			},
 			onInvalid: (filePath, count, keptAt) => {
 				new Notice(describeInvalidComments(filePath, count, keptAt), 0);
+			},
+			onNewerFormat: (filePath) => {
+				new Notice(describeNewerFormat(filePath), 0);
 			},
 		});
 		this.popover = new ThreadPopover(this.app, {

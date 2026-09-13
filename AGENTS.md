@@ -373,9 +373,18 @@ runtime, never persisted.
 `resolved` is meaningful only on a root: resolving a root resolves its thread, and replies
 carry no state of their own. Anything counting open threads therefore counts roots.
 
-`_index.json` maps each commented note to `{ hash, threads, open }`. It is a derived cache
-— rebuildable from the sidecars, and rebuilt when it is missing, corrupt, or written by a
-version that stored a bare hash. The counts are what lets the all-notes view draw every row
+Both kinds of file carry a format `version` (`FORMAT_VERSION` in `storage.ts`). A sidecar
+is `{ version, filePath, comments }`; `_index.json` is `{ version, notes }`, where `notes`
+maps each commented note to `{ hash, threads, open }`.
+- **No version:** the file predates versions, and is rewritten with one on its next change.
+- **A higher version than this plugin knows:** the file is read but never written. The
+  note's comments are shown read-only, and every change to them throws `NewerFormatError`;
+  a newer index is rebuilt in memory.
+- **Changing the format:** bump `FORMAT_VERSION` and migrate explicitly, with a test for
+  every version still read.
+
+The index is a derived cache — rebuildable from the sidecars, and rebuilt when it is
+missing, corrupt, or written by a version that stored a bare hash. The counts are what lets the all-notes view draw every row
 without opening a single sidecar, so keep them in step with every write, and never make the
 vault view read a sidecar it was not asked to open.
 

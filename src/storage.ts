@@ -28,8 +28,18 @@ export interface StorageAdapter {
 	list(path: string): Promise<{ files: string[]; folders: string[] }>;
 }
 
+/**
+ * Version of the on-disk format, written into every sidecar and into the index.
+ *
+ * A file a newer plugin wrote is read but never rewritten, so an older plugin cannot
+ * downgrade it. A file with no version predates versions, and is migrated by being
+ * rewritten on its next change.
+ */
+export const FORMAT_VERSION = 1;
+
 /** One note's comments, as stored. */
 interface Sidecar {
+	version: number;
 	/** Kept inside the file so the store can be rebuilt without the index. */
 	filePath: string;
 	comments: Comment[];
@@ -65,8 +75,20 @@ function isEntry(value: unknown): value is IndexEntry {
 
 /** A sidecar as parsed, before anything inside it is trusted. */
 interface RawSidecar {
+	version?: unknown;
 	filePath: unknown;
 	comments: unknown[];
+}
+
+/**
+ * The format version a parsed file declares: 0 when it predates versions, null when
+ * the declared version is not a whole number, which no plugin ever wrote.
+ */
+function versionOf(value: { version?: unknown }): number | null {
+	if (value.version === undefined) return 0;
+	return Number.isInteger(value.version) && (value.version as number) >= 1
+		? (value.version as number)
+		: null;
 }
 
 /** The sidecar in `text`, or null when the text is not one. */
@@ -128,6 +150,20 @@ export interface StorageOptions {
 	onUnreadable?: (filePath: string, keptAt: string) => void;
 	/** Told once per sidecar holding invalid comments, after they were kept at `keptAt`. */
 	onInvalid?: (filePath: string, count: number, keptAt: string) => void;
+	/** Told once per note whose sidecar a newer plugin wrote, which is then read-only. */
+	onNewerFormat?: (filePath: string) => void;
+}
+
+/** Said when a newer plugin wrote a note's comments, so a refused change is not a mystery. */
+export function describeNewerFormat(filePath: string): string {
+	return `Comments for ${noteName(filePath)} were saved by a newer version of Margin Comments. They are read-only until the plugin is updated.`;
+}
+
+/** Thrown by any change to a note whose sidecar a newer plugin wrote. */
+export class NewerFormatError extends Error {
+	constructor(readonly filePath: string) {
+		super(describeNewerFormat(filePath));
+	}
 }
 
 /** Said when a note's comments could not be read, so the loss is visible and recoverable. */
@@ -146,6 +182,10 @@ export class CommentStorage {
 	private index: Index | null = null;
 	/** Serialises each note's read, change and write; interleaved ones lose comments. */
 	private queues = new Map<string, Promise<unknown>>();
+	/** Notes whose sidecar a newer plugin wrote. See accept. */
+	private readOnly = new Set<string>();
+	/** Set when a newer plugin wrote the index. See indexFrom. */
+	private indexReadOnly = false;
 
 	constructor(
 		private adapter: StorageAdapter,
@@ -198,6 +238,7 @@ export class CommentStorage {
 	): Promise<Comment[]> {
 		return this.exclusive([filePath], async () => {
 			const existing = await this.loadComments(filePath);
+			this.refuseIfNewer(filePath);
 			const next = change(existing);
 			if (next) await this.writeComments(filePath, next);
 			return existing;
@@ -246,7 +287,7 @@ export class CommentStorage {
 
 		const text = await this.adapter.read(path);
 		const sidecar = parseSidecar(text);
-		if (!sidecar) {
+		if (!sidecar || versionOf(sidecar) === null) {
 			// A crash mid-write or a sync conflict leaves a sidecar that no longer parses,
 			// sometimes one a person could still repair. Treating it as empty would let
 			// the next save replace the only copy, so its text is kept first.
@@ -267,6 +308,14 @@ export class CommentStorage {
 	 */
 	private async accept(filePath: string, sidecar: RawSidecar): Promise<Comment[]> {
 		const valid = sidecar.comments.filter((c): c is Comment => isCommentOf(filePath, c));
+		if ((versionOf(sidecar) ?? 0) > FORMAT_VERSION) {
+			// Shown, never rewritten: what this version cannot read may be valid to the one
+			// that wrote it, and a rewrite would drop every field this version does not know.
+			this.readOnly.add(filePath);
+			this.cache.set(filePath, valid);
+			this.options.onNewerFormat?.(filePath);
+			return valid;
+		}
 		if (valid.length === sidecar.comments.length) {
 			this.cache.set(filePath, valid);
 			return valid;
@@ -309,6 +358,11 @@ export class CommentStorage {
 		await this.adapter.rename(temporary, path);
 	}
 
+	/** Refuses a change to a note whose sidecar a newer plugin wrote. */
+	private refuseIfNewer(filePath: string): void {
+		if (this.readOnly.has(filePath)) throw new NewerFormatError(filePath);
+	}
+
 	/** A sidecar whose replacement was written but never moved into place, moved now. */
 	private async recoverReplacement(path: string): Promise<RawSidecar | null> {
 		const temporary = `${path}.tmp`;
@@ -316,7 +370,7 @@ export class CommentStorage {
 		const sidecar = parseSidecar(await this.adapter.read(temporary));
 		// A partial one is from a write that died before it finished, so there is no
 		// complete version to move into place.
-		if (!sidecar) return null;
+		if (!sidecar || versionOf(sidecar) === null) return null;
 		await this.adapter.rename(temporary, path);
 		return sidecar;
 	}
@@ -368,9 +422,11 @@ export class CommentStorage {
 
 		await this.exclusive([from, to], async () => {
 			const moving = await this.loadComments(from);
+			this.refuseIfNewer(from);
 			if (moving.length === 0) return;
 
 			const existing = await this.loadComments(to);
+			this.refuseIfNewer(to);
 			await this.writeComments(to, [
 				...existing,
 				...moving.map((c) => ({ ...c, filePath: to })),
@@ -423,7 +479,7 @@ export class CommentStorage {
 		}
 
 		await this.ensureDir();
-		const sidecar: Sidecar = { filePath, comments };
+		const sidecar: Sidecar = { version: FORMAT_VERSION, filePath, comments };
 		await this.writeAtomically(path, JSON.stringify(sidecar, null, 2));
 		this.cache.set(filePath, comments);
 		await this.updateIndex((index) => {
@@ -465,13 +521,7 @@ export class CommentStorage {
 
 		try {
 			const raw = await this.adapter.read(this.indexPath());
-			const parsed = JSON.parse(raw) as Record<string, unknown>;
-			// 0.1 stored a bare hash per note. Reading those as zero threads would
-			// show every existing vault an empty all-files view, so the counts are
-			// recovered the only way they can be: from the sidecars.
-			this.index = Object.values(parsed).every(isEntry)
-				? (parsed as Index)
-				: await this.rebuildIndex();
+			this.index = await this.indexFrom(JSON.parse(raw) as Record<string, unknown>);
 		} catch {
 			// The index is a derived cache, never the source of truth. Rebuilding from
 			// the sidecars themselves is always correct, so a missing or corrupt index
@@ -479,6 +529,26 @@ export class CommentStorage {
 			this.index = await this.rebuildIndex();
 		}
 		return this.index;
+	}
+
+	/**
+	 * The index a parsed `_index.json` holds, or one rebuilt from the sidecars.
+	 *
+	 * An index a newer plugin wrote is rebuilt in memory and never written back. 0.1
+	 * stored a bare hash per note; reading those as zero threads would show every
+	 * existing vault an empty all-notes view, so the counts are recovered the only way
+	 * they can be: from the sidecars.
+	 */
+	private async indexFrom(parsed: Record<string, unknown>): Promise<Index> {
+		const version = versionOf(parsed);
+		if (version === null) return this.rebuildIndex();
+		if (version > FORMAT_VERSION) {
+			this.indexReadOnly = true;
+			return this.rebuildIndex();
+		}
+		const notes = version === 0 ? parsed : parsed.notes;
+		if (typeof notes !== "object" || notes === null) return this.rebuildIndex();
+		return Object.values(notes).every(isEntry) ? (notes as Index) : this.rebuildIndex();
 	}
 
 	private async rebuildIndex(): Promise<Index> {
@@ -515,8 +585,11 @@ export class CommentStorage {
 		await this.enqueue(this.indexPath(), async () => {
 			const index = await this.loadIndex();
 			mutate(index);
+			// A newer plugin's index is only read; the counts stay current in memory.
+			if (this.indexReadOnly) return;
 			await this.ensureDir();
-			await this.writeAtomically(this.indexPath(), JSON.stringify(index, null, 2));
+			const file = { version: FORMAT_VERSION, notes: index };
+			await this.writeAtomically(this.indexPath(), JSON.stringify(file, null, 2));
 		});
 	}
 }

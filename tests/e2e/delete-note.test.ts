@@ -74,7 +74,7 @@ describe("notes that are deleted", () => {
 
 	function indexPaths(): string[] {
 		const raw = readFileSync(`${vault.path}/.margin-comments/_index.json`, "utf8");
-		return Object.keys(JSON.parse(raw));
+		return Object.keys(JSON.parse(raw).notes);
 	}
 
 	beforeAll(async () => {
