@@ -65,6 +65,28 @@ export function shouldShowMarker(line: number, context: MarkerContext): boolean 
 	return context.hoveredLine === line;
 }
 
+/**
+ * The marker for a visual block, which may cover several lines.
+ *
+ * A rendered table in live preview is one block for all of its rows, and the
+ * gutter asks about a block once, by its first line. Asking only about that
+ * line left a comment on any other row with no marker at all (#140).
+ */
+export function blockMarker(
+	first: number,
+	last: number,
+	counts: ReadonlyMap<number, number>,
+	context: MarkerContext,
+): { visible: boolean; count: number } {
+	let count = 0;
+	let visible = false;
+	for (let line = first; line <= last; line++) {
+		count += counts.get(line) ?? 0;
+		if (shouldShowMarker(line, context)) visible = true;
+	}
+	return { visible, count };
+}
+
 export function isNearLeftEdge(
 	clientX: number,
 	rect: { left: number; width: number },

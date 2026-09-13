@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+	blockMarker,
 	countBadgeText,
 	isNearLeftEdge,
 	linesWithOpenComments,
@@ -175,5 +176,42 @@ describe("markerLabel", () => {
 		expect(markerLabel(1)).toBe("1 comment on this line");
 		expect(markerLabel(3)).toBe("3 comments on this line");
 		expect(markerLabel(148)).toBe("148 comments on this line");
+	});
+});
+
+describe("blockMarker", () => {
+	const idle = { hoveredLine: null, touch: false, cursorLine: null, enabled: true };
+
+	it("answers for an ordinary line exactly as shouldShowMarker does", () => {
+		const counts = new Map([[2, 1]]);
+		expect(blockMarker(2, 2, counts, { ...idle, commented: counts })).toEqual({ visible: true, count: 1 });
+		expect(blockMarker(3, 3, counts, { ...idle, commented: counts })).toEqual({ visible: false, count: 0 });
+	});
+
+	it("marks a block when any line inside it is commented, not only its first (#140)", () => {
+		// A table's rows 3-6 are one rendered block; the comment is on row 6.
+		const counts = new Map([[6, 1]]);
+		expect(blockMarker(3, 6, counts, { ...idle, commented: counts })).toEqual({ visible: true, count: 1 });
+	});
+
+	it("counts the threads of every line in the block", () => {
+		const counts = new Map([
+			[4, 1],
+			[6, 2],
+		]);
+		expect(blockMarker(3, 6, counts, { ...idle, commented: counts }).count).toBe(3);
+	});
+
+	it("shows the affordance when the caret is anywhere in the block on touch", () => {
+		const counts = new Map<number, number>();
+		expect(blockMarker(3, 6, counts, { ...idle, touch: true, cursorLine: 5, commented: counts })).toEqual({
+			visible: true,
+			count: 0,
+		});
+	});
+
+	it("shows nothing with the gutter switched off, commented or not", () => {
+		const counts = new Map([[5, 1]]);
+		expect(blockMarker(3, 6, counts, { ...idle, enabled: false, commented: counts }).visible).toBe(false);
 	});
 });
