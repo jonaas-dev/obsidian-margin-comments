@@ -15,14 +15,16 @@ const BODY = ["first line of the note", "second line of the note", "third line o
 );
 
 /**
- * An internal link, because embeds are downgraded to links by the comment-body
- * sanitizer (#199). MarkdownRenderer does not mark unresolved links here —
- * [[nowhere-at-all]] renders with the same classes as a link that resolves —
- * so the DOM alone cannot tell a right sourcePath from a wrong one. We resolve
- * the linkpath through Obsidian's metadata cache, which uses the commented
- * note as the source.
+ * A local image, because its resolution is visible and sanitising keeps it.
+ *
+ * MarkdownRenderer does not mark unresolved links here — [[nowhere-at-all]]
+ * renders with the same classes as a link that resolves — so a wikilink cannot
+ * tell a right sourcePath from a wrong one. An embed could, but comment bodies are
+ * sanitised and embeds become plain links (#199). An image's `src` names the file
+ * it resolved to, and the two candidates below sit in different folders. The embed
+ * rides along to prove it is not rendered as one.
  */
-const LINK_COMMENT = "context: [[target]]";
+const IMAGE_COMMENT = "context: ![](pic.svg) and ![[target]]";
 const LONG_COMMENT = Array.from({ length: 30 }, (_, i) => `line ${i} of a very long comment`).join(
 	"\n\n",
 );
@@ -34,15 +36,17 @@ describe("markdown in comment cards", () => {
 
 	beforeAll(async () => {
 		// Order matters here, which is why this is a literal rather than a loop.
-		// Obsidian resolves [[target]] by exact path first, then by preferring the
-		// source note's own folder, then by falling back to whichever target.md it
+		// Obsidian resolves pic.svg by exact path first, then by preferring the
+		// source note's own folder, then by falling back to whichever pic.svg it
 		// indexed first. Neither copy is at the vault root, so the first rule never
 		// fires; the decoy is written first so it wins the fallback. A card handed
-		// the wrong sourcePath therefore embeds the decoy, which is the only reason
-		// this assertion can fail.
+		// the wrong sourcePath therefore shows the decoy, which is the only reason
+		// that assertion can fail.
 		vault = createTempVault({
+			"zeta/pic.svg": '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>',
 			"zeta/target.md": "the decoy target",
 			[NOTE]: BODY,
+			"alpha/pic.svg": '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"/>',
 			"alpha/target.md": "the sibling target",
 		});
 		session = await launchObsidian(vault.path);
@@ -56,7 +60,7 @@ describe("markdown in comment cards", () => {
 		await page.waitForSelector(".workspace-leaf.mod-active .cm-editor", { timeout: 30000 });
 		await dismissModals(page);
 
-		await addComment(1, LINK_COMMENT);
+		await addComment(1, IMAGE_COMMENT);
 		await addComment(2, LONG_COMMENT);
 
 		await page.evaluate(async () => {
@@ -85,17 +89,23 @@ describe("markdown in comment cards", () => {
 		await page.waitForTimeout(1500);
 	}
 
-	it("resolves an internal link against the commented note, not against the vault root", async () => {
-		const link = page.locator(".inline-comment-body a.internal-link").first();
-		await link.waitFor({ timeout: 10000 });
-		expect(await link.getAttribute("data-href")).toBe("target");
+	it("resolves a local image against the commented note, not against the vault root", async () => {
+		const image = page.locator(".inline-comment-body img").first();
+		await image.waitFor({ timeout: 10000 });
+		const src = decodeURIComponent(await image.getAttribute("src"));
+		expect(src).toContain("alpha/pic.svg");
+		expect(src).not.toContain("zeta/pic.svg");
+	});
 
-		const resolved = await page.evaluate(() => {
-			const file = window.app.metadataCache.getFirstLinkpathDest("target", "alpha/note.md");
-			return file?.path ?? null;
-		});
-		expect(resolved).toBe("alpha/target.md");
-		expect(resolved).not.toBe("zeta/target.md");
+	it("renders an embed as a link, without pulling the note into the card", async () => {
+		const body = page.locator(".inline-comment-body").first();
+		// A note embed renders as .markdown-embed. The image beside it is an
+		// .internal-embed as well, so that class alone cannot tell them apart.
+		expect(await body.locator(".markdown-embed").count()).toBe(0);
+		expect(await body.locator('a.internal-link[data-href="target"]').count()).toBe(1);
+		const text = await body.innerText();
+		expect(text).not.toContain("the sibling target");
+		expect(text).not.toContain("the decoy target");
 	});
 
 	it("clips a long body and offers a way to see the rest", async () => {
@@ -154,32 +164,37 @@ describe("markdown in comment cards", () => {
 		expect(collapsed.label).toBe("Show more");
 	});
 
-	it("does not duplicate rendered links across repaints", async () => {
-		// Every filter, sort, scope and settings change repaints the panel. An
-		// internal link does not register a child component like an embed does,
-		// but a leaked render would still leave extra DOM elements behind. Count
-		// those instead: the panel outlives every repaint, so duplicates would
-		// accumulate if the card were not torn down correctly.
-		const countLinks = async (): Promise<number> =>
-			page.locator(".inline-comment-body a.internal-link").count();
+	it("does not accumulate render components across repaints", async () => {
+		// Every filter, sort, scope and settings change repaints the panel, and each
+		// repaint renders every card body under a fresh component. Counted
+		// rather than argued about: the panel outlives every repaint, so anything
+		// hung off the view directly is never unloaded.
+		const count = async (): Promise<number> =>
+			page.evaluate(() => {
+				const leaf = window.app.workspace.getLeavesOfType("margin-comments-panel")[0];
+				const total = (component: any): number =>
+					1 +
+					(component._children ?? []).reduce((sum: number, c: any) => sum + total(c), 0);
+				return total(leaf.view);
+			});
 
 		const all = page.locator(".inline-comment-filter").first();
 		await all.click();
 		await page.waitForTimeout(600);
-		const before = await countLinks();
-		expect(before).toBe(1);
+		const before = await count();
 
 		for (let i = 0; i < 8; i++) {
 			await all.click();
 			await page.waitForTimeout(300);
 		}
 		await page.waitForTimeout(600);
-		const after = await countLinks();
+		const after = await count();
 
 		expect(after).toBe(before);
 		// And the same cards are still on screen, so this is not a count that
 		// stayed flat because the panel stopped drawing anything.
 		expect(await page.locator(".inline-comment-card").count()).toBe(2);
+		expect(await page.locator(".inline-comment-body img").count()).toBe(1);
 	});
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
