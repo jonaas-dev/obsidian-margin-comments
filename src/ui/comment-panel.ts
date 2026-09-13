@@ -254,11 +254,10 @@ export class CommentPanelView extends ItemView {
 
 		const list = container.createDiv({ cls: "inline-comment-list", attr: { role: "list" } });
 		for (const thread of threads) {
-			const card = this.renderCard(list, thread, active.filePath, active.doc);
+			const card = this.renderCard(list, thread, active.filePath, active.doc, () =>
+				this.host.revealThread(thread),
+			);
 			card.setAttribute("role", "listitem");
-			if (!thread.orphaned) {
-				card.addEventListener("click", () => this.host.revealThread(thread));
-			}
 		}
 
 		this.applySelection();
@@ -321,10 +320,9 @@ export class CommentPanelView extends ItemView {
 		);
 		const body = wrapper.createDiv({ cls: "inline-comment-section-body" });
 		for (const thread of threads) {
-			const card = this.renderCard(body, thread, section.filePath, data.doc);
-			if (!thread.orphaned) {
-				card.addEventListener("click", () => this.host.openThreadInNote(section.filePath, thread));
-			}
+			this.renderCard(body, thread, section.filePath, data.doc, () =>
+				this.host.openThreadInNote(section.filePath, thread),
+			);
 		}
 	}
 
@@ -369,12 +367,17 @@ export class CommentPanelView extends ItemView {
 		thread: Thread,
 		filePath: string,
 		doc: string,
+		reveal: () => void,
 	): HTMLElement {
+		// One destination for the quote and the card. The quote keeps its click
+		// from reaching the card, so a quote wired to the active note sent a card
+		// in another note's section to the wrong note (#155).
 		const card = renderThreadCard(parent, thread, filePath, this.app, this.cardScope, this.host, {
-			onReveal: () => this.host.revealThread(thread),
+			onReveal: reveal,
 			doc,
 			touch: this.host.touch(),
 		});
+		if (!thread.orphaned) card.addEventListener("click", reveal);
 		// Reaching a different card is the reader turning their attention to the
 		// panel, which is exactly when the arrival marker has served its purpose.
 		card.addEventListener("mouseenter", () => {
