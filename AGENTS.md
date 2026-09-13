@@ -158,6 +158,14 @@ the keyboard work: that the controls are focusable elements in DOM order, that t
 without text carry a label, and — read synchronously — that focus goes back where it came
 from. `tests/e2e/accessibility.test.ts` is built on that split.
 
+**Collapsing a sidebar that holds the active leaf focuses the note.** That focus is Obsidian
+desktop's, not the plugin's, and a phone does not give it. The first touch-case test for #157
+read focus in the editor after a jump from the panel and failed against the fix as it had
+against `main`: the panel was the active leaf, the plugin collapsed its sidebar, and Obsidian
+focused the note. When a test measures focus the plugin gives or withholds, make the note the
+active leaf first (`setActiveLeaf(leaf, { focus: false })`), and run the test against the fix
+as well as against `main` — one that fails on both is measuring something else.
+
 **`:focus-visible` needs a keyboard press first.** It asks whether the last interaction was
 a keyboard one, and a suite that has only clicked will compute no focus ring at all from a
 perfectly good stylesheet. One `page.keyboard.press("Tab")` sets the modality; it does not
@@ -174,6 +182,11 @@ the run reports whatever the *previous* patch did. The tell is a negative that f
 test unrelated to what you broke — that is a stale bundle, not a surprising coupling.
 Consume the symbol (`void thing;`) so the build still compiles, and check the build
 succeeded before believing the result.
+
+**A minified bundle has no names to grep.** The production build mangles identifiers, so
+`grep watchPlacement main.js` answers 0 on a bundle that contains the function, and a wait
+loop keyed on that name never ended. To check that a build carries a change, search for a
+string literal the change introduced (`--keyboard-height`, a class name), never for a function.
 
 **CodeMirror hides the whole gutter from assistive technology.** `.cm-gutters` carries
 `aria-hidden="true"`, because it is chrome duplicating content the editor already exposes. So
@@ -192,6 +205,26 @@ is specificity 0,1,1 and sets colour, background, border and padding — so styl
 `<button>` of ours through a single class silently loses. It surfaced as the theme test
 finding the quote in the theme's button colour instead of muted, with the accent rule down
 its left edge gone too. Scope through an ancestor (`.inline-comment-card .inline-comment-quote`).
+
+## Obsidian on Android
+
+**The keyboard does not shrink `visualViewport`.** Obsidian's Android app keeps the WebView at
+full height, publishes the keyboard as `--keyboard-height` on `<html>`, and shrinks
+`.app-container` to what is left. Measured on a Pixel 8 with Gboard up: `innerHeight` and
+`visualViewport.height` both 915, `--keyboard-height: 336.38px`, `.app-container` ending at 579.
+No resize event fires. A sheet placed against the visual viewport alone opened behind the
+keyboard (#159): read the variable as well, and watch the root element's `style` for it.
+
+**The navigation bar hides by sliding, not by disappearing.** `body` gets `is-hidden-nav` and
+`.mobile-navbar` animates `transform` below the screen while staying displayed, so measured when
+the class changes it has not moved yet. Wait for its `transitionend` (#160).
+
+**Boot the emulator with `-gpu host`.** Its default software renderer (`swangle` + `lavapipe`)
+paints stale tiles into WebView scrollers: fragments of other cards drawn over the panel header,
+which no phone shows. That was filed as a plugin bug (#134), and two fixes were tried against it
+before the same repro came out clean on `main` under the host GPU. Gboard never drew its full
+keyboard under the software renderer either, so keyboard overlap could not be seen there at all.
+Before filing a rendering fault found on the emulator, check `gles_mode_selected` in its log.
 
 ## Markdown rendering in cards
 
