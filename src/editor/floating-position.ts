@@ -63,6 +63,8 @@ export interface SheetMetrics {
 	keyboardHeight: number;
 	/** Distance from the bottom of the window to the top of the app's own bottom bar. */
 	reservedBottom: number;
+	/** Height the sheet's own content needs (its `scrollHeight`). */
+	contentHeight: number;
 }
 
 export interface SheetPosition {
@@ -73,6 +75,13 @@ export interface SheetPosition {
 
 /** The most of the remaining height a sheet may take, so the line stays in view above it. */
 export const SHEET_MAX_FRACTION = 0.5;
+
+/**
+ * The most of its content a sheet insists on showing when half the space is too
+ * little: room for the composer's field and buttons (144px measured on a Pixel
+ * 8), not for a whole thread, which can go on scrolling inside the sheet.
+ */
+export const SHEET_MIN_CAP = 200;
 
 /**
  * Where a bottom sheet sits on a phone.
@@ -87,7 +96,13 @@ export function sheetPosition(metrics: SheetMetrics): SheetPosition {
 	const keyboard = Math.max(0, metrics.innerHeight - metrics.visibleHeight, metrics.keyboardHeight);
 	const bottom = Math.max(keyboard, metrics.reservedBottom, 0);
 	const available = Math.max(0, metrics.innerHeight - bottom);
-	return { bottom, maxHeight: Math.round(available * SHEET_MAX_FRACTION) };
+	// Half the space keeps the commented line in view, until half is too little to
+	// type in: in landscape with the keyboard up it left the composer 75px of the
+	// 144 it needs (#166). Seeing the field wins over seeing the line then, but
+	// never past the space there is.
+	const floor = Math.min(metrics.contentHeight, SHEET_MIN_CAP);
+	const maxHeight = Math.min(available, Math.max(Math.round(available * SHEET_MAX_FRACTION), floor));
+	return { bottom, maxHeight };
 }
 
 /**
