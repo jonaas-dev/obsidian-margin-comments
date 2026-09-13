@@ -55,10 +55,22 @@ jobs:
       # Expressions go through env rather than straight into run: a ${{ }} is
       # substituted textually before the shell sees it, which is a script
       # injection vector the moment one of these values is not a commit SHA.
+      - name: Resolve scan range
+        id: range
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            # Push to main: scan the commits this push introduced.
+            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.after }}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Scan for secrets and personal data
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ steps.range.outputs.base }}
+          HEAD_SHA: ${{ steps.range.outputs.head }}
         # Three dots: diff against the merge base. Two dots compares the two
         # tips, so anything main deleted after the fork point would show up as
         # an addition here and fail the PR for someone else's change.
@@ -66,8 +78,8 @@ jobs:
 
       - name: Verify maintainer identity
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_SHA: ${{ steps.range.outputs.base }}
+          HEAD_SHA: ${{ steps.range.outputs.head }}
         run: |
           # Identity checks only apply to the maintainer's commits. Outside
           # contributors may use whatever address and name GitHub has on file.
