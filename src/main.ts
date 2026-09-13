@@ -4,7 +4,6 @@ import {
 	Platform,
 	Plugin,
 	TFile,
-	type MarkdownPostProcessorContext,
 } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import {
@@ -15,7 +14,6 @@ import {
 } from "./storage";
 import { createAnchor } from "./anchor";
 import { NoteEvents } from "./vault-events";
-import { hashString } from "./utils";
 import { HIGHLIGHT_VARIABLE, highlightOverride } from "./appearance";
 import { InlineCommentsSettingTab, type SettingsHost } from "./settings";
 import {
@@ -38,15 +36,7 @@ import type { Binding } from "./ui/hotkey";
 
 /** Named once: the panel quotes it when no key is bound to it. */
 const ADD_COMMENT_NAME = "Add comment to selection";
-import { highlightsInBlock } from "./reading/reading-highlights";
-import {
-	markBlock,
-	paintReadingMarks,
-	threadIdsAt,
-	unmarkBlock,
-	READING_BLOCK_CLASS,
-	READING_MARK_CLASS,
-} from "./reading/reading-marks";
+import { ReadingMode } from "./reading/reading-mode";
 import { debounce, type Debounced } from "./debounce";
 import { FloatingComposer } from "./editor/floating-comment";
 import type { AnchorRect } from "./editor/floating-position";
@@ -189,8 +179,19 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		});
 
 		this.applyHighlightColour();
-		this.registerMarkdownPostProcessor((el, ctx) => this.markReadingBlock(el, ctx));
-		this.registerDomEvent(document, "click", (event) => void this.openFromReading(event));
+		this.reading = new ReadingMode({
+			app: this.app,
+			storage: this.storage,
+			settings: () => this.settings,
+			visiblePanel: () => this.visiblePanel(),
+			sheet: () => this.sheet,
+			openPopover: (threads, filePath, rect, doc) => {
+				this.popoverFile = filePath;
+				this.popover?.open(threads, filePath, rect, doc);
+			},
+		});
+		this.registerMarkdownPostProcessor((el, ctx) => this.reading.markBlock(el, ctx));
+		this.registerDomEvent(document, "click", (event) => void this.reading.openFrom(event));
 		this.registerEditorExtension(lineHighlights());
 		this.registerEditorExtension(
 			commentGutter({
@@ -630,11 +631,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		this.popover?.redraw(threads, doc);
 	}
 
-	/**
-	 * Threads resolved for reading mode, keyed by note path and text digest.
-	 * See threadsForReading.
-	 */
-	private readingThreads = new Map<string, Thread[]>();
+	private reading!: ReadingMode;
 
 	/**
 	 * Whether this is a touch device.
@@ -683,146 +680,10 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 
 	/** Redraw markers, highlights and the panel. Part of SettingsHost. */
 	async refresh(): Promise<void> {
-		// The reading-mode cache is keyed by the note's text, so an edit misses it
-		// on its own. A resolve does not: same text, different comments.
-		this.readingThreads.clear();
+		this.reading.clear();
 		await this.refreshMarkers();
-		await this.refreshReading();
+		this.reading.rerender();
 		await this.refreshPanel();
-	}
-
-	/**
-	 * Re-render every note's reading view, whether it is the visible mode or not.
-	 *
-	 * A post-processor runs when Obsidian renders a block and never again, so
-	 * nothing else brings a resolve or a settings change to a note being read.
-	 *
-	 * Not only the leaves currently showing preview, which is what this did
-	 * first: Obsidian reuses a cached render when returning to reading mode, and
-	 * it invalidates that cache when the *note* changes. Comments live outside
-	 * the note, so a comment added while editing left the cached render standing
-	 * and switching to reading mode showed the note without it. Measured with the
-	 * post-processor instrumented: on the second switch it was not called once.
-	 */
-	private async refreshReading(): Promise<void> {
-		for (const leaf of this.app.workspace.getLeavesOfType("markdown")) {
-			(leaf.view as MarkdownView).previewMode?.rerender(true);
-		}
-	}
-
-	/**
-	 * Mark the commented text in one rendered block.
-	 *
-	 * Reading mode gets highlights and no gutter: CodeMirror extensions do not
-	 * apply here, so there is no line to click. A comment is created in editing
-	 * mode or from the panel, and an existing one opens from its mark (#171).
-	 *
-	 * `getSectionInfo` is what makes this possible and also what keeps it in
-	 * bounds — it answers only for elements rendered as part of a file, so the
-	 * Markdown the panel renders inside its own cards falls straight through
-	 * rather than highlighting the comments' own text.
-	 */
-	private async markReadingBlock(el: HTMLElement, ctx: MarkdownPostProcessorContext): Promise<void> {
-		if (!this.settings.showLineHighlights) return;
-
-		const info = ctx.getSectionInfo(el);
-		if (!info) return;
-		// Cleared before deciding, not only added: a re-render can hand back the
-		// same section element, and every early return below would otherwise leave
-		// the rule from the last pass on a block whose thread is now resolved.
-		unmarkBlock(el);
-
-		const comments = await this.storage.getCommentsForFile(ctx.sourcePath);
-		if (comments.length === 0) return;
-
-		const threads = this.threadsForReading(ctx.sourcePath, info.text, comments);
-		const highlights = highlightsInBlock(info.text, threads, info.lineStart, info.lineEnd);
-		if (highlights.length === 0) return;
-		const ids = highlights.map((highlight) => highlight.id);
-
-		// A code block gets the rule on its section, never spans in its code: marks
-		// painted into the code did not reach the screen, so a commented code block
-		// showed nothing at all while the editor highlighted it (#141).
-		if (el.querySelector("pre")) {
-			markBlock(el, ids);
-			return;
-		}
-
-		if (paintReadingMarks(el, highlights) === 0) markBlock(el, ids);
-	}
-
-	/**
-	 * Open the threads under a tap on a comment's mark in reading mode (#171).
-	 *
-	 * Reading mode has no gutter, so the marked words are the way in, routed as a
-	 * gutter click is: the panel's card when the panel is on screen, the popover
-	 * otherwise. A link inside a mark keeps its click, and a click that ends a text
-	 * selection was a selection.
-	 *
-	 * The DOM is read before the first await: a refresh can re-render the note in
-	 * the meantime and detach the element that was tapped.
-	 */
-	private async openFromReading(event: MouseEvent): Promise<void> {
-		const target = event.target;
-		if (!(target instanceof Element)) return;
-		if (target.closest("a, button, input, textarea, select")) return;
-		if (!(window.getSelection()?.isCollapsed ?? true)) return;
-
-		const ids = threadIdsAt(target);
-		if (ids.length === 0) return;
-		const leaf = this.app.workspace
-			.getLeavesOfType("markdown")
-			.find((candidate) => candidate.view.containerEl.contains(target));
-		if (!leaf || !(leaf.view instanceof MarkdownView) || !leaf.view.file) return;
-		const filePath = leaf.view.file.path;
-		const doc = leaf.view.editor.getValue();
-		const marked = target.closest(`.${READING_MARK_CLASS}, .${READING_BLOCK_CLASS}`) ?? target;
-		const rect = marked.getBoundingClientRect();
-
-		const comments = await this.storage.getCommentsForFile(filePath);
-		const threads = buildThreads(doc, comments, { fuzzy: true, threshold: this.settings.fuzzyThreshold });
-		const shown = ids
-			.map((id) => threads.find((thread) => thread.root.id === id))
-			.filter((thread): thread is Thread => thread !== undefined)
-			.filter((thread) => !thread.root.resolved && !thread.orphaned);
-		if (shown.length === 0) return;
-
-		const panel = this.visiblePanel();
-		if (panel) {
-			await panel.select(shown[0].root.id);
-			return;
-		}
-
-		// What keepAboveSheet does for the editor: the sheet covers the lower half
-		// of the screen, where tapped words near the bottom would be left hidden.
-		const scroller = this.sheet ? marked.closest(".markdown-preview-view") : null;
-		if (scroller) scroller.scrollTop += rect.top - scroller.getBoundingClientRect().top - 96;
-
-		this.popoverFile = filePath;
-		this.popover?.open(shown, filePath, { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }, doc);
-	}
-
-	/**
-	 * The note's threads, resolved once per render rather than once per block.
-	 *
-	 * Reading mode calls the post-processor for every block, and the fuzzy stage
-	 * this shares with the panel searches the whole note for every comment. Paid
-	 * per block on a long note it is the stage-2 hole from #22 all over again.
-	 */
-	private threadsForReading(path: string, doc: string, comments: Comment[]): Thread[] {
-		const key = `${path}:${hashString(doc)}`;
-		const cached = this.readingThreads.get(key);
-		if (cached) return cached;
-
-		const threads = buildThreads(doc, comments, {
-			fuzzy: true,
-			threshold: this.settings.fuzzyThreshold,
-		});
-		// One note is being read at a time; the cap is only so a long session of
-		// edit-and-read does not hold every version of the note it passed through.
-		if (this.readingThreads.size >= 8) this.readingThreads.clear();
-		this.readingThreads.set(key, threads);
-		return threads;
 	}
 
 	/**
