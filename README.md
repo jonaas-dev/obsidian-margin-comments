@@ -2,7 +2,7 @@
 
 Add inline comments to your Obsidian notes with threaded replies, resolve/unresolve, and a sidebar panel. Non-destructive storage — your Markdown files are never modified.
 
-> **Status: in development.** Not yet released. Track progress on the [project board](https://github.com/users/jonaas-dev/projects).
+> **Status: in development.** Not yet released.
 
 ## Features
 
@@ -19,28 +19,34 @@ Everything below is implemented and covered by tests against a real Obsidian.
 - **Commands and hotkeys** — add a comment, jump to the next or previous comment, resolve every thread in a note, toggle the panel. None ships with a default hotkey; bind the ones you use in **Settings → Hotkeys**
 - **Non-destructive** — comments live in `.margin-comments/`, your notes stay untouched
 - **Theme-aware** — colours and type come from your Obsidian theme
-- **Reading mode** — commented text is highlighted there too; see below for what reading mode does and does not do
+- **Reading mode** — commented text is highlighted, and a tap or click on a mark or marked block opens its thread
 - **Mobile and touch** — tap replaces hover: markers stay on the commented lines and on the line the caret is on, controls are thumb-sized, and the composer stays above the on-screen keyboard
 
 ## Reading mode
 
 Comments are **created and managed in editing mode**. In reading mode the plugin
-highlights the commented text and nothing else.
+highlights the commented text and opens threads from the rendered note.
 
 **What works**
 
 - Commented text is highlighted in the rendered note
+- A tap or click on a highlighted word or marked block opens its thread: in the
+  sidebar panel when the panel is visible, in a popover (or bottom sheet on a
+  phone) otherwise
 - The highlight follows the same anchoring as the editor, so text that moved is
   still marked where it ended up
 - Resolving a thread clears its highlight without leaving reading mode
 - Turning off "Highlight commented lines" turns these off too
 
+**What is left alone**
+
+- A link inside a mark keeps its normal click
+- A click that ends a text selection does not open a thread
+
 **What does not**
 
 - **No gutter markers**, so there is nowhere to hover or tap to add a comment.
   Switch to editing mode, or use the panel
-- **No click-to-open.** A highlight marks the text; the thread is read in the
-  sidebar panel, which works the same in either mode
 - A comment made on text that Markdown consumes — the asterisks in `**bold**`,
   a link's target — cannot be marked around the words it belongs to, because
   those characters are not in the rendered output. The whole block carries a rule
@@ -53,9 +59,8 @@ highlights the commented text and nothing else.
 - A comment inside a fenced code block marks the code block with that rule too,
   rather than the words inside it
 
-The cause is that these are CodeMirror editor extensions, and CodeMirror does not
-run in reading mode. The highlights arrive through a Markdown post-processor,
-which can reach the rendered output but not the gutter beside it.
+The highlights arrive through a Markdown post-processor, which can reach the
+rendered output but not the gutter beside it.
 
 ### Panel size
 
@@ -71,9 +76,31 @@ far past any real one.
 
 ## How it works
 
-Comments are stored as JSON files in `.margin-comments/` at the vault root: one sidecar per commented note, plus an index of which notes have comments and how many. Markdown files are never modified, so comments are safe with any sync service (Git, iCloud, Dropbox, Obsidian Sync), survive Obsidian updates, and are trivial to back up or migrate.
+Comments are stored as JSON files in `.margin-comments/` at the vault root: one sidecar per commented note, plus an index of which notes have comments and how many. Markdown files are never modified, so comments are safe with most sync services (Git, iCloud, Dropbox), survive Obsidian updates, and are trivial to back up or migrate.
+
+> **Obsidian Sync:** files and folders beginning with `.` are treated as hidden and are not synced, with `.obsidian` as the only exception. If you use Obsidian Sync, comments in `.margin-comments/` stay on the device where they were written unless you sync the folder another way.
 
 Each comment remembers the text it was made on, not a line number, so it follows that text as the note is edited. A comment whose text is gone is shown as orphaned rather than dropped.
+
+## Privacy and storage
+
+Each sidecar is plain, unencrypted JSON. Per comment it stores the note's vault
+path, the selected text plus about 50 characters on either side of it, the
+comment body, the author name from settings, and timestamps. `_index.json` lists
+the path of every commented note.
+
+Because `.margin-comments/` holds excerpts from your notes, treat it as part of
+your vault when sharing or publishing:
+
+- **Publishing a vault** through Git, Quartz or a similar tool publishes the
+  folder unless you exclude it. That can include excerpts from notes that are
+  not published themselves, and comments on deleted notes when the
+  orphaned-comments setting is `keep`.
+- **Syncing** shares every comment in the folder, including author names.
+- **Deleting text from a note** does not remove it from the sidecar until the
+  comment itself is deleted.
+
+To keep the folder out of Git, add `.margin-comments/` to `.gitignore`.
 
 ## Contributing
 
