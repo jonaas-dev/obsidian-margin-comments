@@ -1,5 +1,6 @@
 import { App, Component } from "obsidian";
 import { computePosition, type AnchorRect } from "../editor/floating-position";
+import { placeSheet } from "../editor/bottom-sheet";
 import type { Thread } from "./threads";
 import { renderThreadCard, type ThreadActions } from "./thread-card";
 
@@ -24,10 +25,16 @@ export class ThreadPopover extends Component {
 	private onKeyDown: ((event: KeyboardEvent) => void) | null = null;
 	private content: PopoverContent | null = null;
 	private anchorRect: AnchorRect | null = null;
+	private onViewportChange: (() => void) | null = null;
 
+	/**
+	 * `sheet` is read at each placement, like the plugin's `touch`, so a test can
+	 * turn it on without rebuilding the popover.
+	 */
 	constructor(
 		private app: App,
 		private actions: ThreadActions,
+		private sheet: () => boolean = () => false,
 	) {
 		super();
 	}
@@ -49,6 +56,14 @@ export class ThreadPopover extends Component {
 			};
 			document.addEventListener("mousedown", this.onOutsideClick);
 		}, 0);
+
+		// A reply field focused inside a sheet brings the keyboard up under it, and
+		// only the visual viewport says so.
+		const visual = window.visualViewport;
+		if (visual) {
+			this.onViewportChange = () => this.anchorRect && this.position(this.anchorRect);
+			visual.addEventListener("resize", this.onViewportChange);
+		}
 
 		this.onKeyDown = (event: KeyboardEvent) => {
 			// Only when focus is outside the card: inside, Escape belongs to
@@ -103,6 +118,10 @@ export class ThreadPopover extends Component {
 
 	private position(anchorRect: AnchorRect): void {
 		if (!this.el) return;
+		if (this.sheet()) {
+			placeSheet(this.el);
+			return;
+		}
 		const rect = this.el.getBoundingClientRect();
 		const { left, top, placement } = computePosition(
 			anchorRect,
@@ -122,6 +141,10 @@ export class ThreadPopover extends Component {
 		if (this.onKeyDown) {
 			document.removeEventListener("keydown", this.onKeyDown);
 			this.onKeyDown = null;
+		}
+		if (this.onViewportChange) {
+			window.visualViewport?.removeEventListener("resize", this.onViewportChange);
+			this.onViewportChange = null;
 		}
 		this.el?.remove();
 		this.el = null;
