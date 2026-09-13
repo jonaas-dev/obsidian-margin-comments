@@ -36,8 +36,13 @@
 	display: inline-flex;
 }
 
-.inline-comment-marker:hover {
-	color: var(--text-muted);
+/* Hover styling only where the pointer can hover. A touch browser keeps :hover
+   on the last element tapped, so every hover rule stayed painted on whatever
+   was touched last (#156). */
+@media (hover: hover) {
+	.inline-comment-marker:hover {
+		color: var(--text-muted);
+	}
 }
 
 /* A line that already carries an open comment, in the same colour as its
@@ -327,9 +332,11 @@
 	cursor: pointer;
 }
 
-.inline-comment-panel .inline-comment-filter:hover {
-	background-color: var(--background-modifier-hover);
-	color: var(--text-normal);
+@media (hover: hover) {
+	.inline-comment-panel .inline-comment-filter:hover {
+		background-color: var(--background-modifier-hover);
+		color: var(--text-normal);
+	}
 }
 
 .inline-comment-panel .inline-comment-filter.is-active {
@@ -408,8 +415,10 @@
 	cursor: pointer;
 }
 
-.inline-comment-panel .inline-comment-section-head:hover {
-	background-color: var(--background-modifier-hover);
+@media (hover: hover) {
+	.inline-comment-panel .inline-comment-section-head:hover {
+		background-color: var(--background-modifier-hover);
+	}
 }
 
 .inline-comment-section-chevron {
@@ -475,8 +484,10 @@
 	border-top: 1px solid var(--background-modifier-border);
 }
 
-.inline-comment-card:hover {
-	background-color: var(--background-modifier-hover);
+@media (hover: hover) {
+	.inline-comment-card:hover {
+		background-color: var(--background-modifier-hover);
+	}
 }
 
 /* The commented text, so a card is identifiable without opening the note. */
@@ -544,9 +555,11 @@
 	font-style: italic;
 }
 
-.inline-comment-card button.inline-comment-quote:hover {
-	color: var(--text-normal);
-	background-color: transparent;
+@media (hover: hover) {
+	.inline-comment-card button.inline-comment-quote:hover {
+		color: var(--text-normal);
+		background-color: transparent;
+	}
 }
 
 .inline-comment-quote-icon {
@@ -616,9 +629,11 @@
 	cursor: pointer;
 }
 
-.inline-comment-showmore:hover {
-	color: var(--text-accent-hover);
-	text-decoration: underline;
+@media (hover: hover) {
+	.inline-comment-showmore:hover {
+		color: var(--text-accent-hover);
+		text-decoration: underline;
+	}
 }
 
 /* ---- Actions ----
@@ -636,9 +651,14 @@
 
 /* Focus anywhere in the card, not only inside the actions: tabbing through a
    card should not make its controls appear one at a time under the cursor. */
-.inline-comment-card:hover .inline-comment-actions,
 .inline-comment-card:focus-within .inline-comment-actions {
 	opacity: 1;
+}
+
+@media (hover: hover) {
+	.inline-comment-card:hover .inline-comment-actions {
+		opacity: 1;
+	}
 }
 
 .inline-comment-action {
@@ -661,17 +681,19 @@
 	height: 0.95em;
 }
 
-.inline-comment-action:hover {
-	background-color: var(--background-modifier-border);
-	color: var(--text-normal);
-}
+@media (hover: hover) {
+	.inline-comment-action:hover {
+		background-color: var(--background-modifier-border);
+		color: var(--text-normal);
+	}
 
-.inline-comment-action-resolve:hover {
-	color: var(--text-success);
-}
+	.inline-comment-action-resolve:hover {
+		color: var(--text-success);
+	}
 
-.inline-comment-action-delete:hover {
-	color: var(--text-error);
+	.inline-comment-action-delete:hover {
+		color: var(--text-error);
+	}
 }
 
 /* ---- Replies ----
@@ -695,10 +717,15 @@
 
 /* Shown on hover, on keyboard focus, and while it holds a draft — so a
    half-written reply cannot vanish because the pointer moved away. */
-.inline-comment-card:hover .inline-comment-replybox,
 .inline-comment-card:focus-within .inline-comment-replybox,
 .inline-comment-replybox.is-active {
 	display: flex;
+}
+
+@media (hover: hover) {
+	.inline-comment-card:hover .inline-comment-replybox {
+		display: flex;
+	}
 }
 
 /* No font-size of its own, and that is the whole fix (#101). It carried
@@ -755,8 +782,10 @@
 	height: 0.95em;
 }
 
-.inline-comment-card .inline-comment-send:hover {
-	background-color: var(--interactive-accent-hover);
+@media (hover: hover) {
+	.inline-comment-card .inline-comment-send:hover {
+		background-color: var(--interactive-accent-hover);
+	}
 }
 
 /* ---- Reply on touch ----
@@ -903,8 +932,10 @@
 	cursor: default;
 }
 
-.inline-comment-popover .inline-comment-card:hover {
-	background-color: transparent;
+@media (hover: hover) {
+	.inline-comment-popover .inline-comment-card:hover {
+		background-color: transparent;
+	}
 }
 
 /* ---- Bottom sheet ----
