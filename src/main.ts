@@ -730,6 +730,10 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 
 		const info = ctx.getSectionInfo(el);
 		if (!info) return;
+		// Cleared before deciding, not only added: a re-render can hand back the
+		// same section element, and every early return below would otherwise leave
+		// the rule from the last pass on a block whose thread is now resolved.
+		el.removeClass(READING_BLOCK_CLASS);
 
 		const comments = await this.storage.getCommentsForFile(ctx.sourcePath);
 		if (comments.length === 0) return;
@@ -737,6 +741,14 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		const threads = this.threadsForReading(ctx.sourcePath, info.text, comments);
 		const highlights = highlightsInBlock(info.text, threads, info.lineStart, info.lineEnd);
 		if (highlights.length === 0) return;
+
+		// A code block gets the rule on its section, never spans in its code: marks
+		// painted into the code did not reach the screen, so a commented code block
+		// showed nothing at all while the editor highlighted it (#141).
+		if (el.querySelector("pre")) {
+			el.addClass(READING_BLOCK_CLASS);
+			return;
+		}
 
 		if (paintReadingMarks(el, highlights) === 0) el.addClass(READING_BLOCK_CLASS);
 	}
