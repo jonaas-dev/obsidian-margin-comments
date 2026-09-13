@@ -26,6 +26,8 @@ export class ThreadPopover extends Component {
 	private content: PopoverContent | null = null;
 	private anchorRect: AnchorRect | null = null;
 	private stopWatching: (() => void) | null = null;
+	/** The document the popover is drawn in and listens on. See open. */
+	private owner: Document = document;
 
 	/**
 	 * `sheet` is read at each placement, like the plugin's `touch`, so a test can
@@ -40,38 +42,53 @@ export class ThreadPopover extends Component {
 		super();
 	}
 
-	open(threads: Thread[], filePath: string, anchorRect: AnchorRect, doc?: string): void {
+	/**
+	 * Show threads beside `anchorRect`.
+	 *
+	 * `owner` is the document of the window the reader acted in. A note can be open in
+	 * a popout window, and a popover built on the main window's document was drawn
+	 * there instead, out of the reader's sight (#236).
+	 */
+	open(
+		threads: Thread[],
+		filePath: string,
+		anchorRect: AnchorRect,
+		doc?: string,
+		owner: Document = document,
+	): void {
 		this.close();
 		if (threads.length === 0) return;
 
-		this.el = document.body.createDiv({ cls: "inline-comment-popover" });
+		this.owner = owner;
+		const win = owner.defaultView ?? window;
+		this.el = owner.body.createDiv({ cls: "inline-comment-popover" });
 		this.anchorRect = anchorRect;
 		this.renderCards(threads, filePath, doc);
 		this.position(anchorRect);
 
 		// Deferred: the click that opened this is still propagating, and binding
 		// synchronously would close it immediately.
-		window.setTimeout(() => {
+		win.setTimeout(() => {
 			this.onOutsideClick = (event: MouseEvent) => {
 				if (this.el && !this.el.contains(event.target as Node)) this.close();
 			};
-			document.addEventListener("mousedown", this.onOutsideClick);
+			owner.addEventListener("mousedown", this.onOutsideClick);
 		}, 0);
 
 		// A reply field focused inside a sheet brings the keyboard up under it.
 		this.stopWatching = watchPlacement(() => {
 			if (this.anchorRect) this.position(this.anchorRect);
-		});
+		}, win);
 
 		this.onKeyDown = (event: KeyboardEvent) => {
 			// Only when focus is outside the card: inside, Escape belongs to
 			// whichever field is open so it can cancel an edit without also
 			// throwing away the popover.
-			if (event.key === "Escape" && !this.el?.contains(document.activeElement)) {
+			if (event.key === "Escape" && !this.el?.contains(owner.activeElement)) {
 				this.close();
 			}
 		};
-		document.addEventListener("keydown", this.onKeyDown);
+		owner.addEventListener("keydown", this.onKeyDown);
 	}
 
 	/** What is on screen, or null when the popover is closed. */
@@ -117,15 +134,16 @@ export class ThreadPopover extends Component {
 
 	private position(anchorRect: AnchorRect): void {
 		if (!this.el) return;
+		const win = this.owner.defaultView ?? window;
 		if (this.sheet()) {
-			placeSheet(this.el);
+			placeSheet(this.el, win);
 			return;
 		}
 		const rect = this.el.getBoundingClientRect();
 		const { left, top, placement } = computePosition(
 			anchorRect,
 			{ width: rect.width, height: rect.height },
-			{ width: window.innerWidth, height: window.innerHeight },
+			{ width: win.innerWidth, height: win.innerHeight },
 		);
 		this.el.style.left = `${left}px`;
 		this.el.style.top = `${top}px`;
@@ -134,11 +152,11 @@ export class ThreadPopover extends Component {
 
 	close(): void {
 		if (this.onOutsideClick) {
-			document.removeEventListener("mousedown", this.onOutsideClick);
+			this.owner.removeEventListener("mousedown", this.onOutsideClick);
 			this.onOutsideClick = null;
 		}
 		if (this.onKeyDown) {
-			document.removeEventListener("keydown", this.onKeyDown);
+			this.owner.removeEventListener("keydown", this.onKeyDown);
 			this.onKeyDown = null;
 		}
 		this.stopWatching?.();

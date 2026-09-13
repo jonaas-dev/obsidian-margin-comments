@@ -24,7 +24,8 @@ export interface ReadingModeHost {
 	visiblePanel(): CommentPanelView | null;
 	/** Whether threads open as a bottom sheet. */
 	sheet(): boolean;
-	openPopover(threads: Thread[], filePath: string, rect: AnchorRect, doc: string): void;
+	/** `owner` is the document of the window the reader acted in. */
+	openPopover(threads: Thread[], filePath: string, rect: AnchorRect, doc: string, owner: Document): void;
 }
 
 /** Comments in reading mode: marks on the rendered note, and threads opened from them. */
@@ -119,7 +120,7 @@ export class ReadingMode {
 		const target = event.target;
 		if (!(target instanceof Element)) return;
 		if (target.closest("a, button, input, textarea, select")) return;
-		if (!(window.getSelection()?.isCollapsed ?? true)) return;
+		if (!(target.ownerDocument.defaultView?.getSelection()?.isCollapsed ?? true)) return;
 
 		const ids = threadIdsAt(target);
 		if (ids.length === 0) return;
@@ -159,6 +160,7 @@ export class ReadingMode {
 			filePath,
 			{ left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom },
 			doc,
+			marked.ownerDocument,
 		);
 	}
 

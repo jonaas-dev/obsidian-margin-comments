@@ -18,7 +18,8 @@ export interface ThreadRoutingHost {
 	visiblePanel(): CommentPanelView | null;
 	/** Whether the composer and the popover open as a bottom sheet. */
 	sheet(): boolean;
-	openPopover(threads: Thread[], filePath: string, rect: AnchorRect, doc: string): void;
+	/** `owner` is the document of the window the reader acted in. */
+	openPopover(threads: Thread[], filePath: string, rect: AnchorRect, doc: string, owner: Document): void;
 	refresh(): Promise<void>;
 }
 
@@ -106,7 +107,13 @@ export class ThreadRouting {
 			return;
 		}
 
-		this.host.openPopover(shown, filePath, this.lineRect(view, line), view.state.doc.toString());
+		this.host.openPopover(
+			shown,
+			filePath,
+			this.lineRect(view, line),
+			view.state.doc.toString(),
+			view.dom.ownerDocument,
+		);
 		if (this.host.sheet()) this.keepAboveSheet(view, view.state.doc.line(line).from);
 	}
 
@@ -154,7 +161,8 @@ export class ThreadRouting {
 				this.composer = null;
 			},
 		});
-		this.composer.open();
+		// In the editor's own window: the note may be open in a popout (#236).
+		this.composer.open(view.dom.ownerDocument.body);
 		if (this.host.sheet()) this.keepAboveSheet(view, from);
 	}
 
