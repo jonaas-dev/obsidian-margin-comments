@@ -65,12 +65,17 @@ import {
 import { findAdjacentLine, type Direction } from "./editor/comment-navigation";
 import { ConfirmModal } from "./ui/confirm-modal";
 
-/** Put the cursor on a 1-based line and scroll it into view. */
-function goToLine(view: MarkdownView, line: number): void {
+/**
+ * Put the cursor on a 1-based line and scroll it into view.
+ *
+ * `focus` lets a keyboard carry on from the line. On a touch device focus in the
+ * editor is the on-screen keyboard, laid over the line just revealed (#157).
+ */
+function goToLine(view: MarkdownView, line: number, focus = true): void {
 	const position = { line: line - 1, ch: 0 };
 	view.editor.setCursor(position);
 	view.editor.scrollIntoView({ from: position, to: position }, true);
-	view.editor.focus();
+	if (focus) view.editor.focus();
 }
 
 /**
@@ -518,7 +523,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		const leaf = this.app.workspace.getLeaf(false);
 		await leaf.openFile(file);
 		this.getPanelOutOfTheWay();
-		if (leaf.view instanceof MarkdownView) goToLine(leaf.view, thread.line);
+		if (leaf.view instanceof MarkdownView) goToLine(leaf.view, thread.line, !this.touch);
 	}
 
 	private revealThread(thread: Thread): void {
@@ -526,7 +531,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		const view = file ? this.markdownViewFor(file.path) : null;
 		if (!view || thread.line === null) return;
 		this.getPanelOutOfTheWay();
-		goToLine(view, thread.line);
+		goToLine(view, thread.line, !this.touch);
 	}
 
 	/**
