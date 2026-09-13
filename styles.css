@@ -783,6 +783,26 @@
 	background-color: transparent;
 }
 
+/* ---- Bottom sheet ----
+   On a phone the composer and the popover opened over the line they are about,
+   covering the very words being commented on. Anchored to the bottom and full
+   width instead, with the note scrolled so the line stays above them (#135).
+   Where it sits comes from sheetPosition; this is only its shape. */
+.inline-comment-composer.is-sheet,
+.inline-comment-popover.is-sheet {
+	left: 0;
+	right: 0;
+	top: auto;
+	width: auto;
+	max-width: none;
+	overflow-y: auto;
+	border-right: none;
+	border-bottom: none;
+	border-left: none;
+	border-radius: var(--radius-l) var(--radius-l) 0 0;
+	box-shadow: var(--shadow-l);
+}
+
 /* Several threads on one line share one popover (#137), divided the way the
    panel's list divides them. */
 .inline-comment-popover .inline-comment-card + .inline-comment-card {

@@ -54,6 +54,38 @@ export function visibleViewport(source: ViewportSource): Size {
 	};
 }
 
+export interface SheetMetrics {
+	/** `window.innerHeight`: the layout viewport, which the keyboard does not shrink. */
+	innerHeight: number;
+	/** Height still visible above the on-screen keyboard (`visualViewport.height`). */
+	visibleHeight: number;
+	/** Distance from the bottom of the window to the top of the app's own bottom bar. */
+	reservedBottom: number;
+}
+
+export interface SheetPosition {
+	/** Distance from the bottom of the window to the sheet's bottom edge. */
+	bottom: number;
+	maxHeight: number;
+}
+
+/** The most of the remaining height a sheet may take, so the line stays in view above it. */
+export const SHEET_MAX_FRACTION = 0.5;
+
+/**
+ * Where a bottom sheet sits on a phone.
+ *
+ * Whichever reaches higher wins: the keyboard or the app's navigation bar. A
+ * composer placed against the window alone landed under that bar (#132), and
+ * the keyboard covers both when it is up.
+ */
+export function sheetPosition(metrics: SheetMetrics): SheetPosition {
+	const keyboard = Math.max(0, metrics.innerHeight - metrics.visibleHeight);
+	const bottom = Math.max(keyboard, metrics.reservedBottom, 0);
+	const available = Math.max(0, metrics.innerHeight - bottom);
+	return { bottom, maxHeight: Math.round(available * SHEET_MAX_FRACTION) };
+}
+
 /**
  * Place the composer beside the text being commented on.
  *

@@ -7,7 +7,7 @@ import {
 	type MarkdownPostProcessorContext,
 	type TAbstractFile,
 } from "obsidian";
-import type { EditorView } from "@codemirror/view";
+import { EditorView } from "@codemirror/view";
 import { CommentStorage } from "./storage";
 import { createAnchor } from "./anchor";
 import { movesFor } from "./note-moves";
@@ -124,7 +124,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			editComment: (comment, content) => this.editComment(comment, content),
 			setResolved: (root, resolved) => this.setResolved(root, resolved),
 			deleteComment: (comment) => this.confirmDelete(comment),
-		});
+		}, () => this.sheet);
 		this.addChild(this.popover);
 
 		this.registerView(
@@ -648,6 +648,15 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	touch = Platform.isMobile;
 
 	/**
+	 * Whether the composer and the popover open as a bottom sheet (#135).
+	 *
+	 * Phones only: a tablet has the width to put them beside the text, which is
+	 * what keeps the commented words visible. Held here for the same reason as
+	 * `touch`, so a test can switch it.
+	 */
+	sheet = Platform.isPhone;
+
+	/**
 	 * The binding in effect for the add-comment command, or null.
 	 *
 	 * The reader's own if they set one, the plugin's default otherwise, and null
@@ -825,6 +834,18 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 
 		this.popoverFile = filePath;
 		this.popover?.open(shown, filePath, this.lineRect(view, line), view.state.doc.toString());
+		if (this.sheet) this.keepAboveSheet(view, view.state.doc.line(line).from);
+	}
+
+	/**
+	 * Scroll the note so a line sits near the top, clear of a bottom sheet.
+	 *
+	 * The sheet covers the lower half of the screen, which is exactly where a
+	 * tapped line near the bottom would otherwise be left hidden under it (#135).
+	 * The margin keeps the line below the floating buttons over a phone's note.
+	 */
+	private keepAboveSheet(view: EditorView, pos: number): void {
+		view.dispatch({ effects: EditorView.scrollIntoView(pos, { y: "start", yMargin: 96 }) });
 	}
 
 	/** Screen rect of a line, for anchoring the popover. */
@@ -854,6 +875,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		this.composer?.close();
 		this.composer = new FloatingComposer({
 			anchorRect,
+			sheet: this.sheet,
 			onSubmit: async (content) => {
 				await this.createComment(view, file.path, from, to, content);
 			},
@@ -862,6 +884,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			},
 		});
 		this.composer.open();
+		if (this.sheet) this.keepAboveSheet(view, from);
 	}
 
 	private async createComment(

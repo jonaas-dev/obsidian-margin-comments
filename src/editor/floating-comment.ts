@@ -1,4 +1,5 @@
 import { computePosition, visibleViewport, type AnchorRect } from "./floating-position";
+import { placeSheet } from "./bottom-sheet";
 import { keyIntent } from "../ui/key-intent";
 
 export interface ComposerOptions {
@@ -10,6 +11,8 @@ export interface ComposerOptions {
 	submitLabel?: string;
 	onSubmit: (content: string) => void | Promise<void>;
 	onCancel?: () => void;
+	/** Open as a bottom sheet rather than beside the text. For phones (#135). */
+	sheet?: boolean;
 }
 
 /**
@@ -110,6 +113,10 @@ export class FloatingComposer {
 
 	private position(): void {
 		if (!this.el) return;
+		if (this.options.sheet) {
+			placeSheet(this.el);
+			return;
+		}
 		const size = this.el.getBoundingClientRect();
 		const { left, top, placement } = computePosition(
 			this.options.anchorRect,
