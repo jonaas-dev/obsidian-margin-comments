@@ -30,6 +30,6 @@
 		"playwright": "^1.63.0",
 		"prettier": "^3.4.0",
 		"typescript": "^5.7.0",
-		"vitest": "^3.0.0"
+		"vitest": "^5.0.0"
 	}
 }
