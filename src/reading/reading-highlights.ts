@@ -10,6 +10,13 @@ export interface ReadingHighlight {
 	 * through the fuzzy stage has to be looked for where it landed.
 	 */
 	text: string;
+	/**
+	 * How many times the same words appear earlier in the block's source. A
+	 * block can repeat them, as a list of "Numbered one" and "Numbered two"
+	 * does, and the first match in the rendered text is not always the one
+	 * that was commented (#175).
+	 */
+	occurrence: number;
 }
 
 /** Where a needle falls inside one segment of a run of text. */
@@ -40,6 +47,7 @@ export function highlightsInBlock(
 	lineStart: number,
 	lineEnd: number,
 ): ReadingHighlight[] {
+	const blockStart = offsetOfLine(doc, lineStart);
 	return threads
 		.filter(
 			(thread) =>
@@ -50,13 +58,41 @@ export function highlightsInBlock(
 				thread.line - 1 <= lineEnd,
 		)
 		.sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-		.map((thread) => ({
-			id: thread.root.id,
-			text:
+		.map((thread) => {
+			const text =
 				thread.root.anchor.isLineComment || thread.position === null || thread.end === null
 					? ""
-					: doc.slice(thread.position, thread.end),
-		}));
+					: doc.slice(thread.position, thread.end);
+			return {
+				id: thread.root.id,
+				text,
+				occurrence: text === "" ? 0 : appearances(doc.slice(blockStart, thread.position!), text),
+			};
+		});
+}
+
+/** Offset of the start of a 0-based line, or the end of the document past its last line. */
+function offsetOfLine(doc: string, line: number): number {
+	let offset = 0;
+	for (let passed = 0; passed < line; passed++) {
+		const next = doc.indexOf("\n", offset);
+		if (next === -1) return doc.length;
+		offset = next + 1;
+	}
+	return offset;
+}
+
+/**
+ * Appearances of `needle` in `text`, compared and counted as
+ * `locateAcrossSegments` compares and counts them, overlaps included, so that
+ * the nth appearance in the source is the nth it looks for.
+ */
+function appearances(text: string, needle: string): number {
+	const wanted = normalise([needle]).text;
+	const haystack = normalise([text]).text;
+	let count = 0;
+	for (let at = haystack.indexOf(wanted); at !== -1; at = haystack.indexOf(wanted, at + 1)) count++;
+	return count;
 }
 
 /**
@@ -108,18 +144,24 @@ function normalise(segments: string[]): {
 }
 
 /**
- * Where `needle` falls across `segments`, or null if it is not there.
+ * Where the `occurrence`-th appearance of `needle`, counted from 0, falls across
+ * `segments`, or null if it is not there.
  *
  * Not being there is expected, not a failure: the anchor may include Markdown
  * the renderer consumed — `**bold**` arrives as `bold` — and the caller marks
  * the whole block instead.
  */
-export function locateAcrossSegments(segments: string[], needle: string): TextSlice[] | null {
+export function locateAcrossSegments(segments: string[], needle: string, occurrence = 0): TextSlice[] | null {
 	const wanted = normalise([needle]).text;
 	if (wanted === "") return null;
 
 	const haystack = normalise(segments);
-	const at = haystack.text.indexOf(wanted);
+	let at = haystack.text.indexOf(wanted);
+	// Fewer appearances here than in the source means the renderer consumed one,
+	// and marking another would be a guess: the caller marks the block instead.
+	for (let skipped = 0; skipped < occurrence && at !== -1; skipped++) {
+		at = haystack.text.indexOf(wanted, at + 1);
+	}
 	if (at === -1) return null;
 
 	const start = haystack.starts[at];
