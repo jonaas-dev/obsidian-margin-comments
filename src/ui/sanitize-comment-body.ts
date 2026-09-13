@@ -1,30 +1,53 @@
 /**
- * Sanitize a comment body before it reaches MarkdownRenderer.
+ * Sanitize a comment body before it is rendered.
  *
- * Comment bodies are user-provided Markdown, and they travel with the vault via
- * Git and file sync. Rendering them with the same pipeline Obsidian uses for notes
- * would load remote resources and resolve embedded notes automatically, which turns
- * a comment into a read receipt or a way to pull in content from elsewhere. This
- * preprocessor keeps formatting (bold, lists, internal links) but blocks:
+ * Comment bodies are Markdown stored in sidecar files, so whoever can write
+ * those files can put anything in them. In a shared vault that is not the same
+ * trust boundary as the user's own notes. We still render Markdown, but we
+ * downgrade constructs that silently load remote resources or pull in other
+ * notes:
  *
- * - remote images (`![](https://…)`)
- * - HTML images (`<img src="https://…">`)
- * - note embeds (`![[Another note]]`)
+ * - Remote images (`![](https://…)`) become plain links.
+ * - Obsidian embeds (`![[another note]]`) become regular internal links.
+ * - Remote `<img>` tags become plain links.
  *
- * Embeds are downgraded to ordinary internal links; remote images become plain
- * links so the reader can still choose to open them.
+ * Local images (`![alt](local.png)`) are left alone: they resolve against the
+ * vault and do not phone home.
  */
-export function sanitizeCommentBody(source: string): string {
-	return (
-		source
-			// Note embeds: ![[Target]] -> [[Target]] (link, not embedded content).
-			.replace(/!\[\[([^\]]+)\]\]/g, "[[$1]]")
-			// Remote images: ![alt](https://...) -> [image: alt](https://...)
-			.replace(/!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g, (_match, alt, url) => {
-				const label = alt ? `image: ${alt}` : "image";
-				return `[${label}](${url})`;
-			})
-			// Remote HTML images -> plain text marker.
-			.replace(/<img[^>]+src=["'](https?:\/\/[^"']+)["'][^>]*>/gi, "[image]")
+export function sanitizeCommentBody(body: string): string {
+	let sanitized = body;
+
+	// Markdown images that point at a remote URL. The `!` prefix tells the
+	// renderer to load and display the resource; removing it leaves a link the
+	// user can still choose to follow.
+	sanitized = sanitized.replace(
+		/!\[([^\]]*)\]\(\s*((?:https?:\/\/|\/\/)[^)\s]+)(?:\s+"([^"]*)")?\s*\)/gi,
+		(_match, alt, url, title) => {
+			const cleanAlt = alt.trim() || "image";
+			return title
+				? `[${cleanAlt}](${url} "${title}")`
+				: `[${cleanAlt}](${url})`;
+		},
 	);
+
+	// Obsidian embeds render the target note inline. In a comment card that is
+	// the same as silently opening a note the user did not ask to read, so keep
+	// the link but drop the leading `!`.
+	sanitized = sanitized.replace(/!\[\[([^\]]+)\]\]/g, "[[$1]]");
+
+	// Remote HTML img tags. Obsidian already sanitises dangerous HTML, but it
+	// lets images through. Convert them to links so no request is made until the
+	// user clicks.
+	sanitized = sanitized.replace(
+		/<img\b[^>]*\bsrc\s*=\s*["']((?:https?:\/\/|\/\/)[^"']+)["'][^>]*>/gi,
+		(match) => {
+			const srcMatch = match.match(/\bsrc\s*=\s*["']([^"']+)["']/i);
+			const altMatch = match.match(/\balt\s*=\s*["']([^"]*)["']/i);
+			const alt = altMatch ? altMatch[1].trim() : "image";
+			const src = srcMatch ? srcMatch[1].trim() : "";
+			return `[${alt || "image"}](${src})`;
+		},
+	);
+
+	return sanitized;
 }
