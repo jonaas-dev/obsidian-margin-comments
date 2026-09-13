@@ -1,0 +1,52 @@
+name: Release
+
+# Obsidian's community directory looks a release up by its bare version, so tags carry
+# no "v" prefix, and this pattern does not match one.
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      # A tag that disagrees with manifest.json publishes assets Obsidian reports under
+      # another version, and a version missing from versions.json cannot be offered to
+      # an older app.
+      - name: Check the tag against manifest.json and versions.json
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          manifest=$(node -p 'require("./manifest.json").version')
+          if [ "$TAG" != "$manifest" ]; then
+            echo "::error::Tag $TAG does not match manifest.json version $manifest"
+            exit 1
+          fi
+          if ! node -e 'process.exit(process.argv[1] in require("./versions.json") ? 0 : 1)' "$TAG"; then
+            echo "::error::versions.json has no entry for $TAG"
+            exit 1
+          fi
+
+      - name: Create a draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release create "$TAG" --draft --verify-tag --title "$TAG" main.js manifest.json styles.css
