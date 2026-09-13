@@ -44,11 +44,11 @@ describe("the panel's empty state", () => {
 						removeHotkeys(id: string): void;
 					};
 				}).hotkeyManager;
-				const id = "inline-comments:add-comment";
+				const id = "margin-comments:add-comment";
 				// An empty list is a cleared binding: removeHotkeys would restore
 				// the default instead, which is a different case.
 				manager.setHotkeys(id, b === null ? [] : [b]);
-				const plugin = window.app.plugins.plugins["inline-comments"];
+				const plugin = window.app.plugins.plugins["margin-comments"];
 				await plugin.refresh();
 			},
 			binding,
@@ -62,8 +62,8 @@ describe("the panel's empty state", () => {
 			const manager = (window.app as unknown as {
 				hotkeyManager: { removeHotkeys(id: string): void };
 			}).hotkeyManager;
-			manager.removeHotkeys("inline-comments:add-comment");
-			await window.app.plugins.plugins["inline-comments"].refresh();
+			manager.removeHotkeys("margin-comments:add-comment");
+			await window.app.plugins.plugins["margin-comments"].refresh();
 		});
 		await page.waitForTimeout(800);
 	}
@@ -73,7 +73,7 @@ describe("the panel's empty state", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(false).openFile(file, { state: { mode: "source" } });
@@ -81,7 +81,7 @@ describe("the panel's empty state", () => {
 		await page.waitForSelector(".workspace-leaf.mod-active .cm-editor", { timeout: 30000 });
 		await dismissModals(page);
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
 	}, 240000);
@@ -118,7 +118,7 @@ describe("the panel's empty state", () => {
 
 	it("says nothing once the note has a comment", async () => {
 		await page.evaluate(async () => {
-			const plugin = window.app.plugins.plugins["inline-comments"];
+			const plugin = window.app.plugins.plugins["margin-comments"];
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: { state: { doc: { toString(): string } } } }).cm;
 			const at = cm.state.doc.toString().indexOf("beta");

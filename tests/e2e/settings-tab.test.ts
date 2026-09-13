@@ -40,7 +40,7 @@ describe("settings tab", () => {
 					"background:var(--background-primary);",
 			);
 			const tab = window.app.setting.pluginTabs.find(
-				(t: { id: string }) => t.id === "inline-comments",
+				(t: { id: string }) => t.id === "margin-comments",
 			) as unknown as { containerEl: HTMLElement; display(): void };
 			tab.containerEl = host;
 			tab.display();
@@ -71,18 +71,18 @@ describe("settings tab", () => {
 
 	const storedSettings = (): Record<string, unknown> =>
 		JSON.parse(
-			readFileSync(`${vault.path}/.obsidian/plugins/inline-comments/data.json`, "utf8"),
+			readFileSync(`${vault.path}/.obsidian/plugins/margin-comments/data.json`, "utf8"),
 		);
 
 	const liveSettings = (): Promise<Record<string, unknown>> =>
-		page.evaluate(() => window.app.plugins.plugins["inline-comments"].settings);
+		page.evaluate(() => window.app.plugins.plugins["margin-comments"].settings);
 
 	beforeAll(async () => {
 		vault = createTempVault({ [NOTE]: BODY });
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(false).openFile(file, { state: { mode: "source" } });
@@ -99,7 +99,7 @@ describe("settings tab", () => {
 
 	it("registers a settings tab at all", async () => {
 		const registered = await page.evaluate(() =>
-			window.app.setting.pluginTabs.some((t: { id: string }) => t.id === "inline-comments"),
+			window.app.setting.pluginTabs.some((t: { id: string }) => t.id === "margin-comments"),
 		);
 		expect(registered).toBe(true);
 	});
@@ -178,7 +178,7 @@ describe("settings tab", () => {
 	it("changes the sort order the panel is already using", async () => {
 		await closeTab();
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
 		await openTab();
@@ -195,7 +195,7 @@ describe("settings tab", () => {
 	it("moves an open panel to the other side", async () => {
 		const sideOf = (): Promise<string> =>
 			page.evaluate(() => {
-				const leaf = window.app.workspace.getLeavesOfType("inline-comments-panel")[0];
+				const leaf = window.app.workspace.getLeavesOfType("margin-comments-panel")[0];
 				return window.app.workspace.leftSplit.containerEl.contains(leaf.containerEl)
 					? "left"
 					: "right";

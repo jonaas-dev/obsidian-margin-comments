@@ -1,4 +1,4 @@
-# Inline Comments for Obsidian
+# Margin Comments for Obsidian
 
 Add inline comments to your Obsidian notes with threaded replies, resolve/unresolve, and a sidebar panel. Non-destructive storage — your Markdown files are never modified.
 
@@ -17,7 +17,7 @@ Everything below is implemented and covered by tests against a real Obsidian.
 - **Sidebar panel** — filter by all / open / resolved, sort by document order, date or last activity, with counts that match what is shown
 - **All-notes view** — every commented note in the vault, one collapsed row each, opened on demand
 - **Commands and hotkeys** — add a comment (`Mod+Shift+M`), jump to the next or previous comment, resolve every thread in a note, toggle the panel. All rebindable in Obsidian's hotkey settings
-- **Non-destructive** — comments live in `.inline-comments/`, your notes stay untouched
+- **Non-destructive** — comments live in `.margin-comments/`, your notes stay untouched
 - **Theme-aware** — colours and type come from your Obsidian theme
 - **Reading mode** — commented text is highlighted there too; see below for what reading mode does and does not do
 - **Mobile and touch** — tap replaces hover: markers stay on the commented lines and on the line the caret is on, controls are thumb-sized, and the composer stays above the on-screen keyboard
@@ -66,7 +66,7 @@ far past any real one.
 
 ## How it works
 
-Comments are stored as JSON files in `.inline-comments/` at the vault root: one sidecar per commented note, plus an index of which notes have comments and how many. Markdown files are never modified, so comments are safe with any sync service (Git, iCloud, Dropbox, Obsidian Sync), survive Obsidian updates, and are trivial to back up or migrate.
+Comments are stored as JSON files in `.margin-comments/` at the vault root: one sidecar per commented note, plus an index of which notes have comments and how many. Markdown files are never modified, so comments are safe with any sync service (Git, iCloud, Dropbox, Obsidian Sync), survive Obsidian updates, and are trivial to back up or migrate.
 
 Each comment remembers the text it was made on, not a line number, so it follows that text as the note is edited. A comment whose text is gone is shown as orphaned rather than dropped.
 

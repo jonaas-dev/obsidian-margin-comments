@@ -53,7 +53,7 @@ describe("orphaned comments", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await openNote(NOTE);
 		await dismissModals(page);
 
@@ -71,7 +71,7 @@ describe("orphaned comments", () => {
 		await page.waitForTimeout(1500);
 
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
 	}, 180000);
@@ -127,7 +127,7 @@ describe("orphaned comments", () => {
 			leaf.view.editor.focus();
 		});
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:next-comment");
+			await window.app.commands.executeCommandById("margin-comments:next-comment");
 		});
 		await page.waitForTimeout(700);
 		expect(await page.locator(".notice").last().innerText()).toContain(

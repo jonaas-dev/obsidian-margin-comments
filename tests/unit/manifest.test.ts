@@ -9,7 +9,11 @@ const versions = JSON.parse(readFileSync("versions.json", "utf8"));
 // a violation here is cheaper than catching it in review weeks after submitting.
 describe("manifest.json", () => {
 	it("declares the expected plugin id", () => {
-		expect(manifest.id).toBe("inline-comments");
+		expect(manifest.id).toBe("margin-comments");
+	});
+
+	it("keeps 'obsidian' out of the id, which the directory rejects", () => {
+		expect(manifest.id.toLowerCase()).not.toContain("obsidian");
 	});
 
 	it("keeps the version in sync with package.json", () => {

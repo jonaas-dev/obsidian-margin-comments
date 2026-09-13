@@ -78,7 +78,7 @@ describe("comment count in the gutter", () => {
 	async function setSetting(key: string, value: unknown): Promise<void> {
 		await page.evaluate(
 			async ([name, next]: [string, unknown]) => {
-				const plugin = window.app.plugins.plugins["inline-comments"];
+				const plugin = window.app.plugins.plugins["margin-comments"];
 				(plugin.settings as Record<string, unknown>)[name] = next;
 				window.app.workspace.trigger("editor-change");
 			},
@@ -156,7 +156,7 @@ describe("comment count in the gutter", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(false).openFile(file, { state: { mode: "source" } });
@@ -213,7 +213,7 @@ describe("comment count in the gutter", () => {
 
 	it("lowers the count in the open editor when a thread is resolved", async () => {
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
 		await page.locator('[aria-label="Resolve"]').first().click();

@@ -30,7 +30,7 @@ describe("the editor's highlight layers", () => {
 	async function commentOn(needle: string | null, line: number, body: string): Promise<void> {
 		await page.evaluate(
 			async ([n, ln, text]: [string | null, number, string]) => {
-				const plugin = window.app.plugins.plugins["inline-comments"];
+				const plugin = window.app.plugins.plugins["margin-comments"];
 				const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 				const cm = (leaf.view.editor as unknown as {
 					cm: { state: { doc: { toString(): string; line(n: number): { from: number } } } };
@@ -60,7 +60,7 @@ describe("the editor's highlight layers", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(false).openFile(file, { state: { mode: "source" } });
@@ -142,7 +142,7 @@ describe("the editor's highlight layers", () => {
 
 	it("clears both layers when the setting is switched off", async () => {
 		await page.evaluate(async () => {
-			const plugin = window.app.plugins.plugins["inline-comments"];
+			const plugin = window.app.plugins.plugins["margin-comments"];
 			plugin.settings.showLineHighlights = false;
 			await plugin.refresh();
 		});
