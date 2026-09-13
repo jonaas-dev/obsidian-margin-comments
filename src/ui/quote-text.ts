@@ -10,6 +10,10 @@
  * the quote is a single line, and rendering would bring block elements into it.
  */
 export function displayQuote(source: string): string {
+	// A quote is a single line in the UI; running the regex chain on pathological
+	// Markdown can backtrack. Fall back to the raw text for very long anchors.
+	if (source.length > 4000) return source;
+
 	// Code spans first, and their content kept verbatim: `a*b*c` is code, not
 	// emphasis. Parked behind private-use characters, which no note text carries.
 	const code: string[] = [];
