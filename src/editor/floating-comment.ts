@@ -1,5 +1,5 @@
 import { computePosition, visibleViewport, type AnchorRect } from "./floating-position";
-import { placeSheet } from "./bottom-sheet";
+import { placeSheet, watchPlacement } from "./bottom-sheet";
 import { keyIntent } from "../ui/key-intent";
 
 export interface ComposerOptions {
@@ -27,7 +27,7 @@ export class FloatingComposer {
 	private onOutsideClick: ((event: MouseEvent) => void) | null = null;
 	/** Where focus was when the composer opened, so dismissing can give it back. */
 	private returnFocusTo: HTMLElement | null = null;
-	private onViewportChange: (() => void) | null = null;
+	private stopWatching: (() => void) | null = null;
 
 	constructor(private options: ComposerOptions) {}
 
@@ -80,13 +80,7 @@ export class FloatingComposer {
 
 		// The keyboard opens after the composer does, so the first placement is
 		// made against the whole screen and has to be redone once it is up.
-		// visualViewport is what changes; window.innerHeight never does.
-		const visual = window.visualViewport;
-		if (visual) {
-			this.onViewportChange = () => this.position();
-			visual.addEventListener("resize", this.onViewportChange);
-			visual.addEventListener("scroll", this.onViewportChange);
-		}
+		this.stopWatching = watchPlacement(() => this.position());
 
 		this.focusWhenSettled(textarea);
 	}
@@ -158,12 +152,8 @@ export class FloatingComposer {
 			document.removeEventListener("mousedown", this.onOutsideClick);
 			this.onOutsideClick = null;
 		}
-		const visual = window.visualViewport;
-		if (this.onViewportChange && visual) {
-			visual.removeEventListener("resize", this.onViewportChange);
-			visual.removeEventListener("scroll", this.onViewportChange);
-			this.onViewportChange = null;
-		}
+		this.stopWatching?.();
+		this.stopWatching = null;
 		const wasOpen = this.el !== null;
 		this.el?.remove();
 		this.el = null;
