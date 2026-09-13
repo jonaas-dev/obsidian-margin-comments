@@ -36,7 +36,14 @@ import type { Binding } from "./ui/hotkey";
 /** Named once: the panel quotes it when no key is bound to it. */
 const ADD_COMMENT_NAME = "Add comment to selection";
 import { highlightsInBlock } from "./reading/reading-highlights";
-import { paintReadingMarks, READING_BLOCK_CLASS } from "./reading/reading-marks";
+import {
+	markBlock,
+	paintReadingMarks,
+	threadIdsAt,
+	unmarkBlock,
+	READING_BLOCK_CLASS,
+	READING_MARK_CLASS,
+} from "./reading/reading-marks";
 import { debounce, type Debounced } from "./debounce";
 import { FloatingComposer } from "./editor/floating-comment";
 import type { AnchorRect } from "./editor/floating-position";
@@ -171,6 +178,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 
 		this.applyHighlightColour();
 		this.registerMarkdownPostProcessor((el, ctx) => this.markReadingBlock(el, ctx));
+		this.registerDomEvent(document, "click", (event) => void this.openFromReading(event));
 		this.registerEditorExtension(lineHighlights());
 		this.registerEditorExtension(
 			commentGutter({
@@ -744,9 +752,9 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	/**
 	 * Mark the commented text in one rendered block.
 	 *
-	 * Reading mode gets highlights and nothing else: CodeMirror extensions do not
-	 * apply here, so there is no gutter to hover and no line to click, and a
-	 * comment is created in editing mode or from the panel.
+	 * Reading mode gets highlights and no gutter: CodeMirror extensions do not
+	 * apply here, so there is no line to click. A comment is created in editing
+	 * mode or from the panel, and an existing one opens from its mark (#171).
 	 *
 	 * `getSectionInfo` is what makes this possible and also what keeps it in
 	 * bounds — it answers only for elements rendered as part of a file, so the
@@ -761,7 +769,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		// Cleared before deciding, not only added: a re-render can hand back the
 		// same section element, and every early return below would otherwise leave
 		// the rule from the last pass on a block whose thread is now resolved.
-		el.removeClass(READING_BLOCK_CLASS);
+		unmarkBlock(el);
 
 		const comments = await this.storage.getCommentsForFile(ctx.sourcePath);
 		if (comments.length === 0) return;
@@ -769,16 +777,68 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		const threads = this.threadsForReading(ctx.sourcePath, info.text, comments);
 		const highlights = highlightsInBlock(info.text, threads, info.lineStart, info.lineEnd);
 		if (highlights.length === 0) return;
+		const ids = highlights.map((highlight) => highlight.id);
 
 		// A code block gets the rule on its section, never spans in its code: marks
 		// painted into the code did not reach the screen, so a commented code block
 		// showed nothing at all while the editor highlighted it (#141).
 		if (el.querySelector("pre")) {
-			el.addClass(READING_BLOCK_CLASS);
+			markBlock(el, ids);
 			return;
 		}
 
-		if (paintReadingMarks(el, highlights) === 0) el.addClass(READING_BLOCK_CLASS);
+		if (paintReadingMarks(el, highlights) === 0) markBlock(el, ids);
+	}
+
+	/**
+	 * Open the threads under a tap on a comment's mark in reading mode (#171).
+	 *
+	 * Reading mode has no gutter, so the marked words are the way in, routed as a
+	 * gutter click is: the panel's card when the panel is on screen, the popover
+	 * otherwise. A link inside a mark keeps its click, and a click that ends a text
+	 * selection was a selection.
+	 *
+	 * The DOM is read before the first await: a refresh can re-render the note in
+	 * the meantime and detach the element that was tapped.
+	 */
+	private async openFromReading(event: MouseEvent): Promise<void> {
+		const target = event.target;
+		if (!(target instanceof Element)) return;
+		if (target.closest("a, button, input, textarea, select")) return;
+		if (!(window.getSelection()?.isCollapsed ?? true)) return;
+
+		const ids = threadIdsAt(target);
+		if (ids.length === 0) return;
+		const leaf = this.app.workspace
+			.getLeavesOfType("markdown")
+			.find((candidate) => candidate.view.containerEl.contains(target));
+		if (!leaf || !(leaf.view instanceof MarkdownView) || !leaf.view.file) return;
+		const filePath = leaf.view.file.path;
+		const doc = leaf.view.editor.getValue();
+		const marked = target.closest(`.${READING_MARK_CLASS}, .${READING_BLOCK_CLASS}`) ?? target;
+		const rect = marked.getBoundingClientRect();
+
+		const comments = await this.storage.getCommentsForFile(filePath);
+		const threads = buildThreads(doc, comments, { fuzzy: true, threshold: this.settings.fuzzyThreshold });
+		const shown = ids
+			.map((id) => threads.find((thread) => thread.root.id === id))
+			.filter((thread): thread is Thread => thread !== undefined)
+			.filter((thread) => !thread.root.resolved && !thread.orphaned);
+		if (shown.length === 0) return;
+
+		const panel = this.visiblePanel();
+		if (panel) {
+			await panel.select(shown[0].root.id);
+			return;
+		}
+
+		// What keepAboveSheet does for the editor: the sheet covers the lower half
+		// of the screen, where tapped words near the bottom would be left hidden.
+		const scroller = this.sheet ? marked.closest(".markdown-preview-view") : null;
+		if (scroller) scroller.scrollTop += rect.top - scroller.getBoundingClientRect().top - 96;
+
+		this.popoverFile = filePath;
+		this.popover?.open(shown, filePath, { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }, doc);
 	}
 
 	/**
