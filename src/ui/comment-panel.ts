@@ -87,6 +87,8 @@ export class CommentPanelView extends ItemView {
 	 *  laziness the view is built around. */
 	private expanded = new Set<string>();
 	private hydrated = new Map<string, NoteData>();
+	/** The list the last paint drew, so repainting the same one keeps its place. */
+	private paintedList: string | null = null;
 	/**
 	 * Lifecycle owner of the cards drawn by the current paint.
 	 *
@@ -204,6 +206,18 @@ export class CommentPanelView extends ItemView {
 	 */
 	private paint(): void {
 		const container = this.contentEl;
+		// A repaint of the same list is not a navigation. Typing in the note,
+		// resolving a card and expanding a section all repaint, and emptying the
+		// scroller sent the list back to its top each time (#162). A different note
+		// or scope is a different list, and starts from the top.
+		const shown = this.host.scope() === "vault" ? "vault" : `note:${this.active?.filePath ?? ""}`;
+		const scrollTop = shown === this.paintedList ? container.scrollTop : 0;
+		this.paintedList = shown;
+		this.paintContent(container);
+		container.scrollTop = scrollTop;
+	}
+
+	private paintContent(container: HTMLElement): void {
 		container.empty();
 		container.addClass("inline-comment-panel");
 		// Every touch-sized rule hangs off this, so it is one class to set and
