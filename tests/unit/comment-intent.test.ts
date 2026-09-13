@@ -18,7 +18,7 @@ describe("commentIntent", () => {
 		it("shows the thread on the line, because reading is the common intent", () => {
 			expect(commentIntent([BETA], LINE_ONE, caret(0))).toEqual({
 				kind: "show",
-				threadId: "beta",
+				threadIds: ["beta"],
 			});
 		});
 
@@ -32,11 +32,11 @@ describe("commentIntent", () => {
 			});
 		});
 
-		it("shows the first thread in document order, not in storage order", () => {
+		it("shows every thread on the line, in document order rather than storage order (#137)", () => {
 			const gamma: AnchoredThread = { id: "gamma", from: 11, to: 16 };
 			expect(commentIntent([gamma, BETA], LINE_ONE, caret(0))).toEqual({
 				kind: "show",
-				threadId: "beta",
+				threadIds: ["beta", "gamma"],
 			});
 		});
 	});
@@ -56,14 +56,14 @@ describe("commentIntent", () => {
 		it("shows the thread whose text was selected, rather than starting a twin", () => {
 			expect(commentIntent([BETA], LINE_ONE, { from: 6, to: 10 })).toEqual({
 				kind: "show",
-				threadId: "beta",
+				threadIds: ["beta"],
 			});
 		});
 
 		it("shows it for a selection that merely overlaps it", () => {
 			expect(commentIntent([BETA], LINE_ONE, { from: 8, to: 14 })).toEqual({
 				kind: "show",
-				threadId: "beta",
+				threadIds: ["beta"],
 			});
 		});
 
@@ -94,7 +94,7 @@ describe("commentIntent", () => {
 			const onTwo: AnchoredThread = { id: "delta", from: 17, to: 22 };
 			expect(commentIntent([BETA, onTwo], LINE_TWO, { from: 6, to: 10 })).toEqual({
 				kind: "show",
-				threadId: "delta",
+				threadIds: ["delta"],
 			});
 		});
 
@@ -125,7 +125,7 @@ describe("commentIntent", () => {
 			const tail: AnchoredThread = { id: "tail", from: 15, to: 16 };
 			expect(commentIntent([tail], LINE_ONE, caret(2))).toEqual({
 				kind: "show",
-				threadId: "tail",
+				threadIds: ["tail"],
 			});
 		});
 
@@ -136,7 +136,7 @@ describe("commentIntent", () => {
 			const onEmpty: AnchoredThread = { id: "empty", from: 41, to: 41 };
 			expect(commentIntent([onEmpty], empty, caret(41))).toEqual({
 				kind: "show",
-				threadId: "empty",
+				threadIds: ["empty"],
 			});
 		});
 
