@@ -35,6 +35,7 @@ export class ThreadPopover extends Component {
 		private app: App,
 		private actions: ThreadActions,
 		private sheet: () => boolean = () => false,
+		private touch: () => boolean = () => false,
 	) {
 		super();
 	}
@@ -112,6 +113,7 @@ export class ThreadPopover extends Component {
 				alwaysOpen: true,
 				onReplied: () => this.close(),
 				doc,
+				touch: this.touch(),
 			});
 		}
 	}

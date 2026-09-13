@@ -124,7 +124,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			editComment: (comment, content) => this.editComment(comment, content),
 			setResolved: (root, resolved) => this.setResolved(root, resolved),
 			deleteComment: (comment) => this.confirmDelete(comment),
-		}, () => this.sheet);
+		}, () => this.sheet, () => this.touch);
 		this.addChild(this.popover);
 
 		this.registerView(
