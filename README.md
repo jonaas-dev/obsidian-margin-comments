@@ -46,7 +46,12 @@ highlights the commented text and nothing else.
   those characters are not in the rendered output. The whole block carries a rule
   down its left edge instead
 - A whole-line comment marks its block the same way, for the same reason: there
-  is no selection to find
+  is no selection to find. The block is the rendered paragraph, so comments on
+  several consecutive lines of one paragraph mark that paragraph once rather
+  than line by line — the rendered output keeps no record of which source line
+  each part came from
+- A comment inside a fenced code block marks the code block with that rule too,
+  rather than the words inside it
 
 The cause is that these are CodeMirror editor extensions, and CodeMirror does not
 run in reading mode. The highlights arrive through a Markdown post-processor,
