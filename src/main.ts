@@ -177,9 +177,9 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		this.addCommand({
 			id: "add-comment",
 			name: ADD_COMMENT_NAME,
-			// Mod+Shift+M is free in a default Obsidian, and every binding here is
-			// a default: Obsidian's hotkey settings override all of them.
-			hotkeys: [{ modifiers: ["Mod", "Shift"], key: "M" }],
+			// No default binding: Obsidian's plugin guidelines ask for none, since a
+			// default can collide with one the reader already uses. Until they bind
+			// it, the panel's empty state names the command instead (#122).
 			editorCallback: (_editor, ctx) => {
 				const view = (ctx as MarkdownView).editor as unknown as { cm?: EditorView };
 				if (view.cm) this.openComposer(view.cm, view.cm.state.doc.lineAt(view.cm.state.selection.main.head).number);
