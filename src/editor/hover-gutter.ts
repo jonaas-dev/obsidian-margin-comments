@@ -2,11 +2,11 @@ import { gutter, GutterMarker, EditorView, ViewPlugin, type PluginValue } from "
 import { setIcon } from "obsidian";
 import { StateEffect, StateField, type Extension } from "@codemirror/state";
 import {
+	blockMarker,
 	countBadgeText,
 	EDGE_THRESHOLD,
 	isNearLeftEdge,
 	markerLabel,
-	shouldShowMarker,
 } from "./gutter-state";
 
 /** Milliseconds of stillness before the hovered line changes. */
@@ -193,8 +193,11 @@ export interface GutterOptions {
 	 * change is also a value no test can vary.
 	 */
 	touch: () => boolean;
-	/** Called with the clicked line, 1-based. */
-	onActivate: (view: EditorView, line: number) => void;
+	/**
+	 * Called with the clicked block's first and last lines, 1-based. The same
+	 * line twice for an ordinary line; a rendered table spans several (#140).
+	 */
+	onActivate: (view: EditorView, line: number, lastLine: number) => void;
 }
 
 export function commentGutter(options: GutterOptions): Extension {
@@ -207,21 +210,23 @@ export function commentGutter(options: GutterOptions): Extension {
 		gutter({
 			class: GUTTER_CLASS,
 			lineMarker(view, line) {
-				const number = view.state.doc.lineAt(line.from).number;
 				const commented = view.state.field(commentedLinesField);
 				const touch = options.touch();
-				const visible = shouldShowMarker(number, {
-					hoveredLine: view.state.field(hoveredLineField),
+				const { visible, count } = blockMarker(
+					view.state.doc.lineAt(line.from).number,
+					view.state.doc.lineAt(line.to).number,
 					commented,
-					touch,
-					cursorLine: touch
-						? view.state.doc.lineAt(view.state.selection.main.head).number
-						: null,
-					enabled: view.state.field(gutterEnabledField),
-				});
-				return visible
-					? new CommentMarker(commented.get(number) ?? 0, view.state.field(countEnabledField))
-					: null;
+					{
+						hoveredLine: view.state.field(hoveredLineField),
+						commented,
+						touch,
+						cursorLine: touch
+							? view.state.doc.lineAt(view.state.selection.main.head).number
+							: null,
+						enabled: view.state.field(gutterEnabledField),
+					},
+				);
+				return visible ? new CommentMarker(count, view.state.field(countEnabledField)) : null;
 			},
 			// Without this the gutter never re-runs lineMarker for our effects: it
 			// only recomputes on document and viewport changes, so the hover state
@@ -251,7 +256,11 @@ export function commentGutter(options: GutterOptions): Extension {
 				},
 				click(view, line, event) {
 					event.preventDefault();
-					options.onActivate(view, view.state.doc.lineAt(line.from).number);
+					options.onActivate(
+						view,
+						view.state.doc.lineAt(line.from).number,
+						view.state.doc.lineAt(line.to).number,
+					);
 					return true;
 				},
 			},
