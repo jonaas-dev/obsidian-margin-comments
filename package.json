@@ -20,20 +20,20 @@
 	},
 	"packageManager": "npm@11.0.0",
 	"devDependencies": {
-		"@codemirror/state": "6.5.0",
-		"@codemirror/view": "6.38.6",
-		"@eslint/js": "^9.39.5",
-		"@types/node": "^22.10.0",
+		"@codemirror/state": "6.7.4",
+		"@codemirror/view": "6.43.11",
+		"@eslint/js": "^10.0.1",
+		"@types/node": "^26.5.1",
 		"@typescript-eslint/eslint-plugin": "^8.18.0",
 		"@typescript-eslint/parser": "^8.18.0",
-		"builtin-modules": "^4.0.0",
+		"builtin-modules": "^5.3.0",
 		"esbuild": "^0.28.1",
-		"eslint": "^9.17.0",
+		"eslint": "^10.10.0",
 		"globals": "^17.12.0",
 		"obsidian": "latest",
 		"playwright": "^1.63.0",
 		"prettier": "^3.4.0",
-		"typescript": "^5.7.0",
+		"typescript": "^7.0.2",
 		"vitest": "^5.0.0"
 	}
 }
