@@ -30,6 +30,12 @@
 	height: 1.25em;
 }
 
+/* The badge's frame of reference: see CommentMarker.toDOM. */
+.inline-comment-marker-icon {
+	position: relative;
+	display: inline-flex;
+}
+
 .inline-comment-marker:hover {
 	color: var(--text-muted);
 }
@@ -42,12 +48,14 @@
 
 .inline-comment-marker-count {
 	position: absolute;
-	right: 0;
-	bottom: 0;
+	right: -0.55em;
+	bottom: -0.45em;
 	min-width: 1.15em;
 	padding: 0 0.15em;
 	border-radius: 0.6em;
-	background-color: var(--text-accent);
+	/* The marker's colour, custom or accent: a badge in the theme accent beside a
+	   marker in the reader's own colour read as two unrelated things (#142). */
+	background-color: var(--ic-highlight, var(--text-accent));
 	color: var(--text-on-accent);
 	font-size: 0.7em;
 	font-weight: var(--font-semibold);
@@ -189,6 +197,18 @@
 	display: flex;
 }
 
+/* A dark background swallows a light tint: measured, the line highlight at 12%
+   was barely distinguishable from the page in the default dark theme (#142). */
+.inline-comment-active-line:is(.theme-dark *) {
+	background-color: var(--background-modifier-hover);
+	background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 22%, transparent);
+}
+
+.inline-comment-reading-mark:is(.theme-dark *) {
+	background-color: var(--background-modifier-hover);
+	background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 28%, transparent);
+}
+
 /* The stronger of the two layers: it names particular words, so it carries the
    accent rather than a flat surface tint. Fallback before color-mix for the
    reason given above. */
@@ -197,6 +217,18 @@
 	background-color: var(--background-modifier-border);
 	background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 28%, transparent);
 	box-shadow: inset 0 -1px 0 0 var(--ic-highlight, var(--text-accent));
+}
+
+.inline-comment-active-range:is(.theme-dark *) {
+	background-color: var(--background-modifier-border);
+	background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 38%, transparent);
+}
+
+/* Inside a code block the syntax highlighter splits the text into one span per
+   token, and a rounded mark on each read as a row of separate pills with gaps
+   between them (#140). Square ends make the pieces one band. */
+.inline-comment-active-range:is(.HyperMD-codeblock *) {
+	border-radius: 0;
 }
 
 /* ---- Comment panel ----------------------------------------------------
@@ -210,8 +242,47 @@
 	--ic-gap-md: 0.75em;
 	--ic-gap-lg: 1em;
 
+	/* A size container, so the controls can respond to the panel rather than the
+	   window: a sidebar is narrow on a wide screen and a drawer is wide on a phone
+	   in landscape (#139). */
+	container-type: size;
 	padding: var(--ic-gap-sm);
 	font-size: var(--font-ui-small);
+}
+
+/* Room for filter and sort side by side. Below this they stack, as #72 measured
+   they must: a fourth control beside three segments crushed the title and
+   truncated "Resolved". */
+@container (min-width: 430px) {
+	.inline-comment-controls {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--ic-gap-sm);
+	}
+
+	.inline-comment-controls > .inline-comment-filters {
+		flex: 1;
+		min-width: 0;
+	}
+
+	.inline-comment-controls > .inline-comment-sortbar {
+		flex: 0 0 12em;
+		padding-left: 0;
+	}
+}
+
+/* A short panel — a phone in landscape — gives the list what the header's
+   breathing room was costing. */
+@container (max-height: 500px) {
+	/* Through the panel for specificity: these sit above the base rules in the
+	   file, and at equal specificity the later base rule would win. */
+	.inline-comment-panel .inline-comment-panel-header {
+		padding-bottom: var(--ic-gap-xs);
+	}
+
+	.inline-comment-panel .inline-comment-sortbar {
+		padding-bottom: var(--ic-gap-xs);
+	}
 }
 
 .inline-comment-panel-header {
