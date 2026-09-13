@@ -1,10 +1,47 @@
 version: 2
 updates:
-  - package-ecosystem: "npm"
-    directory: "/"
+  - package-ecosystem: npm
+    directory: /
     schedule:
-      interval: "weekly"
+      interval: weekly
+      day: monday
+    # A week's delay keeps a hijacked release out of the lockfile until it has been
+    # noticed and yanked. Security updates are not delayed.
+    cooldown:
+      default-days: 7
     open-pull-requests-limit: 5
+    labels: [dependencies, javascript]
+    commit-message:
+      prefix: chore
+      include: scope
     groups:
-      development-dependencies:
-        dependency-type: "development"
+      # A dependency joins the first group it matches, so this one comes first. Routine
+      # bumps share one PR; each major gets its own, so a breaking release fails CI on
+      # its own instead of holding every other update hostage.
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
+      # @eslint/js is released in step with eslint; bumping either major alone leaves
+      # the flat config importing a mismatched pair.
+      eslint-major:
+        patterns: ["eslint", "@eslint/js"]
+        update-types: [major]
+    ignore:
+      # Obsidian provides CodeMirror at runtime (see esbuild.config.mjs), so these pins
+      # track the version the app ships, not the latest on npm.
+      - dependency-name: "@codemirror/*"
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    labels: [dependencies]
+    commit-message:
+      prefix: chore
+      include: scope
+    groups:
+      actions:
+        patterns: ["*"]
