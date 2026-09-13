@@ -206,7 +206,11 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		});
 
 		this.registerEvent(
-			this.app.workspace.on("active-leaf-change", () => {
+			this.app.workspace.on("active-leaf-change", (leaf) => {
+				// A tap inside the panel activates the panel's own leaf, and nothing it
+				// shows has changed. Rebuilt between touchend and the synthesized click,
+				// it moved a section head under the finger (#158).
+				if (leaf?.view instanceof CommentPanelView) return;
 				// Not on every refresh: the click that opens the popover also stirs
 				// the workspace, and closing there shut it the instant it appeared.
 				const path = this.app.workspace.getActiveFile()?.path ?? null;
