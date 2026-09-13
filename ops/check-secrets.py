@@ -45,6 +45,7 @@ SECRET_PATTERNS: list[tuple[str, re.Pattern[str]]] = [
     ("SonarQube token", re.compile(r"\bsq[apu]_[0-9a-f]{40}\b")),
     ("Google API key", re.compile(r"\bAIza[0-9A-Za-z_\-]{35}\b")),
     ("Anthropic API key", re.compile(r"\bsk-ant-[A-Za-z0-9_\-]{20,}\b")),
+    ("Claude session link", re.compile(r"claude\.ai/code/session_[A-Za-z0-9]+")),
     ("credentials in URL", re.compile(r"://[^\s:/@]+:[^\s:/@]{3,}@")),
     (
         "hardcoded secret assignment",
