@@ -40,6 +40,9 @@ export function placeSheet(el: HTMLElement, win: Window = window): void {
 		visibleHeight: visual ? visual.height : win.innerHeight,
 		keyboardHeight: keyboardHeight(win.document, win),
 		reservedBottom: reservedBottom(win.document, win),
+		// With its border: max-height counts the border and scrollHeight does not,
+		// and that 1px left the composer scrolling inside itself.
+		contentHeight: el.scrollHeight + el.offsetHeight - el.clientHeight,
 	});
 	el.addClass("is-sheet");
 	el.style.left = "";

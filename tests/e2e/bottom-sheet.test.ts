@@ -206,6 +206,26 @@ describe("the bottom sheet", () => {
 		await closeAll();
 	});
 
+	it("keeps the composer's field in view when little space is left (#166)", async () => {
+		await openOn(COMMENTED - 5, ".inline-comment-composer");
+		const m = await page.evaluate(async () => {
+			const composer = document.querySelector(".inline-comment-composer") as HTMLElement;
+			const natural = composer.scrollHeight;
+			// Leave just more room than the composer needs, as a phone in landscape
+			// does above its keyboard: half of it is then too little.
+			document.documentElement.style.setProperty("--keyboard-height", `${window.innerHeight - (natural + 6)}px`);
+			await new Promise((r) => setTimeout(r, 300));
+			const box = composer.getBoundingClientRect();
+			const field = (composer.querySelector("textarea") as HTMLElement).getBoundingClientRect();
+			return { natural, height: box.height, top: box.top, bottom: box.bottom, fieldTop: field.top, fieldBottom: field.bottom };
+		});
+		expect(m.natural).toBeGreaterThan(0);
+		expect(Math.abs(m.height - m.natural)).toBeLessThanOrEqual(1);
+		expect(m.fieldTop).toBeGreaterThanOrEqual(m.top);
+		expect(m.fieldBottom).toBeLessThanOrEqual(m.bottom);
+		await closeAll();
+	});
+
 	it("is not a sheet when the flag is off", async () => {
 		await page.evaluate(() => {
 			window.app.plugins.plugins["margin-comments"].sheet = false;

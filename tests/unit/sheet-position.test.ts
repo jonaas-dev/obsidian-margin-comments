@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { sheetPosition, SHEET_MAX_FRACTION } from "../../src/editor/floating-position";
 
 /** A Pixel 8 in CSS pixels: 915 tall, with Obsidian's bottom bar 76px up. */
-const PHONE = { innerHeight: 915, visibleHeight: 915, keyboardHeight: 0, reservedBottom: 76 };
+const PHONE = { innerHeight: 915, visibleHeight: 915, keyboardHeight: 0, reservedBottom: 76, contentHeight: 0 };
 
 describe("sheetPosition", () => {
 	it("sits on top of the app's navigation bar when there is no keyboard (#132)", () => {
@@ -34,7 +34,7 @@ describe("sheetPosition", () => {
 	});
 
 	it("reaches the bottom of the window when nothing is reserved", () => {
-		expect(sheetPosition({ innerHeight: 640, visibleHeight: 640, keyboardHeight: 0, reservedBottom: 0 })).toEqual({
+		expect(sheetPosition({ innerHeight: 640, visibleHeight: 640, keyboardHeight: 0, reservedBottom: 0, contentHeight: 0 })).toEqual({
 			bottom: 0,
 			maxHeight: 320,
 		});
@@ -42,7 +42,24 @@ describe("sheetPosition", () => {
 
 	it("never reports a negative inset from a zoomed visual viewport", () => {
 		// Pinch-zoom can report a visual viewport taller than the window.
-		expect(sheetPosition({ innerHeight: 640, visibleHeight: 700, keyboardHeight: 0, reservedBottom: 0 }).bottom).toBe(0);
+		expect(sheetPosition({ innerHeight: 640, visibleHeight: 700, keyboardHeight: 0, reservedBottom: 0, contentHeight: 0 }).bottom).toBe(0);
+	});
+
+	it("keeps room for its content when half the space is too little (#166)", () => {
+		// A Pixel 8 in landscape with Gboard up: 151px left, and the composer needs 144.
+		const landscape = { innerHeight: 412, visibleHeight: 412, keyboardHeight: 261, reservedBottom: 0, contentHeight: 144 };
+		expect(sheetPosition(landscape)).toEqual({ bottom: 261, maxHeight: 144 });
+	});
+
+	it("never takes more than the space above the keyboard", () => {
+		const cramped = { innerHeight: 412, visibleHeight: 412, keyboardHeight: 300, reservedBottom: 0, contentHeight: 144 };
+		expect(sheetPosition(cramped).maxHeight).toBe(112);
+	});
+
+	it("still holds a long thread to half the space when there is room", () => {
+		expect(sheetPosition({ ...PHONE, contentHeight: 900 }).maxHeight).toBe(
+			Math.round((915 - 76) * SHEET_MAX_FRACTION),
+		);
 	});
 
 	it("leaves at least half the remaining height for the note", () => {
