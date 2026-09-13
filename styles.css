@@ -682,6 +682,47 @@
 	background-color: var(--interactive-accent-hover);
 }
 
+/* ---- Reply on touch ----
+   Folded behind a Reply button (#136). On a pointer the field appears on hover;
+   with no hover, showing it under every card made each card a form and left
+   about three to a phone screen. A draft keeps it open, as on a pointer. */
+
+.inline-comment-card.is-touch .inline-comment-replybox:not(.is-active) {
+	display: none;
+}
+
+.inline-comment-card .inline-comment-reply-toggle {
+	display: flex;
+	align-items: center;
+	min-height: 44px;
+	margin-top: var(--ic-gap-xs);
+	padding: 0;
+	border: none;
+	box-shadow: none;
+	background: none;
+	color: var(--text-accent);
+	font-size: var(--font-smallest);
+	cursor: pointer;
+}
+
+/* One thumb-sized height for the field and its button. The buttons were raised
+   to 44px for touch and the field beside them was not (#127). */
+.inline-comment-card.is-touch .inline-comment-replybox-input {
+	min-height: 44px;
+}
+
+.inline-comment-card.is-touch .inline-comment-send {
+	min-width: 44px;
+	min-height: 44px;
+}
+
+/* The quote's row is 44px to be hit; a one-line quote belongs in its middle,
+   not at its top with the accent rule running on into empty space (#127). */
+.inline-comment-card.is-touch .inline-comment-quote {
+	min-height: 44px;
+	align-items: center;
+}
+
 /* ---- Inline editor ---- */
 
 .inline-comment-editor {

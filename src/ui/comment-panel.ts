@@ -368,6 +368,7 @@ export class CommentPanelView extends ItemView {
 		const card = renderThreadCard(parent, thread, filePath, this.app, this.cardScope, this.host, {
 			onReveal: () => this.host.revealThread(thread),
 			doc,
+			touch: this.host.touch(),
 		});
 		// Reaching a different card is the reader turning their attention to the
 		// panel, which is exactly when the arrival marker has served its purpose.
