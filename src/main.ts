@@ -49,7 +49,7 @@ import { buildSections, toPanelScope, type VaultSection } from "./ui/vault-secti
 import { toThreadFilter, type ThreadFilter } from "./ui/panel-filter";
 import { toSortOrder } from "./ui/panel-sort";
 import { ThreadPopover } from "./ui/thread-popover";
-import { buildThreads, type Thread } from "./ui/threads";
+import { buildThreads } from "./ui/threads";
 import { OrphanNotice, orphanCount } from "./ui/orphans";
 import { createReply } from "./ui/replies";
 import {
@@ -59,21 +59,8 @@ import {
 	withEditedContent,
 	withResolved,
 } from "./ui/comment-actions";
-import { findAdjacentLine, type Direction } from "./editor/comment-navigation";
 import { ConfirmModal } from "./ui/confirm-modal";
-
-/**
- * Put the cursor on a 1-based line and scroll it into view.
- *
- * `focus` lets a keyboard carry on from the line. On a touch device focus in the
- * editor is the on-screen keyboard, laid over the line just revealed (#157).
- */
-function goToLine(view: MarkdownView, line: number, focus = true): void {
-	const position = { line: line - 1, ch: 0 };
-	view.editor.setCursor(position);
-	view.editor.scrollIntoView({ from: position, to: position }, true);
-	if (focus) view.editor.focus();
-}
+import { Navigation } from "./navigation";
 
 /**
  * Stillness before a typing burst is redrawn.
@@ -87,6 +74,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	storage!: CommentStorage;
 	settings: PluginSettings = DEFAULT_SETTINGS;
 	private routing!: ThreadRouting;
+	private navigation!: Navigation;
 	private popover: ThreadPopover | null = null;
 	/** Note the open popover belongs to, so a genuine note switch closes it. */
 	private popoverFile: string | null = null;
@@ -137,13 +125,19 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			deleteComment: (comment) => this.confirmDelete(comment),
 		}, () => this.sheet, () => this.touch);
 		this.addChild(this.popover);
+		this.navigation = new Navigation({
+			app: this.app,
+			storage: this.storage,
+			touch: () => this.touch,
+			markdownViewFor: (path) => this.markdownViewFor(path),
+		});
 
 		this.registerView(
 			COMMENT_PANEL_VIEW,
 			(leaf) =>
 				new CommentPanelView(leaf, {
 					loadActive: () => this.loadActive(),
-					revealThread: (thread) => this.revealThread(thread),
+					revealThread: (thread) => this.navigation.revealThread(thread),
 					addReply: (root, content) => this.addReply(root, content),
 					editComment: (comment, content) => this.editComment(comment, content),
 					setResolved: (root, resolved) => this.setResolved(root, resolved),
@@ -158,7 +152,8 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 					setScope: (scope) => this.setPanelScope(scope),
 					loadVault: () => this.loadVault(),
 					loadNote: (filePath) => this.loadNote(filePath),
-					openThreadInNote: (filePath, thread) => void this.openThreadInNote(filePath, thread),
+					openThreadInNote: (filePath, thread) =>
+						void this.navigation.openThreadInNote(filePath, thread),
 					notifyOrphans: (count) => this.announceOrphans(count),
 					touch: () => this.touch,
 					addCommentBinding: () => this.addCommentBinding(),
@@ -223,13 +218,14 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		this.addCommand({
 			id: "next-comment",
 			name: "Go to next comment",
-			editorCallback: (_editor, ctx) => void this.jumpToComment(ctx as MarkdownView, "next"),
+			editorCallback: (_editor, ctx) => void this.navigation.jumpToComment(ctx as MarkdownView, "next"),
 		});
 
 		this.addCommand({
 			id: "previous-comment",
 			name: "Go to previous comment",
-			editorCallback: (_editor, ctx) => void this.jumpToComment(ctx as MarkdownView, "previous"),
+			editorCallback: (_editor, ctx) =>
+				void this.navigation.jumpToComment(ctx as MarkdownView, "previous"),
 		});
 
 		this.addCommand({
@@ -493,62 +489,6 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		const file = this.app.vault.getAbstractFileByPath(filePath);
 		if (!(file instanceof TFile)) return { doc: "", comments };
 		return { doc: await this.app.vault.cachedRead(file), comments };
-	}
-
-	/** Open another note and put the cursor on the thread's line. */
-	private async openThreadInNote(filePath: string, thread: Thread): Promise<void> {
-		const file = this.app.vault.getAbstractFileByPath(filePath);
-		if (!(file instanceof TFile) || thread.line === null) return;
-
-		const leaf = this.app.workspace.getLeaf(false);
-		await leaf.openFile(file);
-		this.getPanelOutOfTheWay();
-		if (leaf.view instanceof MarkdownView) goToLine(leaf.view, thread.line, !this.touch);
-	}
-
-	private revealThread(thread: Thread): void {
-		const file = this.app.workspace.getActiveFile();
-		const view = file ? this.markdownViewFor(file.path) : null;
-		if (!view || thread.line === null) return;
-		this.getPanelOutOfTheWay();
-		goToLine(view, thread.line, !this.touch);
-	}
-
-	/**
-	 * On a touch device, collapse the sidebar holding the panel after it navigates.
-	 *
-	 * The sidebars there are drawers laid over the note, so a jump made from a
-	 * card happened behind the panel and nothing on screen changed (#131). Pinned
-	 * desktop sidebars sit beside the note, where closing one would be a surprise.
-	 */
-	private getPanelOutOfTheWay(): void {
-		if (!this.touch) return;
-		const workspace = this.app.workspace;
-		for (const leaf of workspace.getLeavesOfType(COMMENT_PANEL_VIEW)) {
-			const root = leaf.getRoot();
-			if (root === workspace.leftSplit) workspace.leftSplit.collapse();
-			if (root === workspace.rightSplit) workspace.rightSplit.collapse();
-		}
-	}
-
-	/** Move the cursor to the next or previous commented line in this note. */
-	private async jumpToComment(view: MarkdownView, direction: Direction): Promise<void> {
-		if (!view.file) return;
-
-		const comments = await this.storage.getCommentsForFile(view.file.path);
-		const threads = buildThreads(view.editor.getValue(), comments);
-		// Orphans have no line to jump to. Skipping them silently is right: the
-		// panel is where a lost comment gets dealt with, not the editor.
-		const lines = threads
-			.map((thread) => thread.line)
-			.filter((line): line is number => line !== null);
-
-		const target = findAdjacentLine(lines, view.editor.getCursor().line + 1, direction);
-		if (target === null) {
-			new Notice("No comments in this note.");
-			return;
-		}
-		goToLine(view, target);
 	}
 
 	/**
