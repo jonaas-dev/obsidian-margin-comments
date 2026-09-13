@@ -7,6 +7,7 @@ import { keyIntent } from "./key-intent";
 import { emptyLineLabel } from "./labels";
 import { shouldClamp } from "./clamp";
 import { displayQuote } from "./quote-text";
+import { sanitizeCommentBody } from "./sanitize-comment-body";
 
 export interface ThreadActions {
 	/** Store a reply to the given thread root. */
@@ -271,7 +272,11 @@ function renderComment(
 	// filePath is what internal links and embeds resolve against: a comment on
 	// notes/deep/a.md saying [[target]] means the target that note means, not
 	// whichever one happens to sit nearest the vault root.
-	void MarkdownRenderer.render(app, comment.content, body, filePath, component).then(() => {
+	//
+	// Bodies come from sidecar files, which may have been written by someone else
+	// in a shared vault. Sanitize them before rendering so remote images cannot
+	// be used as read receipts and other notes are not embedded without a click.
+	void MarkdownRenderer.render(app, sanitizeCommentBody(comment.content), body, filePath, component).then(() => {
 		// Measured after rendering because the height is a property of the output,
 		// not of the Markdown: a table and a paragraph of the same length are not
 		// the same number of lines.
