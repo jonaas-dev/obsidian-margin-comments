@@ -118,7 +118,9 @@ class CommentMarker extends GutterMarker {
 		setIcon(icon, commented ? MARKER_ICON : ADD_ICON);
 
 		const badge = this.showCount ? countBadgeText(this.count) : null;
-		if (badge !== null) span.createSpan({ cls: "inline-comment-marker-count", text: badge });
+		// Inside the icon, not the marker: the marker is as tall as the line, and a
+		// badge pinned to its corner fell away from the icon as the text grew (#142).
+		if (badge !== null) icon.createSpan({ cls: "inline-comment-marker-count", text: badge });
 		return span;
 	}
 }
