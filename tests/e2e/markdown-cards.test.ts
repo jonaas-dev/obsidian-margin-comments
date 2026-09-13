@@ -15,14 +15,14 @@ const BODY = ["first line of the note", "second line of the note", "third line o
 );
 
 /**
- * An embed, because it is the only construct whose resolution is visible.
- *
- * MarkdownRenderer does not mark unresolved links here — [[nowhere-at-all]]
- * renders with the same classes as a link that resolves — so a wikilink cannot
- * tell a right sourcePath from a wrong one. An embed pulls the target's text
- * into the DOM, and the two candidates below say different things.
+ * An internal link, because embeds are downgraded to links by the comment-body
+ * sanitizer (#199). MarkdownRenderer does not mark unresolved links here —
+ * [[nowhere-at-all]] renders with the same classes as a link that resolves —
+ * so the DOM alone cannot tell a right sourcePath from a wrong one. We resolve
+ * the linkpath through Obsidian's metadata cache, which uses the commented
+ * note as the source.
  */
-const EMBED_COMMENT = "context: ![[target]]";
+const LINK_COMMENT = "context: [[target]]";
 const LONG_COMMENT = Array.from({ length: 30 }, (_, i) => `line ${i} of a very long comment`).join(
 	"\n\n",
 );
@@ -56,7 +56,7 @@ describe("markdown in comment cards", () => {
 		await page.waitForSelector(".workspace-leaf.mod-active .cm-editor", { timeout: 30000 });
 		await dismissModals(page);
 
-		await addComment(1, EMBED_COMMENT);
+		await addComment(1, LINK_COMMENT);
 		await addComment(2, LONG_COMMENT);
 
 		await page.evaluate(async () => {
@@ -85,12 +85,17 @@ describe("markdown in comment cards", () => {
 		await page.waitForTimeout(1500);
 	}
 
-	it("resolves an embed against the commented note, not against the vault root", async () => {
-		const embed = page.locator(".inline-comment-body .internal-embed").first();
-		await embed.waitFor({ timeout: 10000 });
-		const text = await embed.innerText();
-		expect(text).toContain("the sibling target");
-		expect(text).not.toContain("the decoy target");
+	it("resolves an internal link against the commented note, not against the vault root", async () => {
+		const link = page.locator(".inline-comment-body a.internal-link").first();
+		await link.waitFor({ timeout: 10000 });
+		expect(await link.getAttribute("data-href")).toBe("target");
+
+		const resolved = await page.evaluate(() => {
+			const file = window.app.metadataCache.getFirstLinkpathDest("target", "alpha/note.md");
+			return file?.path ?? null;
+		});
+		expect(resolved).toBe("alpha/target.md");
+		expect(resolved).not.toBe("zeta/target.md");
 	});
 
 	it("clips a long body and offers a way to see the rest", async () => {
@@ -149,37 +154,32 @@ describe("markdown in comment cards", () => {
 		expect(collapsed.label).toBe("Show more");
 	});
 
-	it("does not accumulate render components across repaints", async () => {
-		// Every filter, sort, scope and settings change repaints the panel, and the
-		// embed above registers a child component each time it is drawn. Counted
-		// rather than argued about: the panel outlives every repaint, so anything
-		// hung off the view directly is never unloaded.
-		const count = async (): Promise<number> =>
-			page.evaluate(() => {
-				const leaf = window.app.workspace.getLeavesOfType("margin-comments-panel")[0];
-				const total = (component: any): number =>
-					1 +
-					(component._children ?? []).reduce((sum: number, c: any) => sum + total(c), 0);
-				return total(leaf.view);
-			});
+	it("does not duplicate rendered links across repaints", async () => {
+		// Every filter, sort, scope and settings change repaints the panel. An
+		// internal link does not register a child component like an embed does,
+		// but a leaked render would still leave extra DOM elements behind. Count
+		// those instead: the panel outlives every repaint, so duplicates would
+		// accumulate if the card were not torn down correctly.
+		const countLinks = async (): Promise<number> =>
+			page.locator(".inline-comment-body a.internal-link").count();
 
 		const all = page.locator(".inline-comment-filter").first();
 		await all.click();
 		await page.waitForTimeout(600);
-		const before = await count();
+		const before = await countLinks();
+		expect(before).toBe(1);
 
 		for (let i = 0; i < 8; i++) {
 			await all.click();
 			await page.waitForTimeout(300);
 		}
 		await page.waitForTimeout(600);
-		const after = await count();
+		const after = await countLinks();
 
 		expect(after).toBe(before);
 		// And the same cards are still on screen, so this is not a count that
 		// stayed flat because the panel stopped drawing anything.
 		expect(await page.locator(".inline-comment-card").count()).toBe(2);
-		expect(await page.locator(".inline-comment-body .internal-embed").count()).toBe(1);
 	});
 });
 /* eslint-enable @typescript-eslint/no-explicit-any */
