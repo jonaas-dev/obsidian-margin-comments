@@ -38,7 +38,7 @@ function comment(id: string, filePath: string, doc: string, text: string, resolv
 
 function sidecar(filePath: string, comments: Comment[]): [string, string] {
 	return [
-		`.inline-comments/${hashString(filePath)}.json`,
+		`.margin-comments/${hashString(filePath)}.json`,
 		JSON.stringify({ filePath, comments }, null, 2),
 	];
 }
@@ -67,7 +67,7 @@ describe("all-notes view", () => {
 	 */
 	async function watchReads(): Promise<void> {
 		await page.evaluate(async () => {
-			const storage = window.app.plugins.plugins["inline-comments"].storage;
+			const storage = window.app.plugins.plugins["margin-comments"].storage;
 			if (window.__reads === undefined) {
 				const adapter = storage.adapter;
 				const original = adapter.read.bind(adapter);
@@ -76,7 +76,7 @@ describe("all-notes view", () => {
 					// Obsidian reads its own .obsidian/app.json and appearance.json
 					// through it at moments of its own choosing — which is what made
 					// this count 2 instead of 0 about one run in three.
-					if (path.startsWith(".inline-comments/") && !path.endsWith("_index.json")) {
+					if (path.startsWith(".margin-comments/") && !path.endsWith("_index.json")) {
 						window.__reads++;
 					}
 					return original(path);
@@ -126,7 +126,7 @@ describe("all-notes view", () => {
 				sidecar(BETA, betaComments),
 				sidecar(RENAMED, renamedComments),
 			]),
-			".inline-comments/_index.json": JSON.stringify({
+			".margin-comments/_index.json": JSON.stringify({
 				[ALPHA]: { hash: hashString(ALPHA), threads: 2, open: 1 },
 				[BETA]: { hash: hashString(BETA), threads: 1, open: 1 },
 				[RENAMED]: { hash: hashString(RENAMED), threads: 1, open: 1 },
@@ -136,7 +136,7 @@ describe("all-notes view", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(false).openFile(file, { state: { mode: "source" } });
@@ -145,7 +145,7 @@ describe("all-notes view", () => {
 		await dismissModals(page);
 
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
 	}, 180000);
@@ -166,7 +166,7 @@ describe("all-notes view", () => {
 	 */
 	async function primeIndex(): Promise<void> {
 		await page.evaluate(async () => {
-			await window.app.plugins.plugins["inline-comments"].storage.getCommentSummaries();
+			await window.app.plugins.plugins["margin-comments"].storage.getCommentSummaries();
 		});
 	}
 
@@ -187,7 +187,7 @@ describe("all-notes view", () => {
 		// object, so later in the session this file would carry the scope even if
 		// changing it saved nothing.
 		const data = JSON.parse(
-			readFileSync(`${vault.path}/.obsidian/plugins/inline-comments/data.json`, "utf8"),
+			readFileSync(`${vault.path}/.obsidian/plugins/margin-comments/data.json`, "utf8"),
 		);
 		expect(data.panelScope).toBe("vault");
 	});
@@ -214,7 +214,7 @@ describe("all-notes view", () => {
 	/** Forget one note, so a test that is about opening it starts cold. */
 	async function forget(filePath: string): Promise<void> {
 		await page.evaluate((path: string) => {
-			window.app.plugins.plugins["inline-comments"].storage.cache.delete(path);
+			window.app.plugins.plugins["margin-comments"].storage.cache.delete(path);
 		}, filePath);
 	}
 
@@ -227,7 +227,7 @@ describe("all-notes view", () => {
 		await forget(ALPHA);
 		await watchReads();
 		const opened = await page.evaluate(async (path: string) => {
-			const storage = window.app.plugins.plugins["inline-comments"].storage;
+			const storage = window.app.plugins.plugins["margin-comments"].storage;
 			await storage.getCommentsForFile(path);
 			const afterFirst = window.__reads;
 			await storage.getCommentsForFile(path);

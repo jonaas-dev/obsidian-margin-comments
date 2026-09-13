@@ -24,7 +24,7 @@ describe("comment gutter inside Obsidian", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
@@ -41,7 +41,7 @@ describe("comment gutter inside Obsidian", () => {
 
 	it("loads without console errors", async () => {
 		const loaded = await page.evaluate(
-			() => window.app.plugins.plugins["inline-comments"] != null,
+			() => window.app.plugins.plugins["margin-comments"] != null,
 		);
 		expect(loaded).toBe(true);
 	});

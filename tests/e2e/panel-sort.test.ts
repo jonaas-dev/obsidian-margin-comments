@@ -46,7 +46,7 @@ describe("panel sorting", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(true).openFile(file, { state: { mode: "source" } });
@@ -61,7 +61,7 @@ describe("panel sorting", () => {
 		await commentOnLine(2, "comment on the third line");
 
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
 	}, 180000);
@@ -97,7 +97,7 @@ describe("panel sorting", () => {
 
 	it("stores the sort order in data.json, so it survives a restart", async () => {
 		const data = JSON.parse(
-			readFileSync(`${vault.path}/.obsidian/plugins/inline-comments/data.json`, "utf8"),
+			readFileSync(`${vault.path}/.obsidian/plugins/margin-comments/data.json`, "utf8"),
 		);
 		expect(data.sortOrder).toBe("lastActivity");
 	});
@@ -211,7 +211,7 @@ describe("panel sorting", () => {
 		// the sidecar on every click would be an I/O round trip for bytes the
 		// panel is holding.
 		await page.evaluate(() => {
-			const plugin = window.app.plugins.plugins["inline-comments"];
+			const plugin = window.app.plugins.plugins["margin-comments"];
 			const storage = plugin.storage;
 			window.__reads = 0;
 			const original = storage.getCommentsForFile.bind(storage);

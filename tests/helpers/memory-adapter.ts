@@ -1,7 +1,7 @@
 /**
  * In-memory stand-in for Obsidian's DataAdapter.
  *
- * Storage cannot be tested against the real Vault API at all: `.inline-comments/`
+ * Storage cannot be tested against the real Vault API at all: `.margin-comments/`
  * is a dotfolder, and the Vault API skips those. This fake implements the adapter
  * surface the plugin actually uses, and records every write so a test can prove
  * no Markdown file was ever touched.

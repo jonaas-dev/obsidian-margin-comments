@@ -29,7 +29,7 @@ async function comment(lineIndex, text) {
 
 try {
   await waitForWorkspace(page);
-  await enablePlugin(page, "inline-comments");
+  await enablePlugin(page, "margin-comments");
   await page.evaluate(async () => {
     const f = window.app.vault.getAbstractFileByPath("note.md");
     await window.app.workspace.getLeaf(true).openFile(f, { state: { mode: "source" } });
@@ -42,7 +42,7 @@ try {
   await comment(6, "This one gets resolved.");
 
   await page.evaluate(async () => {
-    await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+    await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
   });
   await page.waitForSelector(".inline-comment-panel");
   await page.waitForTimeout(500);

@@ -36,7 +36,7 @@ describe("asking for a comment", () => {
 	/* eslint-enable @typescript-eslint/no-explicit-any */
 
 	function storedAnchors(): string[] {
-		const dir = `${vault.path}/.inline-comments`;
+		const dir = `${vault.path}/.margin-comments`;
 		const file = readdirSync(dir).find((f) => f !== "_index.json");
 		if (!file) return [];
 		const sidecar = JSON.parse(readFileSync(`${dir}/${file}`, "utf8")) as { comments: Comment[] };
@@ -49,7 +49,7 @@ describe("asking for a comment", () => {
 	async function askOn(text: string | null, line: number): Promise<void> {
 		await page.evaluate(
 			async ([needle, at]: [string | null, number]) => {
-				const plugin = window.app.plugins.plugins["inline-comments"];
+				const plugin = window.app.plugins.plugins["margin-comments"];
 				const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 				const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 				const doc = cm.state.doc.toString();
@@ -81,7 +81,7 @@ describe("asking for a comment", () => {
 
 	async function dismiss(): Promise<void> {
 		await page.evaluate(() => {
-			const plugin = window.app.plugins.plugins["inline-comments"];
+			const plugin = window.app.plugins.plugins["margin-comments"];
 			plugin.composer?.close();
 			plugin.popover?.close?.();
 		});
@@ -93,7 +93,7 @@ describe("asking for a comment", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(false).openFile(file, { state: { mode: "source" } });
@@ -161,7 +161,7 @@ describe("asking for a comment", () => {
 		await submit("a comment that will be resolved");
 
 		await page.evaluate(async () => {
-			const plugin = window.app.plugins.plugins["inline-comments"];
+			const plugin = window.app.plugins.plugins["margin-comments"];
 			const comments = await plugin.storage.getCommentsForFile("note.md");
 			const onEpsilon = comments.filter(
 				(c: { anchor: { selectedText: string } }) => c.anchor.selectedText === "epsilon",
@@ -183,7 +183,7 @@ describe("asking for a comment", () => {
 		// No selection at all. The line looks uncommented — nothing is marked —
 		// so the affordance has to lead somewhere.
 		await page.evaluate(async () => {
-			const plugin = window.app.plugins.plugins["inline-comments"];
+			const plugin = window.app.plugins.plugins["margin-comments"];
 			const comments = await plugin.storage.getCommentsForFile("note.md");
 			for (const c of comments) {
 				if (c.parentId === null) await plugin.setResolved(c, true);
@@ -200,7 +200,7 @@ describe("asking for a comment", () => {
 		// The other half: reopening restores the behaviour #75 established, so
 		// the exclusion is about resolved state and not about forgetting threads.
 		await page.evaluate(async () => {
-			const plugin = window.app.plugins.plugins["inline-comments"];
+			const plugin = window.app.plugins.plugins["margin-comments"];
 			const comments = await plugin.storage.getCommentsForFile("note.md");
 			const beta = comments.find(
 				(c: { anchor: { selectedText: string } }) => c.anchor.selectedText === "beta",
