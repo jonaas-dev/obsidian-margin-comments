@@ -8,7 +8,7 @@ import {
 	type TAbstractFile,
 } from "obsidian";
 import { EditorView } from "@codemirror/view";
-import { CommentStorage } from "./storage";
+import { CommentStorage, describeUnreadableSidecar } from "./storage";
 import { createAnchor } from "./anchor";
 import { movesFor } from "./note-moves";
 import { hashString } from "./utils";
@@ -130,7 +130,12 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			this.settings.panelPosition,
 			DEFAULT_SETTINGS.panelPosition,
 		);
-		this.storage = new CommentStorage(this.app.vault.adapter);
+		this.storage = new CommentStorage(this.app.vault.adapter, {
+			onUnreadable: (filePath, keptAt) => {
+				// No timeout: the path in the message is the only way back to those comments.
+				new Notice(describeUnreadableSidecar(filePath, keptAt), 0);
+			},
+		});
 		this.popover = new ThreadPopover(this.app, {
 			addReply: (root, content) => this.addReply(root, content),
 			editComment: (comment, content) => this.editComment(comment, content),

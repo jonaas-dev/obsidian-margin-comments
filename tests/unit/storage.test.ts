@@ -1,5 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
-import { CommentStorage, STORAGE_DIR, INDEX_FILE } from "../../src/storage";
+import {
+	CommentStorage,
+	STORAGE_DIR,
+	INDEX_FILE,
+	describeUnreadableSidecar,
+} from "../../src/storage";
 import { hashString } from "../../src/utils";
 import type { Comment } from "../../src/types";
 import { MemoryAdapter } from "../helpers/memory-adapter";
@@ -127,6 +132,202 @@ describe("CommentStorage", () => {
 		await expect(storage.getCommentsForFile("notes/meeting.md")).resolves.toEqual([]);
 		expect(warn).toHaveBeenCalled();
 		warn.mockRestore();
+	});
+
+	describe("an unreadable sidecar", () => {
+		const NOTE = "notes/meeting.md";
+		// What a crash mid-write or a half-finished sync leaves: a real sidecar, cut short.
+		const truncated = JSON.stringify(
+			{ filePath: NOTE, comments: [makeComment({ id: "old1" }), makeComment({ id: "old2" })] },
+			null,
+			2,
+		).slice(0, 400);
+		const quiet = () => vi.spyOn(console, "warn").mockImplementation(() => {});
+		const keptCopies = (adapter: MemoryAdapter, content: string) =>
+			Object.entries(adapter.snapshot())
+				.filter(([path, data]) => data === content && path !== sidecarFor(NOTE))
+				.map(([path]) => path);
+
+		it("keeps its bytes when the next comment is saved", async () => {
+			const warn = quiet();
+			const adapter = new MemoryAdapter({ [sidecarFor(NOTE)]: truncated });
+			const storage = new CommentStorage(adapter);
+
+			expect(await storage.getCommentsForFile(NOTE)).toEqual([]);
+			await storage.saveComment(makeComment({ id: "new" }));
+
+			expect(keptCopies(adapter, truncated)).toHaveLength(1);
+			const [kept] = keptCopies(adapter, truncated);
+			expect(kept.startsWith(`${STORAGE_DIR}/`)).toBe(true);
+			const written = JSON.parse(adapter.snapshot()[sidecarFor(NOTE)]);
+			expect(written.comments.map((c: Comment) => c.id)).toEqual(["new"]);
+			warn.mockRestore();
+		});
+
+		it("keeps one whose JSON parses but holds no comments array", async () => {
+			const warn = quiet();
+			const wrongShape = JSON.stringify({ filePath: NOTE, comments: "nope" });
+			const adapter = new MemoryAdapter({ [sidecarFor(NOTE)]: wrongShape });
+			const storage = new CommentStorage(adapter);
+
+			await storage.saveComment(makeComment({ id: "new" }));
+
+			expect(keptCopies(adapter, wrongShape)).toHaveLength(1);
+			warn.mockRestore();
+		});
+
+		it("sets it aside once, not on every read", async () => {
+			const warn = quiet();
+			const adapter = new MemoryAdapter({ [sidecarFor(NOTE)]: truncated });
+			const storage = new CommentStorage(adapter);
+
+			await storage.getCommentsForFile(NOTE);
+			await new CommentStorage(adapter).getCommentsForFile(NOTE);
+
+			expect(keptCopies(adapter, truncated)).toHaveLength(1);
+			warn.mockRestore();
+		});
+
+		it("drops the note from the index, whose counts described the lost comments", async () => {
+			const warn = quiet();
+			const adapter = new MemoryAdapter({
+				[sidecarFor(NOTE)]: truncated,
+				[`${STORAGE_DIR}/${INDEX_FILE}`]: JSON.stringify({
+					[NOTE]: { hash: hashString(NOTE), threads: 2, open: 2 },
+				}),
+			});
+			const storage = new CommentStorage(adapter);
+
+			await storage.getCommentsForFile(NOTE);
+
+			expect(await storage.getCommentSummaries()).toEqual([]);
+			warn.mockRestore();
+		});
+
+		it("tells the owner which note it was and where the bytes were kept", async () => {
+			const warn = quiet();
+			const adapter = new MemoryAdapter({ [sidecarFor(NOTE)]: truncated });
+			const reports: { filePath: string; keptAt: string }[] = [];
+			const storage = new CommentStorage(adapter, {
+				onUnreadable: (filePath, keptAt) => reports.push({ filePath, keptAt }),
+			});
+
+			await storage.getCommentsForFile(NOTE);
+			await storage.getCommentsForFile(NOTE);
+
+			expect(reports).toEqual([{ filePath: NOTE, keptAt: keptCopies(adapter, truncated)[0] }]);
+			warn.mockRestore();
+		});
+
+		it("refuses to write over a sidecar the adapter could not read at all", async () => {
+			// No text came back, so there is nothing to set aside: the file on disk is
+			// the only copy, and a save must fail rather than replace it.
+			class FailingRead extends MemoryAdapter {
+				async read(path: string): Promise<string> {
+					if (path === sidecarFor(NOTE)) throw new Error("EIO");
+					return super.read(path);
+				}
+			}
+			const warn = quiet();
+			const original = JSON.stringify({ filePath: NOTE, comments: [makeComment({ id: "old" })] });
+			const adapter = new FailingRead({ [sidecarFor(NOTE)]: original });
+			const storage = new CommentStorage(adapter);
+
+			expect(await storage.getCommentsForFile(NOTE)).toEqual([]);
+			await expect(storage.saveComment(makeComment({ id: "new" }))).rejects.toThrow("EIO");
+			expect(adapter.snapshot()[sidecarFor(NOTE)]).toBe(original);
+			warn.mockRestore();
+		});
+
+		it("is announced with the note's name and where its text was kept", () => {
+			const keptAt = `${STORAGE_DIR}/abc.json.unreadable-1`;
+			const message = describeUnreadableSidecar("notes/deep/meeting.md", keptAt);
+			expect(message).toContain("meeting");
+			expect(message).not.toContain("notes/deep");
+			expect(message).toContain(keptAt);
+		});
+	});
+
+	describe("a write that does not finish", () => {
+		const NOTE = "notes/meeting.md";
+		const tmpFor = (filePath: string) => `${sidecarFor(filePath)}.tmp`;
+		const sidecarWith = (...ids: string[]) =>
+			JSON.stringify({ filePath: NOTE, comments: ids.map((id) => makeComment({ id })) });
+		const idsOnDisk = async (adapter: MemoryAdapter) =>
+			(await new CommentStorage(adapter).getCommentsForFile(NOTE)).map((c) => c.id);
+
+		/** Dies partway through the next write under `armed`, as a crash or a full disk would. */
+		class DyingWrite extends MemoryAdapter {
+			armed: string | null = null;
+			async write(path: string, content: string): Promise<void> {
+				if (this.armed !== null && path.startsWith(this.armed)) {
+					this.armed = null;
+					await super.write(path, content.slice(0, Math.floor(content.length / 2)));
+					throw new Error("write interrupted");
+				}
+				return super.write(path, content);
+			}
+		}
+
+		it("runs against a fake adapter that refuses to rename onto a file, as Obsidian's does", async () => {
+			// Measured on Obsidian 1.13.7 desktop: the rename throws and the target keeps
+			// its content. The fake has to agree, or these tests prove a swap that
+			// Obsidian would refuse.
+			const adapter = new MemoryAdapter({ a: "1", b: "2" });
+			await expect(adapter.rename("a", "b")).rejects.toThrow("Destination file already exists!");
+			expect(adapter.snapshot()).toEqual({ a: "1", b: "2" });
+		});
+
+		it("leaves the previous comments readable when a save dies partway", async () => {
+			const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+			const adapter = new DyingWrite();
+			const storage = new CommentStorage(adapter);
+			await storage.saveComment(makeComment({ id: "a" }));
+
+			adapter.armed = sidecarFor(NOTE);
+			await expect(storage.saveComment(makeComment({ id: "b" }))).rejects.toThrow(
+				"write interrupted",
+			);
+
+			expect(await idsOnDisk(adapter)).toEqual(["a"]);
+			warn.mockRestore();
+		});
+
+		it("moves a finished replacement into place when the crash came before the move", async () => {
+			const replacement = sidecarWith("a");
+			const adapter = new MemoryAdapter({ [tmpFor(NOTE)]: replacement });
+
+			expect(await idsOnDisk(adapter)).toEqual(["a"]);
+			expect(adapter.snapshot()[sidecarFor(NOTE)]).toBe(replacement);
+			expect(await adapter.exists(tmpFor(NOTE))).toBe(false);
+		});
+
+		it("leaves no temporary file behind once a save lands over a partial one", async () => {
+			const adapter = new MemoryAdapter({
+				[sidecarFor(NOTE)]: sidecarWith("a"),
+				[tmpFor(NOTE)]: '{ "filePath": "notes/meet',
+			});
+
+			await new CommentStorage(adapter).saveComment(makeComment({ id: "b" }));
+
+			expect(await adapter.exists(tmpFor(NOTE))).toBe(false);
+			expect(await idsOnDisk(adapter)).toEqual(["a", "b"]);
+		});
+
+		it("lets two notes save at once without their index writes colliding", async () => {
+			// Each note writes the shared index through a temporary file; two at once
+			// would each move the other's away if the index were not queued on its own.
+			const adapter = new MemoryAdapter();
+			const storage = new CommentStorage(adapter);
+
+			await Promise.all([
+				storage.saveComment(makeComment({ id: "a" })),
+				storage.saveComment(makeComment({ id: "b", filePath: "notes/other.md" })),
+			]);
+
+			const summaries = await new CommentStorage(adapter).getCommentSummaries();
+			expect(summaries.map((s) => s.filePath).sort()).toEqual([NOTE, "notes/other.md"]);
+		});
 	});
 
 	it("never writes to a Markdown file", async () => {

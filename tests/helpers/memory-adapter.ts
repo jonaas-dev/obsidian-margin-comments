@@ -44,6 +44,15 @@ export class MemoryAdapter {
 		if (!this.files.delete(path)) throw new Error(`ENOENT: ${path}`);
 	}
 
+	/** Refuses an existing destination, as Obsidian's adapter does (measured on 1.13.7). */
+	async rename(from: string, to: string): Promise<void> {
+		const content = this.files.get(from);
+		if (content === undefined) throw new Error(`ENOENT: ${from}`);
+		if (this.files.has(to)) throw new Error("Destination file already exists!");
+		this.files.delete(from);
+		this.files.set(to, content);
+	}
+
 	async list(path: string): Promise<{ files: string[]; folders: string[] }> {
 		const prefix = path.endsWith("/") ? path : `${path}/`;
 		const files = [...this.files.keys()].filter(
