@@ -1,6 +1,6 @@
 import { App, Component } from "obsidian";
 import { computePosition, type AnchorRect } from "../editor/floating-position";
-import { placeSheet } from "../editor/bottom-sheet";
+import { placeSheet, watchPlacement } from "../editor/bottom-sheet";
 import type { Thread } from "./threads";
 import { renderThreadCard, type ThreadActions } from "./thread-card";
 
@@ -25,7 +25,7 @@ export class ThreadPopover extends Component {
 	private onKeyDown: ((event: KeyboardEvent) => void) | null = null;
 	private content: PopoverContent | null = null;
 	private anchorRect: AnchorRect | null = null;
-	private onViewportChange: (() => void) | null = null;
+	private stopWatching: (() => void) | null = null;
 
 	/**
 	 * `sheet` is read at each placement, like the plugin's `touch`, so a test can
@@ -58,13 +58,10 @@ export class ThreadPopover extends Component {
 			document.addEventListener("mousedown", this.onOutsideClick);
 		}, 0);
 
-		// A reply field focused inside a sheet brings the keyboard up under it, and
-		// only the visual viewport says so.
-		const visual = window.visualViewport;
-		if (visual) {
-			this.onViewportChange = () => this.anchorRect && this.position(this.anchorRect);
-			visual.addEventListener("resize", this.onViewportChange);
-		}
+		// A reply field focused inside a sheet brings the keyboard up under it.
+		this.stopWatching = watchPlacement(() => {
+			if (this.anchorRect) this.position(this.anchorRect);
+		});
 
 		this.onKeyDown = (event: KeyboardEvent) => {
 			// Only when focus is outside the card: inside, Escape belongs to
@@ -144,10 +141,8 @@ export class ThreadPopover extends Component {
 			document.removeEventListener("keydown", this.onKeyDown);
 			this.onKeyDown = null;
 		}
-		if (this.onViewportChange) {
-			window.visualViewport?.removeEventListener("resize", this.onViewportChange);
-			this.onViewportChange = null;
-		}
+		this.stopWatching?.();
+		this.stopWatching = null;
 		this.el?.remove();
 		this.el = null;
 		this.content = null;

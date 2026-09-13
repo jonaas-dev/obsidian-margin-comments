@@ -59,6 +59,8 @@ export interface SheetMetrics {
 	innerHeight: number;
 	/** Height still visible above the on-screen keyboard (`visualViewport.height`). */
 	visibleHeight: number;
+	/** The keyboard as Obsidian's mobile app publishes it (`--keyboard-height`), 0 when none. */
+	keyboardHeight: number;
 	/** Distance from the bottom of the window to the top of the app's own bottom bar. */
 	reservedBottom: number;
 }
@@ -80,7 +82,9 @@ export const SHEET_MAX_FRACTION = 0.5;
  * the keyboard covers both when it is up.
  */
 export function sheetPosition(metrics: SheetMetrics): SheetPosition {
-	const keyboard = Math.max(0, metrics.innerHeight - metrics.visibleHeight);
+	// Either source can be the one reporting the keyboard: a browser shrinks the
+	// visual viewport, Obsidian's Android app publishes a variable instead (#159).
+	const keyboard = Math.max(0, metrics.innerHeight - metrics.visibleHeight, metrics.keyboardHeight);
 	const bottom = Math.max(keyboard, metrics.reservedBottom, 0);
 	const available = Math.max(0, metrics.innerHeight - bottom);
 	return { bottom, maxHeight: Math.round(available * SHEET_MAX_FRACTION) };
