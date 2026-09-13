@@ -1,6 +1,6 @@
 import { normalizePath } from "obsidian";
 import type { Comment } from "./types";
-import { hashString } from "./utils";
+import { hashString, noteName } from "./utils";
 
 function basename(path: string): string {
 	const parts = path.split("/");
@@ -24,6 +24,7 @@ export interface StorageAdapter {
 	read(path: string): Promise<string>;
 	write(path: string, data: string): Promise<void>;
 	remove(path: string): Promise<void>;
+	rename(path: string, newPath: string): Promise<void>;
 	list(path: string): Promise<{ files: string[]; folders: string[] }>;
 }
 
@@ -62,13 +63,36 @@ function isEntry(value: unknown): value is IndexEntry {
 	return typeof entry?.hash === "string" && typeof entry.threads === "number";
 }
 
+/** The sidecar in `text`, or null when the text is not one. */
+function parseSidecar(text: string): Sidecar | null {
+	try {
+		const parsed = JSON.parse(text) as Sidecar | null;
+		return Array.isArray(parsed?.comments) ? parsed : null;
+	} catch {
+		return null;
+	}
+}
+
+export interface StorageOptions {
+	/** Told once per unreadable sidecar, after its text has been kept at `keptAt`. */
+	onUnreadable?: (filePath: string, keptAt: string) => void;
+}
+
+/** Said when a note's comments could not be read, so the loss is visible and recoverable. */
+export function describeUnreadableSidecar(filePath: string, keptAt: string): string {
+	return `Comments for ${noteName(filePath)} could not be read. Their file was kept as ${keptAt}.`;
+}
+
 export class CommentStorage {
 	private cache = new Map<string, Comment[]>();
 	private index: Index | null = null;
 	/** Serialises each note's read, change and write; interleaved ones lose comments. */
 	private queues = new Map<string, Promise<unknown>>();
 
-	constructor(private adapter: StorageAdapter) {}
+	constructor(
+		private adapter: StorageAdapter,
+		private options: StorageOptions = {},
+	) {}
 
 	private sidecarPath(filePath: string): string {
 		return normalizePath(`${STORAGE_DIR}/${hashString(filePath)}.json`);
@@ -130,19 +154,34 @@ export class CommentStorage {
 	 * was, and the next save would build on that list and drop the first.
 	 */
 	async getCommentsForFile(filePath: string): Promise<Comment[]> {
-		return (
-			this.cache.get(filePath) ??
-			this.exclusive([filePath], () => this.loadComments(filePath))
-		);
+		const cached = this.cache.get(filePath);
+		if (cached) return cached;
+		try {
+			return await this.exclusive([filePath], () => this.loadComments(filePath));
+		} catch (error) {
+			// Refusing to draw a note is worse than drawing it without comments. Nothing
+			// is cached, so the next read tries again, and a save still refuses to
+			// replace a file it never managed to read.
+			console.warn("margin-comments: could not read a sidecar", error);
+			return [];
+		}
 	}
 
-	/** The read itself, for code that already holds the note's queue. */
+	/**
+	 * The read itself, for code that already holds the note's queue. Throws when the
+	 * adapter cannot read an existing sidecar, so no mutation writes over it.
+	 */
 	private async loadComments(filePath: string): Promise<Comment[]> {
 		const cached = this.cache.get(filePath);
 		if (cached) return cached;
 
 		const path = this.sidecarPath(filePath);
 		if (!(await this.adapter.exists(path))) {
+			const recovered = await this.recoverReplacement(path);
+			if (recovered) {
+				this.cache.set(filePath, recovered.comments);
+				return recovered.comments;
+			}
 			// A stale index entry survives a half-finished sync. Clearing it here,
 			// where the miss is already paid for, keeps getCommentSummaries free of
 			// an existence check per note — which is the whole point of the index.
@@ -150,23 +189,60 @@ export class CommentStorage {
 			return [];
 		}
 
-		const sidecar = await this.readSidecar(path);
-		const comments = sidecar?.comments ?? [];
-		this.cache.set(filePath, comments);
-		return comments;
+		const text = await this.adapter.read(path);
+		const sidecar = parseSidecar(text);
+		if (!sidecar) {
+			// A crash mid-write or a sync conflict leaves a sidecar that no longer parses,
+			// sometimes one a person could still repair. Treating it as empty would let
+			// the next save replace the only copy, so its text is kept first.
+			console.warn(`margin-comments: setting aside unreadable sidecar ${basename(path)}`);
+			const keptAt = await this.setAside(path, text);
+			await this.forgetIfIndexed(filePath);
+			this.options.onUnreadable?.(filePath, keptAt);
+			return [];
+		}
+
+		this.cache.set(filePath, sidecar.comments);
+		return sidecar.comments;
 	}
 
-	private async readSidecar(path: string): Promise<Sidecar | null> {
-		try {
-			const parsed = JSON.parse(await this.adapter.read(path)) as Sidecar;
-			if (!Array.isArray(parsed?.comments)) throw new Error("missing comments array");
-			return parsed;
-		} catch (error) {
-			// A sync conflict can corrupt one sidecar. Losing that note's comments is
-			// bad; refusing to load the plugin at all is worse.
-			console.warn(`margin-comments: skipping unreadable sidecar ${basename(path)}`, error);
-			return null;
-		}
+	/**
+	 * Copies an unreadable sidecar's text beside it, then removes the original.
+	 * Copied before removed, so a crash in between leaves two copies rather than none.
+	 */
+	private async setAside(path: string, text: string): Promise<string> {
+		const keptAt = normalizePath(`${path}.unreadable-${Date.now()}`);
+		await this.adapter.write(keptAt, text);
+		await this.adapter.remove(path);
+		return keptAt;
+	}
+
+	/**
+	 * Replaces a file so that a crash never leaves it half-written.
+	 *
+	 * The text goes to a temporary file first, so a write that dies partway damages only
+	 * that. Obsidian's adapter refuses to rename onto an existing file (measured on
+	 * 1.13.7), so the original is removed before the move. A crash in that gap leaves
+	 * the finished temporary file on its own, and recoverReplacement moves it into place
+	 * on the next read.
+	 */
+	private async writeAtomically(path: string, data: string): Promise<void> {
+		const temporary = `${path}.tmp`;
+		await this.adapter.write(temporary, data);
+		if (await this.adapter.exists(path)) await this.adapter.remove(path);
+		await this.adapter.rename(temporary, path);
+	}
+
+	/** A sidecar whose replacement was written but never moved into place, moved now. */
+	private async recoverReplacement(path: string): Promise<Sidecar | null> {
+		const temporary = `${path}.tmp`;
+		if (!(await this.adapter.exists(temporary))) return null;
+		const sidecar = parseSidecar(await this.adapter.read(temporary));
+		// A partial one is from a write that died before it finished, so there is no
+		// complete version to move into place.
+		if (!sidecar) return null;
+		await this.adapter.rename(temporary, path);
+		return sidecar;
 	}
 
 	async saveComment(comment: Comment): Promise<void> {
@@ -272,7 +348,7 @@ export class CommentStorage {
 
 		await this.ensureDir();
 		const sidecar: Sidecar = { filePath, comments };
-		await this.adapter.write(path, JSON.stringify(sidecar, null, 2));
+		await this.writeAtomically(path, JSON.stringify(sidecar, null, 2));
 		this.cache.set(filePath, comments);
 		await this.updateIndex((index) => {
 			index[filePath] = { hash: hashString(filePath), ...summarise(comments) };
@@ -337,7 +413,9 @@ export class CommentStorage {
 		const { files } = await this.adapter.list(dir);
 		for (const path of files) {
 			if (path.endsWith(INDEX_FILE) || !path.endsWith(".json")) continue;
-			const sidecar = await this.readSidecar(path);
+			// Skipped, not set aside: the note it belongs to is named inside the text
+			// that failed to parse, so it is set aside once that note is opened.
+			const sidecar = parseSidecar(await this.adapter.read(path).catch(() => ""));
 			if (!sidecar?.filePath) continue;
 			index[sidecar.filePath] = {
 				hash: hashString(sidecar.filePath),
@@ -347,10 +425,17 @@ export class CommentStorage {
 		return index;
 	}
 
+	/**
+	 * Changes the index inside its own queue. Every note writes it from that note's
+	 * queue, so two saves to different notes would otherwise race on the one file:
+	 * a count lost, or a rename finding its temporary file already moved away.
+	 */
 	private async updateIndex(mutate: (index: Index) => void): Promise<void> {
-		const index = await this.loadIndex();
-		mutate(index);
-		await this.ensureDir();
-		await this.adapter.write(this.indexPath(), JSON.stringify(index, null, 2));
+		await this.enqueue(this.indexPath(), async () => {
+			const index = await this.loadIndex();
+			mutate(index);
+			await this.ensureDir();
+			await this.writeAtomically(this.indexPath(), JSON.stringify(index, null, 2));
+		});
 	}
 }
