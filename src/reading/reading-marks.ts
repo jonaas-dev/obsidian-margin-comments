@@ -32,6 +32,7 @@ export function paintReadingMarks(el: HTMLElement, highlights: ReadingHighlight[
 		const slices = locateAcrossSegments(
 			nodes.map((node) => node.data),
 			highlight.text,
+			highlight.occurrence,
 		);
 		if (slices === null) continue;
 
