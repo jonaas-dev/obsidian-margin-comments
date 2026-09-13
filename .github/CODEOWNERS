@@ -1,0 +1,7 @@
+# Default owner for everything
+* @jonaas-dev
+
+# Security-sensitive paths
+/ops/           @jonaas-dev
+/src/storage.ts @jonaas-dev
+/.github/       @jonaas-dev
