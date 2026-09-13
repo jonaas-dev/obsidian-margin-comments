@@ -420,7 +420,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 
 	/** Say once that comments lost their anchor; the panel shows which. */
 	private announceOrphans(count: number): void {
-		const message = this.orphanNotice.take(count);
+		const message = this.orphanNotice.take(count, this.visiblePanel() !== null);
 		if (message !== null) new Notice(message);
 	}
 
