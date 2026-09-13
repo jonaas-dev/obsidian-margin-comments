@@ -91,10 +91,8 @@ describe("the panel's empty state", () => {
 		vault?.remove();
 	});
 
-	it("names the default binding on a note with no comments", async () => {
-		// The harness is macOS, so Mod resolves to Command and the modifiers read
-		// in the platform's order.
-		expect(await hint()).toBe("Select some text and press ⇧⌘M.");
+	it("names the command on a fresh install, which binds no key (#122)", async () => {
+		expect(await hint()).toBe("Select some text and run “Add comment to selection”.");
 	});
 
 	it("names the reader's own binding when they have set one", async () => {
@@ -109,11 +107,12 @@ describe("the panel's empty state", () => {
 		expect(await hint()).toBe("Select some text and run “Add comment to selection”.");
 	});
 
-	it("goes back to the default when the reader's binding is removed", async () => {
-		// Cleared and default are different states, and the plugin has to tell
-		// them apart: one names the command, the other names ⇧⌘M.
+	it("goes back to naming the command when the reader's binding is removed", async () => {
+		// removeHotkeys restores the default, and the default is now no binding at
+		// all — so a leftover default would show up here as a key combination.
+		await setBinding({ modifiers: ["Alt"], key: "k" });
 		await resetBinding();
-		expect(await hint()).toBe("Select some text and press ⇧⌘M.");
+		expect(await hint()).toBe("Select some text and run “Add comment to selection”.");
 	});
 
 	it("says nothing once the note has a comment", async () => {
