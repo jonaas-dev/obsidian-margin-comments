@@ -141,6 +141,12 @@
 	padding-left: var(--size-4-2);
 }
 
+/* Both open their threads when tapped (#171), so they say so to a pointer. */
+.inline-comment-reading-mark,
+.inline-comment-reading-block {
+	cursor: pointer;
+}
+
 /* One visible focus ring for every control the plugin draws.
    :focus-visible rather than :focus, so a mouse click does not leave a ring
    behind; drawn from the theme's own focus colour rather than the browser
