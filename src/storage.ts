@@ -2,7 +2,7 @@ import { normalizePath } from "obsidian";
 import type { Comment } from "./types";
 import { hashString } from "./utils";
 
-export const STORAGE_DIR = ".inline-comments";
+export const STORAGE_DIR = ".margin-comments";
 export const INDEX_FILE = "_index.json";
 
 /**
@@ -113,7 +113,7 @@ export class CommentStorage {
 		} catch (error) {
 			// A sync conflict can corrupt one sidecar. Losing that note's comments is
 			// bad; refusing to load the plugin at all is worse.
-			console.warn(`inline-comments: skipping unreadable sidecar ${path}`, error);
+			console.warn(`margin-comments: skipping unreadable sidecar ${path}`, error);
 			return null;
 		}
 	}

@@ -60,7 +60,7 @@ describe("notes that move", () => {
 
 	/** The sidecar a path would own, read straight off disk. */
 	function sidecarPath(notePath: string): string {
-		return `${vault.path}/.inline-comments/${hashString(notePath)}.json`;
+		return `${vault.path}/.margin-comments/${hashString(notePath)}.json`;
 	}
 
 	function commentsAt(notePath: string): Comment[] {
@@ -70,7 +70,7 @@ describe("notes that move", () => {
 	}
 
 	function indexPaths(): string[] {
-		const raw = readFileSync(`${vault.path}/.inline-comments/_index.json`, "utf8");
+		const raw = readFileSync(`${vault.path}/.margin-comments/_index.json`, "utf8");
 		return Object.keys(JSON.parse(raw));
 	}
 
@@ -79,7 +79,7 @@ describe("notes that move", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await openNote(NOTE);
 		await dismissModals(page);
 
@@ -123,7 +123,7 @@ describe("notes that move", () => {
 	it("shows the comment attached, not orphaned, on reopening", async () => {
 		await openNote("notes/standup.md");
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-card", { timeout: 10000 });
 		expect(await page.locator(".inline-comment-card.is-orphaned").count()).toBe(0);

@@ -25,7 +25,7 @@ describe("comment panel", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(true).openFile(file, { state: { mode: "source" } });
@@ -52,14 +52,14 @@ describe("comment panel", () => {
 	});
 
 	function readSidecar(): { comments: Comment[] } {
-		const dir = `${vault.path}/.inline-comments`;
+		const dir = `${vault.path}/.margin-comments`;
 		const file = readdirSync(dir).find((f) => f !== "_index.json")!;
 		return JSON.parse(readFileSync(`${dir}/${file}`, "utf8"));
 	}
 
 	it("opens from the ribbon command", async () => {
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
 		expect(await page.locator(".inline-comment-panel").count()).toBe(1);
@@ -95,7 +95,7 @@ describe("comment panel", () => {
 
 		const { readdirSync, readFileSync } = await import("node:fs");
 		const { join } = await import("node:path");
-		const dir = join(vault.path, ".inline-comments");
+		const dir = join(vault.path, ".margin-comments");
 		const file = readdirSync(dir).find((f) => f !== "_index.json")!;
 		const sidecar = JSON.parse(readFileSync(join(dir, file), "utf8"));
 
@@ -202,7 +202,7 @@ describe("comment panel", () => {
 		await page.locator('[aria-label="Close comments panel"]').click();
 		await page.waitForTimeout(600);
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
 
@@ -214,7 +214,7 @@ describe("comment panel", () => {
 	it("stores the filter in data.json, so it survives a restart", async () => {
 		const { readFileSync } = await import("node:fs");
 		const data = JSON.parse(
-			readFileSync(`${vault.path}/.obsidian/plugins/inline-comments/data.json`, "utf8"),
+			readFileSync(`${vault.path}/.obsidian/plugins/margin-comments/data.json`, "utf8"),
 		);
 		expect(data.panelFilter).toBe("resolved");
 	});
@@ -268,8 +268,8 @@ describe("comment panel", () => {
 	it("asks before deleting and names how many replies go with it", async () => {
 		// The popover tests above close the panel; the delete actions live in it.
 		await page.evaluate(async () => {
-			if (window.app.workspace.getLeavesOfType("inline-comments-panel").length === 0) {
-				await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			if (window.app.workspace.getLeavesOfType("margin-comments-panel").length === 0) {
+				await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 			}
 		});
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
@@ -298,7 +298,7 @@ describe("comment panel", () => {
 		await page.waitForTimeout(1500);
 
 		// Last comment gone means the sidecar itself should be gone, not left empty.
-		const dir = `${vault.path}/.inline-comments`;
+		const dir = `${vault.path}/.margin-comments`;
 		expect(readdirSync(dir).filter((f) => f !== "_index.json")).toHaveLength(0);
 		expect(await page.locator(".inline-comment-active-line").count()).toBe(0);
 		expect(await page.locator(".inline-comment-empty").count()).toBe(1);

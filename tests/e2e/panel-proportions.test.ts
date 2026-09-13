@@ -33,7 +33,7 @@ describe("the panel's proportions", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(false).openFile(file, { state: { mode: "source" } });
@@ -42,7 +42,7 @@ describe("the panel's proportions", () => {
 		await dismissModals(page);
 
 		await page.evaluate(async () => {
-			const plugin = window.app.plugins.plugins["inline-comments"];
+			const plugin = window.app.plugins.plugins["margin-comments"];
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf("beta");
@@ -50,7 +50,7 @@ describe("the panel's proportions", () => {
 		});
 		await page.waitForTimeout(1200);
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
 	}, 240000);

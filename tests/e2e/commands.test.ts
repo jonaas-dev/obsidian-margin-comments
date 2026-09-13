@@ -36,7 +36,7 @@ describe("commands", () => {
 	async function run(command: string): Promise<void> {
 		await page.evaluate(async (id: string) => {
 			await window.app.commands.executeCommandById(id);
-		}, `inline-comments:${command}`);
+		}, `margin-comments:${command}`);
 		await page.waitForTimeout(700);
 	}
 
@@ -74,7 +74,7 @@ describe("commands", () => {
 	}
 
 	function readSidecar(): { comments: Comment[] } {
-		const dir = `${vault.path}/.inline-comments`;
+		const dir = `${vault.path}/.margin-comments`;
 		const file = readdirSync(dir).find((f) => f !== "_index.json")!;
 		return JSON.parse(readFileSync(`${dir}/${file}`, "utf8"));
 	}
@@ -84,7 +84,7 @@ describe("commands", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await openNote(NOTE);
 		await dismissModals(page);
 
@@ -101,7 +101,7 @@ describe("commands", () => {
 		// A default, not a lock: Obsidian's hotkey settings override it, which is
 		// the acceptance criterion this covers.
 		const hotkeys = await page.evaluate(
-			() => window.app.hotkeyManager.defaultKeys["inline-comments:add-comment"],
+			() => window.app.hotkeyManager.defaultKeys["margin-comments:add-comment"],
 		);
 		expect(hotkeys).toEqual([{ modifiers: ["Mod", "Shift"], key: "M" }]);
 	});
@@ -179,7 +179,7 @@ describe("commands", () => {
 		const shapes = await page.evaluate(() =>
 			["add-comment", "next-comment", "previous-comment", "resolve-all-comments"].map(
 				(id: string) => {
-					const command = window.app.commands.commands[`inline-comments:${id}`];
+					const command = window.app.commands.commands[`margin-comments:${id}`];
 					return {
 						editorScoped: typeof command.editorCallback === "function",
 						global: typeof command.callback === "function",
@@ -197,7 +197,7 @@ describe("commands", () => {
 		expect(
 			await page.evaluate(
 				() =>
-					typeof window.app.commands.commands["inline-comments:toggle-comments-panel"].callback,
+					typeof window.app.commands.commands["margin-comments:toggle-comments-panel"].callback,
 			),
 		).toBe("function");
 	});

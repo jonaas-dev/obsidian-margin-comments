@@ -1,6 +1,6 @@
 {
-	"id": "inline-comments",
-	"name": "Inline Comments",
+	"id": "margin-comments",
+	"name": "Margin Comments",
 	"version": "0.1.0",
 	"minAppVersion": "1.5.0",
 	"description": "Add inline comments to your notes with threaded replies, resolve/unresolve, and a sidebar panel.",

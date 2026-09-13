@@ -35,7 +35,7 @@ describe("the quoted text", () => {
 	async function commentOn(needle: string | null, line: number, text: string): Promise<void> {
 		await page.evaluate(
 			async ([n, ln, body]: [string | null, number, string]) => {
-				const plugin = window.app.plugins.plugins["inline-comments"];
+				const plugin = window.app.plugins.plugins["margin-comments"];
 				const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 				const cm = (leaf.view.editor as unknown as {
 					cm: { state: { doc: { toString(): string; line(n: number): { from: number } } } };
@@ -68,7 +68,7 @@ describe("the quoted text", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(false).openFile(file, { state: { mode: "source" } });
@@ -80,7 +80,7 @@ describe("the quoted text", () => {
 		await commentOn(null, 5, "Sobre una línea vacía.");
 		await commentOn(LONG, 7, "Sobre una selección larguísima.");
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
 	}, 300000);

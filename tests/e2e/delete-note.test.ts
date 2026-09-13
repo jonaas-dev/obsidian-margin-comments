@@ -67,13 +67,13 @@ describe("notes that are deleted", () => {
 	}
 
 	function commentsAt(notePath: string): Comment[] {
-		const path = `${vault.path}/.inline-comments/${hashString(notePath)}.json`;
+		const path = `${vault.path}/.margin-comments/${hashString(notePath)}.json`;
 		if (!existsSync(path)) return [];
 		return JSON.parse(readFileSync(path, "utf8")).comments;
 	}
 
 	function indexPaths(): string[] {
-		const raw = readFileSync(`${vault.path}/.inline-comments/_index.json`, "utf8");
+		const raw = readFileSync(`${vault.path}/.margin-comments/_index.json`, "utf8");
 		return Object.keys(JSON.parse(raw));
 	}
 
@@ -82,7 +82,7 @@ describe("notes that are deleted", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		await waitForWorkspace(page);
-		await enablePlugin(page, "inline-comments");
+		await enablePlugin(page, "margin-comments");
 		await openNote(NOTE);
 		await dismissModals(page);
 		await commentOnSecondLine("a comment on a note about to go");
@@ -131,7 +131,7 @@ describe("notes that are deleted", () => {
 	it("shows the restored comment anchored, not orphaned", async () => {
 		await openNote(NOTE);
 		await page.evaluate(async () => {
-			await window.app.commands.executeCommandById("inline-comments:toggle-comments-panel");
+			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
 		await page.waitForSelector(".inline-comment-card", { timeout: 10000 });
 		expect(await page.locator(".inline-comment-card.is-orphaned").count()).toBe(0);
@@ -149,7 +149,7 @@ describe("notes that are deleted", () => {
 		expect(commentsAt("notes/kept.md")).toHaveLength(1);
 
 		await page.evaluate(() => {
-			window.app.plugins.plugins["inline-comments"].settings.orphanedBehavior = "keep";
+			window.app.plugins.plugins["margin-comments"].settings.orphanedBehavior = "keep";
 		});
 		await trash("notes/kept.md");
 
@@ -157,7 +157,7 @@ describe("notes that are deleted", () => {
 		expect(indexPaths()).toContain("notes/kept.md");
 
 		await page.evaluate(() => {
-			window.app.plugins.plugins["inline-comments"].settings.orphanedBehavior = "delete";
+			window.app.plugins.plugins["margin-comments"].settings.orphanedBehavior = "delete";
 		});
 	});
 
