@@ -3,8 +3,14 @@ import { computePosition, type AnchorRect } from "../editor/floating-position";
 import type { Thread } from "./threads";
 import { renderThreadCard, type ThreadActions } from "./thread-card";
 
+/** What the popover is showing, so its host can redraw it after an action. */
+export interface PopoverContent {
+	filePath: string;
+	threadIds: string[];
+}
+
 /**
- * A thread shown beside the line it belongs to.
+ * The threads on a line, shown beside it.
  *
  * A popover rather than a modal: a comment separated from the text it is about
  * loses half its meaning, and a modal covers exactly that text. It is also the
@@ -12,10 +18,12 @@ import { renderThreadCard, type ThreadActions } from "./thread-card";
  */
 export class ThreadPopover extends Component {
 	private el: HTMLElement | null = null;
-	/** Lifecycle owner of the card currently on screen. See CommentPanelView. */
+	/** Lifecycle owner of the cards currently on screen. See CommentPanelView. */
 	private cardScope: Component | null = null;
 	private onOutsideClick: ((event: MouseEvent) => void) | null = null;
 	private onKeyDown: ((event: KeyboardEvent) => void) | null = null;
+	private content: PopoverContent | null = null;
+	private anchorRect: AnchorRect | null = null;
 
 	constructor(
 		private app: App,
@@ -24,19 +32,13 @@ export class ThreadPopover extends Component {
 		super();
 	}
 
-	open(thread: Thread, filePath: string, anchorRect: AnchorRect, doc?: string): void {
+	open(threads: Thread[], filePath: string, anchorRect: AnchorRect, doc?: string): void {
 		this.close();
+		if (threads.length === 0) return;
 
-		const el = document.body.createDiv({ cls: "inline-comment-popover" });
-		this.el = el;
-		this.cardScope = new Component();
-		this.addChild(this.cardScope);
-		renderThreadCard(el, thread, filePath, this.app, this.cardScope, this.actions, {
-			alwaysOpen: true,
-			onReplied: () => this.close(),
-			doc,
-		});
-
+		this.el = document.body.createDiv({ cls: "inline-comment-popover" });
+		this.anchorRect = anchorRect;
+		this.renderCards(threads, filePath, doc);
 		this.position(anchorRect);
 
 		// Deferred: the click that opened this is still propagating, and binding
@@ -57,6 +59,46 @@ export class ThreadPopover extends Component {
 			}
 		};
 		document.addEventListener("keydown", this.onKeyDown);
+	}
+
+	/** What is on screen, or null when the popover is closed. */
+	current(): PopoverContent | null {
+		return this.el ? this.content : null;
+	}
+
+	/**
+	 * Show fresh threads in the popover already open, where it already is.
+	 *
+	 * An action taken from the popover changes what it shows: a resolved thread
+	 * used to stay on screen exactly as it was, so nothing said the tap had worked
+	 * and a second tap reopened it (#133). Closing on every action instead would
+	 * drop the other threads of the line along with the one acted on (#137).
+	 */
+	redraw(threads: Thread[], doc?: string): void {
+		if (!this.el || !this.content || !this.anchorRect) return;
+		if (threads.length === 0) {
+			this.close();
+			return;
+		}
+		this.el.empty();
+		this.renderCards(threads, this.content.filePath, doc);
+		this.position(this.anchorRect);
+	}
+
+	private renderCards(threads: Thread[], filePath: string, doc?: string): void {
+		if (!this.el) return;
+		if (this.cardScope) this.removeChild(this.cardScope);
+		this.cardScope = new Component();
+		this.addChild(this.cardScope);
+		this.content = { filePath, threadIds: threads.map((thread) => thread.root.id) };
+
+		for (const thread of threads) {
+			renderThreadCard(this.el, thread, filePath, this.app, this.cardScope, this.actions, {
+				alwaysOpen: true,
+				onReplied: () => this.close(),
+				doc,
+			});
+		}
 	}
 
 	private position(anchorRect: AnchorRect): void {
@@ -83,6 +125,8 @@ export class ThreadPopover extends Component {
 		}
 		this.el?.remove();
 		this.el = null;
+		this.content = null;
+		this.anchorRect = null;
 		if (this.cardScope) {
 			this.removeChild(this.cardScope);
 			this.cardScope = null;

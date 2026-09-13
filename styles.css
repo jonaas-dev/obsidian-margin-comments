@@ -783,6 +783,14 @@
 	background-color: transparent;
 }
 
+/* Several threads on one line share one popover (#137), divided the way the
+   panel's list divides them. */
+.inline-comment-popover .inline-comment-card + .inline-comment-card {
+	margin-top: var(--ic-gap-sm);
+	padding-top: var(--ic-gap-md);
+	border-top: 1px solid var(--background-modifier-border);
+}
+
 /* ---- Open state ----
    The popover is already a deliberate act; hiding its controls would be coy. */
 
