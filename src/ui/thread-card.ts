@@ -6,6 +6,7 @@ import { wasEdited } from "./comment-actions";
 import { keyIntent } from "./key-intent";
 import { emptyLineLabel } from "./labels";
 import { shouldClamp } from "./clamp";
+import { displayQuote } from "./quote-text";
 
 export interface ThreadActions {
 	/** Store a reply to the given thread root. */
@@ -169,13 +170,15 @@ export function renderThreadCard(
 	// reading `Go to "" in the note` (#97). What is named instead is the line.
 	const quoted = currentText(thread, options.doc);
 	const placeholder = quoted === "" ? emptyLineLabel(document.documentElement.lang) : null;
+	// What is shown, not what is matched: the source keeps its syntax (#128).
+	const shown = displayQuote(quoted);
 	const quote = reveal
 		? card.createEl("button", {
 				cls: "inline-comment-quote",
 				attr: {
 					"aria-label": placeholder
 						? `Go to the ${placeholder.toLowerCase()} in the note`
-						: `Go to "${quoted}" in the note`,
+						: `Go to "${shown}" in the note`,
 				},
 			})
 		: card.createDiv({ cls: "inline-comment-quote" });
@@ -184,10 +187,10 @@ export function renderThreadCard(
 	}
 	// The full text as a tooltip, because the visible quote is clamped (#98) and
 	// a long selection has to stay readable somewhere.
-	if (!placeholder) quote.setAttribute("title", quoted);
+	if (!placeholder) quote.setAttribute("title", shown);
 	quote.createSpan({
 		cls: placeholder ? "inline-comment-quote-text is-placeholder" : "inline-comment-quote-text",
-		text: placeholder ?? quoted,
+		text: placeholder ?? shown,
 	});
 	if (reveal) {
 		quote.addEventListener("click", (event) => {
