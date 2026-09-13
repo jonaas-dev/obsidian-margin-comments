@@ -170,7 +170,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		this.registerEditorExtension(
 			commentGutter({
 				touch: () => this.touch,
-				onActivate: (view, line) => this.openComposer(view, line),
+				onActivate: (view, line, lastLine) => this.openComposer(view, line, lastLine),
 			}),
 		);
 
@@ -770,11 +770,11 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	 * The anchor is built from the document as it stands now, so what gets stored
 	 * is the text the author was actually looking at.
 	 */
-	private openComposer(view: EditorView, line: number): void {
+	private openComposer(view: EditorView, line: number, lastLine = line): void {
 		const file = this.app.workspace.getActiveFile();
 		if (!file) return;
 
-		void this.showExistingOrCompose(view, line, file.path);
+		void this.showExistingOrCompose(view, line, file.path, lastLine);
 	}
 
 	/**
@@ -788,6 +788,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		view: EditorView,
 		line: number,
 		filePath: string,
+		lastLine = line,
 	): Promise<void> {
 		const comments = await this.storage.getCommentsForFile(filePath);
 		const threads = buildThreads(view.state.doc.toString(), comments, {
@@ -808,7 +809,10 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			.map((thread) => ({ id: thread.root.id, from: thread.position!, to: thread.end! }));
 		const selection = view.state.selection.main;
 
-		const intent = commentIntent(anchored, { from: lineInfo.from, to: lineInfo.to }, {
+		// The whole block the reader acted on: a rendered table's marker stands for
+		// every row, so its threads have to be found on every row (#140).
+		const block = { from: lineInfo.from, to: view.state.doc.line(lastLine).to };
+		const intent = commentIntent(anchored, block, {
 			from: selection.from,
 			to: selection.to,
 		});
