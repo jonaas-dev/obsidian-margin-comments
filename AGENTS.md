@@ -264,6 +264,42 @@ before the same repro came out clean on `main` under the host GPU. Gboard never 
 keyboard under the software renderer either, so keyboard overlap could not be seen there at all.
 Before filing a rendering fault found on the emulator, check `gles_mode_selected` in its log.
 
+## Obsidian surface the API does not declare
+
+The plugin relies on a few things Obsidian ships but neither types nor documents. Each is
+reached defensively, so a change in Obsidian costs one feature rather than the plugin. When an
+Obsidian update breaks something, start here.
+
+| Surface | Used by | If it changes |
+| --- | --- | --- |
+| `MarkdownView.editor.cm`, the CodeMirror `EditorView` | the `add-comment` command and the per-pane refresh in `main.ts` | The command does nothing, and that pane draws no gutter markers or highlights. The panel still works. |
+| `app.hotkeyManager.getHotkeys` / `getDefaultHotkeys` | `addCommentBinding` in `main.ts` | The panel's empty state names the command instead of its key (#122). |
+| `--keyboard-height` on `<html>` (Android) | `keyboardHeight` in `editor/bottom-sheet.ts` | Sheets open behind the on-screen keyboard (#159). |
+| `.mobile-navbar`, and its `transitionend` when `body` toggles `is-hidden-nav` | `reservedBottom` and `watchPlacement` in `editor/bottom-sheet.ts` | Sheets overlap the navigation bar, or leave a gap where it was (#160). |
+
+**`obsidian` is pinned to an exact version.** Its types are what the compiler checks the plugin
+against; with `latest`, a fresh install could change them under the build.
+
+## Minimum Obsidian version
+
+`minAppVersion` names the oldest Obsidian the full E2E suite passes on: 1.13.4, measured in #198.
+Obsidian updates the app itself, so a user below it is asked to update instead of getting a plugin
+that half works. Older releases fail on behaviour, not on crashes:
+
+| Obsidian | What fails |
+| --- | --- |
+| 1.11.7, 1.12.7 | Focus does not return where it came from when the composer is dismissed. |
+| 1.8.10 | The above, and the gutter marker ignores the theme's colour (#85). |
+| 1.7.7 | Focus, and a note open in a second pane shows no markers until clicked (#83). |
+| 1.6.7 | Both, and a commented code block is not marked in reading mode (#141). |
+| 1.5.x | Cannot be driven at all: Playwright fails to attach to its Electron 28. |
+
+**To measure it again**, point the harness at another build with `OBSIDIAN_APP`, the binary inside
+`Obsidian.app/Contents/MacOS/`. Installers are the `.dmg` assets on `obsidianmd/obsidian-releases`.
+Bisect with the files that fail, then run the full suite on the candidate. Before trusting a run
+that fails, run the same command on the current release and watch it pass: a narrowed run that
+failed everywhere would look exactly like a version boundary.
+
 ## Markdown rendering in cards
 
 `MarkdownRenderer.render(app, md, el, sourcePath, component)` — both arguments after
