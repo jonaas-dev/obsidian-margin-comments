@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync, rmSync, symlinkSync } from "node:fs";
 import { dirname } from "node:path";
 import { spawn } from "node:child_process";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +10,8 @@ import { chromium } from "playwright";
 const OBSIDIAN = process.env.OBSIDIAN_APP ?? "/Applications/Obsidian.app/Contents/MacOS/Obsidian";
 const REPO = fileURLToPath(new URL("../..", import.meta.url));
 const PORT = 9333;
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * Launch an isolated Obsidian and attach over CDP.
@@ -20,6 +23,11 @@ const PORT = 9333;
  * and exits.
  */
 export async function launchObsidian(vaultPath) {
+	// Whoever holds the port answers the connection below, so a launch started while
+	// the previous file's Obsidian is still shutting down attaches to that one: it has
+	// no window left, and every later file failed the same way within a second (#242).
+	await waitForFreePort();
+
 	const userData = join(tmpdir(), `obsidian-e2e-${Date.now()}`);
 	mkdirSync(userData, { recursive: true });
 	writeFileSync(
@@ -35,27 +43,22 @@ export async function launchObsidian(vaultPath) {
 	let page;
 	try {
 		browser = await waitForCdp();
-		const context = browser.contexts()[0];
-		page = context.pages().find((p) => !p.url().startsWith("devtools://")) ?? context.pages()[0];
+		page = await waitForPage(browser);
 		await page.waitForLoadState("domcontentloaded");
 	} catch (error) {
 		// Nothing else will ever stop this process. Left running, it keeps the
 		// debugging port, and every later test file attaches to it or fails the
 		// same way, leaving another instance behind each time (#227).
-		await browser?.close().catch(() => {});
-		proc.kill();
+		await closeBrowser(browser);
+		await stop(proc);
 		throw error;
 	}
 
 	return {
 		page,
 		async close() {
-			await browser.close().catch(() => {});
-			proc.kill();
-			// Obsidian keeps writing to its profile for a moment after SIGTERM, so
-			// removal races with it. The directory is under tmp; leaving it is
-			// harmless, and failing here would mask the test's real error.
-			await new Promise((r) => setTimeout(r, 500));
+			await closeBrowser(browser);
+			await stop(proc);
 			try {
 				rmSync(userData, { recursive: true, force: true });
 			} catch {
@@ -65,6 +68,62 @@ export async function launchObsidian(vaultPath) {
 	};
 }
 
+async function waitForFreePort(timeout = 20000) {
+	const deadline = Date.now() + timeout;
+	while (!(await portIsFree())) {
+		if (Date.now() > deadline) {
+			throw new Error(
+				`Port ${PORT} is still in use after ${timeout / 1000}s. Another Obsidian is attached to it; ` +
+					`attaching here would drive that instance instead of a fresh one.`,
+			);
+		}
+		await sleep(250);
+	}
+}
+
+function portIsFree() {
+	return new Promise((resolve) => {
+		const server = createServer();
+		server.once("error", () => resolve(false));
+		server.listen(PORT, "127.0.0.1", () => server.close(() => resolve(true)));
+	});
+}
+
+/**
+ * Obsidian can answer on the debugging port before its window is a target, so the
+ * page list may still be empty right after attaching (#242).
+ */
+async function waitForPage(browser, timeout = 15000) {
+	const deadline = Date.now() + timeout;
+	for (;;) {
+		const page = browser
+			.contexts()
+			.flatMap((context) => context.pages())
+			.find((p) => !p.url().startsWith("devtools://"));
+		if (page) return page;
+		if (Date.now() > deadline) {
+			throw new Error(`Attached over CDP, but Obsidian opened no window within ${timeout / 1000}s`);
+		}
+		await sleep(100);
+	}
+}
+
+async function closeBrowser(browser) {
+	// Bounded: with a popout window open, closing the CDP connection was seen to hang,
+	// leaving this process running after the test file ended.
+	await Promise.race([browser?.close().catch(() => {}), sleep(3000)]);
+}
+
+/** Kill Obsidian and wait until it has exited, so the port is free for the next launch. */
+async function stop(proc) {
+	if (proc.exitCode !== null || proc.signalCode !== null) return;
+	const exited = new Promise((resolve) => proc.once("exit", resolve));
+	proc.kill();
+	if (await Promise.race([exited.then(() => true), sleep(10000).then(() => false)])) return;
+	proc.kill("SIGKILL");
+	await Promise.race([exited, sleep(5000)]);
+}
+
 async function waitForCdp(attempts = 30) {
 	let lastError;
 	for (let i = 0; i < attempts; i++) {
@@ -72,7 +131,7 @@ async function waitForCdp(attempts = 30) {
 			return await chromium.connectOverCDP(`http://127.0.0.1:${PORT}`);
 		} catch (error) {
 			lastError = error;
-			await new Promise((r) => setTimeout(r, 1000));
+			await sleep(1000);
 		}
 	}
 	// The last error, not just the attempt count: an endpoint that answers but
