@@ -152,6 +152,16 @@ next run, and the suite started against state no fresh install would have. It sh
 as 16 unrelated failures. `createTempVault` now deletes it; do not reintroduce state that
 lives outside the vault.
 
+**Whoever holds port 9333 is who you drive.** `connectOverCDP` attaches to any process
+listening there, and Obsidian keeps listening for a moment after it is killed. A launch
+started in that moment attaches to an instance with no window left, and fails in
+`beforeAll` with `Cannot read properties of undefined (reading 'waitForLoadState')`.
+One such failure took the next 42 files down the same way within a second each (#242),
+and it made Obsidian 1.7.7 look incompatible in #198. So `launchObsidian` waits for the
+port to be free before it spawns, waits for a window after it attaches, and every path
+that kills Obsidian waits for it to exit. A run whose files fail in well under a second
+each is not testing the plugin: look for a second Obsidian on the port.
+
 **Obsidian's settings modal never attaches here either.** `app.setting.open()` runs and
 `app.setting.openTabById()` accepts the id, the tab's `containerEl` exists and reports
 `isConnected`, and no `.modal` ever reaches the DOM. `tests/e2e/settings-tab.test.ts`
