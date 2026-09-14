@@ -1,104 +1,132 @@
 # Margin Comments for Obsidian
 
-Add inline comments to your Obsidian notes with threaded replies, resolve/unresolve, and a sidebar panel. Non-destructive storage — your Markdown files are never modified.
+Comment on your Obsidian notes the way you would on a shared document: threaded replies, resolve and reopen, and a sidebar panel. Your Markdown files are never modified.
 
-> **Status: in development.** Not yet released.
+> **Status:** not yet released. The first release is 1.0.0; see [CHANGELOG.md](CHANGELOG.md).
+
+![Commenting on a line, replying and resolving from the panel](images/demo.gif)
 
 ## Features
 
-Everything below is implemented and covered by tests against a real Obsidian.
+- **Comments on a line or a selection.** Hover the left edge of a line to comment on it, or select text and comment on the selection.
+- **Threaded replies**, one level deep. Edit in place, resolve and reopen, and delete with the replies it takes named up front.
+- **Highlights and gutter markers.** A comment on a selection marks those words, and a comment on a whole line tints the line. A marker carries a count when a line holds several threads.
+- **Popover or panel.** Click a marker to read the thread beside the line, or in the sidebar when it is open.
+- **Sidebar panel.** Filter by all, open or resolved, and sort by document order, date or last activity. An all-notes view lists every commented note in the vault.
+- **Reading mode.** Commented text is highlighted, and a click or tap on a mark opens its thread.
+- **Mobile and touch.** Markers without hover, thumb-sized controls, and a composer that stays above the on-screen keyboard.
+- **Keyboard and screen readers.** Every control is reachable without a mouse and has a name.
+- **Theme-aware.** Colours and type come from your Obsidian theme.
+- **Safe storage.** Comments live in `.margin-comments/`. A damaged file is set aside and announced, never overwritten.
 
-- **Inline comments** — hover the left edge of a line to comment on it, or select text and comment on the selection
-- **Threaded replies** — reply to any comment; threads are flat, one level deep
-- **Edit, resolve, delete** — edit in place, resolve and reopen a thread, delete with the reply cascade named up front
-- **Highlights and gutter markers** — a comment on a selection marks those words; a comment on a whole line tints the line; a line with both shows both. The gutter marker carries a count when a line has several threads
-- **Keyboard and screen readers** — every control is reachable without a mouse, with a focus ring from your theme and a name on every icon
-- **Popover or panel** — click a marker to read the thread beside the line, or in the sidebar when it is open
-- **Sidebar panel** — filter by all / open / resolved, sort by document order, date or last activity, with counts that match what is shown
-- **All-notes view** — every commented note in the vault, one collapsed row each, opened on demand
-- **Commands and hotkeys** — add a comment, jump to the next or previous comment, resolve every thread in a note, toggle the panel. None ships with a default hotkey; bind the ones you use in **Settings → Hotkeys**
-- **Non-destructive** — comments live in `.margin-comments/`, your notes stay untouched
-- **Theme-aware** — colours and type come from your Obsidian theme
-- **Reading mode** — commented text is highlighted, and a tap or click on a mark or marked block opens its thread
-- **Mobile and touch** — tap replaces hover: markers stay on the commented lines and on the line the caret is on, controls are thumb-sized, and the composer stays above the on-screen keyboard
+## Installation
 
-## Reading mode
+### From Community plugins
 
-Comments are **created and managed in editing mode**. In reading mode the plugin
-highlights the commented text and opens threads from the rendered note.
+Once the plugin is listed:
 
-**What works**
+1. Open **Settings → Community plugins → Browse**.
+2. Search for **Margin Comments**.
+3. Select **Install**, then **Enable**.
 
-- Commented text is highlighted in the rendered note
-- A tap or click on a highlighted word or marked block opens its thread: in the
-  sidebar panel when the panel is visible, in a popover (or bottom sheet on a
-  phone) otherwise
-- The highlight follows the same anchoring as the editor, so text that moved is
-  still marked where it ended up
-- Resolving a thread clears its highlight without leaving reading mode
-- Turning off "Highlight commented lines" turns these off too
+### Manually
 
-**What is left alone**
+1. Download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/jonaas-dev/obsidian-margin-comments/releases/latest).
+2. Create the folder `<your vault>/.obsidian/plugins/margin-comments/` and copy the three files into it.
+3. Reload Obsidian, then enable **Margin Comments** in **Settings → Community plugins**.
 
-- A link inside a mark keeps its normal click
-- A click that ends a text selection does not open a thread
+## Usage
 
-**What does not**
+### Adding a comment
 
-- **No gutter markers**, so there is nowhere to hover or tap to add a comment.
-  Switch to editing mode, or use the panel
-- A comment made on text that Markdown consumes — the asterisks in `**bold**`,
-  a link's target — cannot be marked around the words it belongs to, because
-  those characters are not in the rendered output. The whole block carries a rule
-  down its left edge instead
-- A whole-line comment marks its block the same way, for the same reason: there
-  is no selection to find. The block is the rendered paragraph, so comments on
-  several consecutive lines of one paragraph mark that paragraph once rather
-  than line by line — the rendered output keeps no record of which source line
-  each part came from
-- A comment inside a fenced code block marks the code block with that rule too,
-  rather than the words inside it
+Hover the left edge of a line until the marker appears, then click it. To comment on part of a line, select the text first. Type in the composer and send.
 
-The highlights arrive through a Markdown post-processor, which can reach the
-rendered output but not the gutter beside it.
+![The gutter marker on a line](images/gutter.png)
 
-### Panel size
+![The composer, open on a line](images/composer.png)
 
-The panel draws every thread it is showing. Measured against a real Obsidian, on
-a note with one thousand comments that costs about 250ms once, when the panel
-opens or repaints — and scrolling stays at the frame budget however many there
-are, because the browser only paints what is on screen. At three thousand the
-render is about a second and scrolling is unchanged.
+On a touch device, tap the marker: markers stay visible on commented lines and on the line holding the cursor. With gutter icons turned off, use the **Add comment to selection** command.
 
-So there is no virtual scrolling, deliberately: it would trade `Cmd+F` and Tab
-reaching the threads that are off screen for a cost that only shows up on notes
-far past any real one.
+### Reading and replying
+
+Click a marker to open its thread in a popover, or in the panel when the panel is visible. Reply at the foot of the thread.
+
+![A thread in its popover](images/thread.png)
+
+### Resolving
+
+Resolve a thread from its card. A resolved thread keeps its comments but loses its highlight, and the panel's **Resolved** filter still lists it.
+
+![The panel showing resolved threads](images/resolved.png)
+
+### The panel
+
+Open it with the ribbon icon or the **Toggle comments panel** command. It shows the current note by default; switch it to the whole vault to list every commented note.
+
+![The comments panel](images/panel.png)
+
+### Reading mode
+
+Comments are created in editing mode. In reading mode the plugin highlights commented text and opens threads from the rendered note: in the panel when it is visible, in a popover otherwise, or a bottom sheet on a phone. A link inside a mark keeps its normal click, and finishing a text selection does not open a thread.
+
+Reading mode has no gutter, so there is nowhere to add a comment there. Some comments cannot be marked around their words, because the rendered note does not contain them: a comment on Markdown syntax, such as the asterisks in `**bold**` or a link's target, a whole-line comment, or a comment inside a code block. Those mark their whole block with a rule down its left edge instead.
+
+### On a phone
+
+![The panel as a bottom sheet on a phone](images/mobile.png)
+
+## Configuration
+
+Open **Settings → Margin Comments**.
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| Author name | empty | Stamped on comments you write from now on. |
+| Gutter icons | on | The markers in the left margin. Without them, comments are added with the **Add comment to selection** command. |
+| Comment count | on | Badges a marker with the number of open threads on its line, when there is more than one. |
+| Highlight commented lines | on | Tints lines carrying an open comment. Also turns off highlights in reading mode. |
+| Follow the theme accent | on | Takes the highlight from the theme's accent colour. |
+| Highlight colour | — | Shown when **Follow the theme accent** is off: the colour used in every theme. |
+| Fuzzy matching tolerance | 0.3 | How far edited text may drift before a comment stops finding it. |
+| When a note is deleted | Delete its comments | Deleted comments come back if the note is restored before Obsidian closes. Kept comments stay readable in the all-notes view. |
+| Side | Right | Which sidebar the panel opens in. |
+| Sort order | Document order | The panel's order: document order, date created, or last activity. |
+
+![The settings tab](images/settings.png)
+
+## Commands
+
+None has a default hotkey. Bind the ones you use in **Settings → Hotkeys**.
+
+| Command | What it does |
+| --- | --- |
+| Add comment to selection | Comments on the selected text, or on the line holding the cursor. |
+| Toggle comments panel | Opens or closes the sidebar panel. |
+| Go to next comment | Moves the cursor to the next commented line. |
+| Go to previous comment | Moves the cursor to the previous commented line. |
+| Resolve all comments in this note | Resolves every open thread in the note, after confirming. |
 
 ## How it works
 
-Comments are stored as JSON files in `.margin-comments/` at the vault root: one sidecar per commented note, plus an index of which notes have comments and how many. Markdown files are never modified, so comments are safe with most sync services (Git, iCloud, Dropbox), survive Obsidian updates, and are trivial to back up or migrate.
-
-> **Obsidian Sync:** files and folders beginning with `.` are treated as hidden and are not synced, with `.obsidian` as the only exception. If you use Obsidian Sync, comments in `.margin-comments/` stay on the device where they were written unless you sync the folder another way.
+Comments are stored as JSON files in `.margin-comments/` at the vault root: one file per commented note, plus an index of which notes have comments and how many. Markdown files are never modified, so comments survive Obsidian updates and are easy to back up or move.
 
 Each comment remembers the text it was made on, not a line number, so it follows that text as the note is edited. A comment whose text is gone is shown as orphaned rather than dropped.
 
+> **Obsidian Sync:** files and folders beginning with `.` are treated as hidden and are not synced, with `.obsidian` as the only exception. If you use Obsidian Sync, comments stay on the device where they were written unless you sync `.margin-comments/` another way. Git, iCloud and Dropbox sync the folder like any other.
+
+### Panel size
+
+The panel draws every thread it shows. On a note with a thousand comments that costs about 250 ms, once, when the panel opens or repaints; scrolling stays within the frame budget however many there are. There is no virtual scrolling, deliberately: it would cost `Cmd+F` and Tab reaching the threads that are off screen.
+
 ## Privacy and storage
 
-Each sidecar is plain, unencrypted JSON. Per comment it stores the note's vault
-path, the selected text plus about 50 characters on either side of it, the
-comment body, the author name from settings, and timestamps. `_index.json` lists
-the path of every commented note.
+Each file is plain, unencrypted JSON. Per comment it stores the note's path in the vault, the commented text plus about 50 characters on either side, the comment, the author name from settings, and timestamps. `_index.json` lists the path of every commented note.
 
-Because `.margin-comments/` holds excerpts from your notes, treat it as part of
-your vault when sharing or publishing:
+Because `.margin-comments/` holds excerpts from your notes, treat it as part of your vault when sharing or publishing:
 
-- **Publishing a vault** through Git, Quartz or a similar tool publishes the
-  folder unless you exclude it. That can include excerpts from notes that are
-  not published themselves, and comments on deleted notes when the
-  orphaned-comments setting is `keep`.
+- **Publishing a vault** through Git, Quartz or a similar tool publishes the folder unless you exclude it. That can include excerpts from notes that are not published themselves, and comments on deleted notes when **When a note is deleted** is set to keep them.
 - **Syncing** shares every comment in the folder, including author names.
-- **Deleting text from a note** does not remove it from the sidecar until the
-  comment itself is deleted.
+- **Deleting text from a note** does not remove it from the comment until the comment itself is deleted.
 
 To keep the folder out of Git, add `.margin-comments/` to `.gitignore`.
 
