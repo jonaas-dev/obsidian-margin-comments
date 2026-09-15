@@ -180,12 +180,24 @@ export function describeInvalidComments(filePath: string, count: number, keptAt:
 export class CommentStorage {
 	private cache = new Map<string, Comment[]>();
 	private index: Index | null = null;
-	/** Serialises each note's read, change and write; interleaved ones lose comments. */
+	/**
+	 * Serialises each storage file's read, change and write; interleaved ones lose
+	 * comments. Keyed by the file's path, so a change reported on disk (see
+	 * changedOnDisk) waits for a write of this store's own to finish.
+	 */
 	private queues = new Map<string, Promise<unknown>>();
 	/** Notes whose sidecar a newer plugin wrote. See accept. */
 	private readOnly = new Set<string>();
 	/** Set when a newer plugin wrote the index. See indexFrom. */
 	private indexReadOnly = false;
+	/**
+	 * The text this store last read from or wrote to each storage file, null once the
+	 * file is gone. It is what tells a change another device made apart from the file
+	 * events this store's own writes fire.
+	 */
+	private known = new Map<string, string | null>();
+	/** Sidecars no index entry can be built from, so they are not re-read on every load. */
+	private unindexable = new Set<string>();
 
 	constructor(
 		private adapter: StorageAdapter,
@@ -219,15 +231,24 @@ export class CommentStorage {
 	 * finished — would otherwise each wait forever on the note the other holds.
 	 */
 	private exclusive<T>(filePaths: string[], work: () => Promise<T>): Promise<T> {
-		const [first, ...rest] = [...new Set(filePaths)].sort();
+		const paths = [...new Set(filePaths.map((filePath) => this.sidecarPath(filePath)))];
+		return this.holding(paths.sort(), work);
+	}
+
+	private holding<T>(paths: string[], work: () => Promise<T>): Promise<T> {
+		const [first, ...rest] = paths;
 		if (first === undefined) return work();
-		return this.enqueue(first, () => this.exclusive(rest, work));
+		return this.enqueue(first, () => this.holding(rest, work));
 	}
 
 	/**
 	 * Reads a note's comments, changes them and writes the result in one turn of its
 	 * queue. Reading before the queue is what lost writes: two overlapping mutations
 	 * read the same list, and the second write replaced the first.
+	 *
+	 * The read goes to disk, not to the cache. A sync client can change the sidecar
+	 * after it was cached, and a change built on the cached list wrote over the
+	 * comments it delivered (#260).
 	 *
 	 * `change` returns null to leave the note untouched. Resolves to the comments as
 	 * they were before the change.
@@ -237,6 +258,7 @@ export class CommentStorage {
 		change: (existing: Comment[]) => Comment[] | null,
 	): Promise<Comment[]> {
 		return this.exclusive([filePath], async () => {
+			this.cache.delete(filePath);
 			const existing = await this.loadComments(filePath);
 			this.refuseIfNewer(filePath);
 			const next = change(existing);
@@ -278,6 +300,7 @@ export class CommentStorage {
 		if (!(await this.adapter.exists(path))) {
 			const recovered = await this.recoverReplacement(path);
 			if (recovered) return this.accept(filePath, recovered);
+			this.known.set(path, null);
 			// A stale index entry survives a half-finished sync. Clearing it here,
 			// where the miss is already paid for, keeps getCommentSummaries free of
 			// an existence check per note — which is the whole point of the index.
@@ -286,6 +309,7 @@ export class CommentStorage {
 		}
 
 		const text = await this.adapter.read(path);
+		this.known.set(path, text);
 		const sidecar = parseSidecar(text);
 		if (!sidecar || versionOf(sidecar) === null) {
 			// A crash mid-write or a sync conflict leaves a sidecar that no longer parses,
@@ -311,9 +335,10 @@ export class CommentStorage {
 		if ((versionOf(sidecar) ?? 0) > FORMAT_VERSION) {
 			// Shown, never rewritten: what this version cannot read may be valid to the one
 			// that wrote it, and a rewrite would drop every field this version does not know.
+			// Said once: every change re-reads the sidecar, and would say it again.
+			if (!this.readOnly.has(filePath)) this.options.onNewerFormat?.(filePath);
 			this.readOnly.add(filePath);
 			this.cache.set(filePath, valid);
-			this.options.onNewerFormat?.(filePath);
 			return valid;
 		}
 		if (valid.length === sidecar.comments.length) {
@@ -338,6 +363,7 @@ export class CommentStorage {
 	private async setAside(path: string, text: string): Promise<string> {
 		const keptAt = normalizePath(`${path}.unreadable-${Date.now()}`);
 		await this.adapter.write(keptAt, text);
+		this.known.set(path, null);
 		await this.adapter.remove(path);
 		return keptAt;
 	}
@@ -367,10 +393,12 @@ export class CommentStorage {
 	private async recoverReplacement(path: string): Promise<RawSidecar | null> {
 		const temporary = `${path}.tmp`;
 		if (!(await this.adapter.exists(temporary))) return null;
-		const sidecar = parseSidecar(await this.adapter.read(temporary));
+		const text = await this.adapter.read(temporary);
+		const sidecar = parseSidecar(text);
 		// A partial one is from a write that died before it finished, so there is no
 		// complete version to move into place.
 		if (!sidecar || versionOf(sidecar) === null) return null;
+		this.known.set(path, text);
 		await this.adapter.rename(temporary, path);
 		return sidecar;
 	}
@@ -421,6 +449,9 @@ export class CommentStorage {
 		if (from === to) return;
 
 		await this.exclusive([from, to], async () => {
+			// From disk, for the reason mutate gives.
+			this.cache.delete(from);
+			this.cache.delete(to);
 			const moving = await this.loadComments(from);
 			this.refuseIfNewer(from);
 			if (moving.length === 0) return;
@@ -471,6 +502,7 @@ export class CommentStorage {
 
 		if (comments.length === 0) {
 			this.cache.delete(filePath);
+			this.known.set(path, null);
 			if (await this.adapter.exists(path)) await this.adapter.remove(path);
 			await this.updateIndex((index) => {
 				delete index[filePath];
@@ -480,7 +512,9 @@ export class CommentStorage {
 
 		await this.ensureDir();
 		const sidecar: Sidecar = { version: FORMAT_VERSION, filePath, comments };
-		await this.writeAtomically(path, JSON.stringify(sidecar, null, 2));
+		const text = JSON.stringify(sidecar, null, 2);
+		this.known.set(path, text);
+		await this.writeAtomically(path, text);
 		this.cache.set(filePath, comments);
 		await this.updateIndex((index) => {
 			index[filePath] = { hash: hashString(filePath), ...summarise(comments) };
@@ -519,16 +553,21 @@ export class CommentStorage {
 	private async loadIndex(): Promise<Index> {
 		if (this.index) return this.index;
 
+		const path = this.indexPath();
+		let index: Index;
 		try {
-			const raw = await this.adapter.read(this.indexPath());
-			this.index = await this.indexFrom(JSON.parse(raw) as Record<string, unknown>);
+			const raw = await this.adapter.read(path);
+			this.known.set(path, raw);
+			index = await this.indexFrom(JSON.parse(raw) as Record<string, unknown>);
 		} catch {
 			// The index is a derived cache, never the source of truth. Rebuilding from
 			// the sidecars themselves is always correct, so a missing or corrupt index
 			// is a non-event.
-			this.index = await this.rebuildIndex();
+			index = await this.rebuildIndex();
 		}
-		return this.index;
+		await this.addUnlisted(index);
+		this.index = index;
+		return index;
 	}
 
 	/**
@@ -553,43 +592,117 @@ export class CommentStorage {
 
 	private async rebuildIndex(): Promise<Index> {
 		const index: Index = {};
-		const dir = normalizePath(STORAGE_DIR);
-		if (!(await this.adapter.exists(dir))) return index;
+		await this.addUnlisted(index);
+		return index;
+	}
 
+	/**
+	 * Adds every sidecar the index does not list. Rebuilding is this with an empty index.
+	 *
+	 * A sidecar and the index sync as two separate files, so one another device wrote
+	 * can arrive without the entry that lists it, or lose that entry to a conflict. The
+	 * all-notes view reads the index alone, and never showed such a note (#260). It costs
+	 * one directory listing; a sidecar is read only when nothing lists it.
+	 */
+	private async addUnlisted(index: Index): Promise<void> {
+		const dir = normalizePath(STORAGE_DIR);
+		if (!(await this.adapter.exists(dir))) return;
+
+		const listed = new Set(Object.keys(index).map((filePath) => this.sidecarPath(filePath)));
 		const { files } = await this.adapter.list(dir);
 		for (const path of files) {
-			if (path.endsWith(INDEX_FILE) || !path.endsWith(".json")) continue;
+			if (!this.isSidecar(path) || listed.has(path) || this.unindexable.has(path)) continue;
 			// Skipped, not set aside: the note it belongs to is named inside the text
 			// that failed to parse, so it is set aside once that note is opened.
 			const sidecar = parseSidecar(await this.adapter.read(path).catch(() => ""));
-			if (!sidecar || !isText(sidecar.filePath)) continue;
-			const filePath = sidecar.filePath;
+			const filePath = sidecar && isText(sidecar.filePath) ? sidecar.filePath : null;
 			// A file not named after its own note was copied or renamed by hand. Indexed
 			// under the note it claims, the vault view would list a note whose sidecar does
 			// not exist.
-			if (path !== this.sidecarPath(filePath)) continue;
+			if (sidecar === null || filePath === null || path !== this.sidecarPath(filePath)) {
+				this.unindexable.add(path);
+				continue;
+			}
 			index[filePath] = {
 				hash: hashString(filePath),
 				...summarise(sidecar.comments.filter((c): c is Comment => isCommentOf(filePath, c))),
 			};
 		}
-		return index;
+	}
+
+	/** Whether `path` is where a sidecar lives: a `.json` directly in STORAGE_DIR, not the index. */
+	private isSidecar(path: string): boolean {
+		const prefix = `${normalizePath(STORAGE_DIR)}/`;
+		return (
+			path.startsWith(prefix) &&
+			path.endsWith(".json") &&
+			!path.slice(prefix.length).includes("/") &&
+			path !== this.indexPath()
+		);
+	}
+
+	private async readIfPresent(path: string): Promise<string | null> {
+		try {
+			return (await this.adapter.exists(path)) ? await this.adapter.read(path) : null;
+		} catch {
+			return null;
+		}
+	}
+
+	/**
+	 * Told that a file changed on disk, answers whether it was news, and forgets what
+	 * the change made stale.
+	 *
+	 * News means the file no longer holds what this store last read or wrote there:
+	 * something outside the plugin changed it, most likely a sync client delivering
+	 * another device's comments (#260). This store's own writes fire the same file
+	 * events and answer false, so they cost one read and no redraw. Checked in the
+	 * file's own queue, so a write of this store's is never read half done.
+	 */
+	async changedOnDisk(path: string): Promise<boolean> {
+		const changed = normalizePath(path);
+		const isIndex = changed === this.indexPath();
+		if (!isIndex && !this.isSidecar(changed)) return false;
+
+		return this.enqueue(changed, async () => {
+			const text = await this.readIfPresent(changed);
+			if (this.known.has(changed) && this.known.get(changed) === text) return false;
+			this.known.delete(changed);
+			// Either file can change what the all-notes view lists.
+			this.index = null;
+			if (isIndex) return true;
+
+			this.unindexable.delete(changed);
+			for (const filePath of [...this.cache.keys()]) {
+				if (this.sidecarPath(filePath) !== changed) continue;
+				this.cache.delete(filePath);
+				this.readOnly.delete(filePath);
+			}
+			return true;
+		});
 	}
 
 	/**
 	 * Changes the index inside its own queue. Every note writes it from that note's
 	 * queue, so two saves to different notes would otherwise race on the one file:
 	 * a count lost, or a rename finding its temporary file already moved away.
+	 *
+	 * The index is re-read first rather than taken from the cache. Another device may
+	 * have added notes to the file since, and writing the cached copy back dropped
+	 * them (#260). A newer plugin's index is never written, so it is not re-read.
 	 */
 	private async updateIndex(mutate: (index: Index) => void): Promise<void> {
 		await this.enqueue(this.indexPath(), async () => {
+			if (!this.indexReadOnly) this.index = null;
 			const index = await this.loadIndex();
 			mutate(index);
+			this.index = index;
 			// A newer plugin's index is only read; the counts stay current in memory.
 			if (this.indexReadOnly) return;
 			await this.ensureDir();
-			const file = { version: FORMAT_VERSION, notes: index };
-			await this.writeAtomically(this.indexPath(), JSON.stringify(file, null, 2));
+			const text = JSON.stringify({ version: FORMAT_VERSION, notes: index }, null, 2);
+			this.known.set(this.indexPath(), text);
+			await this.writeAtomically(this.indexPath(), text);
 		});
 	}
 }

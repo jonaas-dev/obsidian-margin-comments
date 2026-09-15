@@ -286,6 +286,7 @@ Obsidian update breaks something, start here.
 | `app.hotkeyManager.getHotkeys` / `getDefaultHotkeys` | `addCommentBinding` in `main.ts` | The panel's empty state names the command instead of its key (#122). |
 | `--keyboard-height` on `<html>` (Android) | `keyboardHeight` in `editor/bottom-sheet.ts` | Sheets open behind the on-screen keyboard (#159). |
 | `.mobile-navbar`, and its `transitionend` when `body` toggles `is-hidden-nav` | `reservedBottom` and `watchPlacement` in `editor/bottom-sheet.ts` | Sheets overlap the navigation bar, or leave a gap where it was (#160). |
+| `vault.on("raw", path)`, which fires for files under dotfolders (measured on desktop 1.13.7; not measured on mobile) | `followStorageChange` in `main.ts` | Comments another device syncs in appear only after a restart. None are lost: every change re-reads the sidecar and the index from disk first (#260). |
 
 **`obsidian` is pinned to an exact version.** Its types are what the compiler checks the plugin
 against; with `latest`, a fresh install could change them under the build.
