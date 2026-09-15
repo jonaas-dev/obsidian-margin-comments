@@ -13,6 +13,14 @@
 </p>
 
 <p align="center">
+  <img alt="Obsidian 1.13.4 or later" src="https://img.shields.io/badge/Obsidian-%E2%89%A5%201.13.4-7C3AED?logo=obsidian&logoColor=white">
+  <img alt="Desktop and mobile" src="https://img.shields.io/badge/platforms-desktop%20%7C%20mobile-informational">
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white">
+  <img alt="CodeMirror 6" src="https://img.shields.io/badge/CodeMirror-6-D30707?logo=codemirror&logoColor=white">
+  <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue">
+</p>
+
+<p align="center">
   <img src="images/demo.gif" width="800" alt="Selecting words in a note, writing a comment, then replying and resolving it from the panel">
 </p>
 
