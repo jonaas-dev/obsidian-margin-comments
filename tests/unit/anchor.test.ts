@@ -274,6 +274,37 @@ describe("matchByFuzzy", () => {
 		expect(matchByFuzzy(shuffled, anchor, 0.3)).not.toBeNull();
 	});
 
+	describe("once the note is shorter than the comment's last known line (#262)", () => {
+		const text = "The quick brown fox jumps over the lazy dog near the river bank today";
+		const nearMatch = "The quick brown fox jumped over a lazy dog near the river bank today";
+		const lines = (count: number): string[] => Array.from({ length: count }, (_, i) => `filler ${i}`);
+		const long = [...lines(899), text, ...lines(100)].join("\n");
+		const at900 = createAnchor(long, long.indexOf(text), long.indexOf(text) + text.length);
+		/** A note of `count` lines holding the near-match on line `line`. */
+		const noteWith = (count: number, line: number): string => {
+			const body = lines(count);
+			body[line - 1] = nearMatch;
+			return body.join("\n");
+		};
+
+		it("finds no near-match 898 lines away in a note that still reaches the window", () => {
+			expect(at900.lineHint).toBe(900);
+			expect(matchByFuzzy(noteWith(950, 2), at900, 0.3)).toBeNull();
+		});
+
+		it("finds no near-match at the same distance in a note that ends before the window", () => {
+			expect(matchByFuzzy(noteWith(100, 2), at900, 0.3)).toBeNull();
+		});
+
+		it("still searches the part of the window a note has left", () => {
+			// Control: the window runs past the end of a 100-line note, and its lines
+			// that remain are searched.
+			const nearTheEnd = createAnchor(noteWith(100, 1).replace(nearMatch, text), 0, text.length);
+			const hinted = { ...nearTheEnd, lineHint: 90 };
+			expect(matchByFuzzy(noteWith(100, 95), hinted, 0.3)).not.toBeNull();
+		});
+	});
+
 	it("abandons a long candidate instead of scoring it in full", () => {
 		// A comment on a long paragraph, and a window full of long paragraphs that
 		// are nothing like it. Each comparison has to give up as soon as the whole

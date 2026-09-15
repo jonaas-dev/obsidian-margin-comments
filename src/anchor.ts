@@ -252,7 +252,7 @@ function windowAround(doc: string, lineHint: number, radius: number): { from: nu
 	const last = lineHint + radius;
 
 	let line = 1;
-	let from = 0;
+	let from = first === 1 ? 0 : -1;
 	let to = doc.length;
 	for (let i = 0; i < doc.length; i++) {
 		if (doc[i] !== "\n") continue;
@@ -263,6 +263,10 @@ function windowAround(doc: string, lineHint: number, radius: number): { from: nu
 			break;
 		}
 	}
+	// The note now ends before the window starts. Defaulting to its first line
+	// searched the whole note, re-anchoring a comment to text hundreds of lines
+	// from where it lived (#262). Nothing in such a note is near that line.
+	if (from === -1) return { from: doc.length, to: doc.length };
 	return { from, to };
 }
 
