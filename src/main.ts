@@ -4,6 +4,7 @@ import {
 	Platform,
 	Plugin,
 	TFile,
+	type EventRef,
 } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import {
@@ -276,6 +277,15 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		);
 		this.registerEvent(this.app.vault.on("delete", (file) => void notes.followDelete(file)));
 		this.registerEvent(this.app.vault.on("create", (file) => void notes.followCreate(file)));
+		// Not in Obsidian's types. Measured on desktop 1.13.7, it fires for every change
+		// under the storage dotfolder, a sync client's and this plugin's own writes alike;
+		// changedOnDisk tells them apart, so only another device's comments redraw (#260).
+		const rawEvents = this.app.vault as unknown as {
+			on(name: "raw", callback: (path: string) => void): EventRef;
+		};
+		this.registerEvent(
+			rawEvents.on("raw", (path) => void this.followStorageChange(path)),
+		);
 		this.app.workspace.onLayoutReady(() => {
 			void this.refresh();
 			void this.checkOrphans();
@@ -627,6 +637,11 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		const custom = manager.getHotkeys?.(id);
 		if (custom) return custom[0] ?? null;
 		return manager.getDefaultHotkeys?.(id)?.[0] ?? null;
+	}
+
+	/** Redraw when comments another device wrote reach the storage folder (#260). */
+	private async followStorageChange(path: string): Promise<void> {
+		if (await this.storage.changedOnDisk(path)) this.refreshSoon();
 	}
 
 	/** Redraw once typing stops. See the editor-change registration. */
