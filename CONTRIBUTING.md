@@ -80,6 +80,33 @@ needs a full Obsidian restart.
 | `npm run test:coverage` | Unit tests with coverage, failing below the thresholds CI enforces |
 | `npm run test:e2e` | End-to-end tests driving a real Obsidian |
 | `npm run test:watch` | Vitest in watch mode |
+| `npm run sonar` | Unit coverage, then a SonarQube analysis (optional, see below) |
+
+## Code quality (optional)
+
+`npm run sonar` runs the unit suite with coverage and then analyses the repository on a
+SonarQube server, with the scanner in Docker. CI does not run it: the server is local.
+
+1. **A server.** Any SonarQube reachable from a container works. The default address is
+   `http://host.docker.internal:9000`, because `localhost` inside the scanner container is the
+   container itself. Set `SONAR_HOST_URL` to use another one. To try it out:
+
+   ```sh
+   docker run -d --name sonarqube -p 127.0.0.1:9000:9000 sonarqube:26.5.0.122743-community
+   ```
+
+2. **A project and a token.** Create a project with the key `obsidian-margin-comments`, then a
+   *project analysis token* for it (**My Account → Security**).
+3. **Run it** with the token in the environment, never in a file inside the repository:
+
+   ```sh
+   SONAR_TOKEN=<token> npm run sonar
+   ```
+
+The command stops with a named cause when the token is missing, coverage was not written, or no
+server answers at the address. One cause it cannot check for the scanner is step 2: a token that
+is valid but scoped to another project, or a project that was never created, ends the run with
+`You're not authorized to analyze this project or the project doesn't exist on SonarQube`.
 
 ## End-to-end tests
 

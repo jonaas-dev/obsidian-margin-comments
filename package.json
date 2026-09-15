@@ -13,6 +13,7 @@
 		"test:coverage": "vitest run --config vitest.coverage.config.ts",
 		"test:watch": "vitest",
 		"test:e2e": "vitest run --config vitest.e2e.config.ts",
+		"sonar": "npm run test:coverage && sh ops/sonar.sh",
 		"version": "node version-bump.mjs && git add manifest.json versions.json"
 	},
 	"keywords": [],
