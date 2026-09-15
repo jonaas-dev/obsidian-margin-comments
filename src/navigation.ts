@@ -2,7 +2,7 @@ import { MarkdownView, Notice, TFile, type App } from "obsidian";
 import type { CommentStorage } from "./storage";
 import { COMMENT_PANEL_VIEW } from "./ui/comment-panel";
 import { buildThreads, type Thread } from "./ui/threads";
-import { findAdjacentLine, type Direction } from "./editor/comment-navigation";
+import { findAdjacentLine, navigableLines, type Direction } from "./editor/comment-navigation";
 
 /**
  * Put the cursor on a 1-based line and scroll it into view.
@@ -56,16 +56,13 @@ export class Navigation {
 		if (!view.file) return;
 
 		const comments = await this.host.storage.getCommentsForFile(view.file.path);
-		const threads = buildThreads(view.editor.getValue(), comments);
-		// Orphans have no line to jump to. Skipping them silently is right: the
-		// panel is where a lost comment gets dealt with, not the editor.
-		const lines = threads
-			.map((thread) => thread.line)
-			.filter((line): line is number => line !== null);
+		const lines = navigableLines(buildThreads(view.editor.getValue(), comments));
 
 		const target = findAdjacentLine(lines, view.editor.getCursor().line + 1, direction);
 		if (target === null) {
-			new Notice("No comments in this note.");
+			// The same words as resolve-all: with every thread resolved, "no comments"
+			// would be untrue.
+			new Notice("No open comments in this note.");
 			return;
 		}
 		goToLine(view, target);

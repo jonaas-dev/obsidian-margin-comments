@@ -1,5 +1,25 @@
 import { describe, it, expect } from "vitest";
-import { findAdjacentLine } from "../../src/editor/comment-navigation";
+import { findAdjacentLine, navigableLines } from "../../src/editor/comment-navigation";
+
+describe("navigableLines", () => {
+	const thread = (line: number | null, resolved = false) => ({ root: { resolved }, line });
+
+	it("offers the line of every open, anchored thread", () => {
+		expect(navigableLines([thread(3), thread(9)])).toEqual([3, 9]);
+	});
+
+	it("skips a resolved thread, which the editor shows no sign of", () => {
+		expect(navigableLines([thread(3), thread(9, true)])).toEqual([3]);
+	});
+
+	it("offers nothing when every thread is resolved, so the command can say so", () => {
+		expect(navigableLines([thread(3, true), thread(9, true)])).toEqual([]);
+	});
+
+	it("skips an orphan, which has no line to go to", () => {
+		expect(navigableLines([thread(null), thread(5)])).toEqual([5]);
+	});
+});
 
 describe("findAdjacentLine", () => {
 	const lines = [2, 7, 7, 15];
