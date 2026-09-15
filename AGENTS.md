@@ -56,12 +56,16 @@ that paraphrase the code, decorative separators, and commented-out code.
 
 Run `sh ops/install-hooks.sh` once after cloning — `core.hooksPath` is local config
 and does not travel with the repo, so a fresh clone has no protection until you do.
+The maintainer runs `sh ops/install-hooks.sh --maintainer` instead.
 
 The hook blocks three things, because this repo goes public at 1.0 carrying its whole
 history and a leak there is permanent:
 
-1. **Wrong committer identity** — commits must be authored under the GitHub noreply
-   address, never a real inbox. Override for a fork with
+1. **Wrong committer identity** — the maintainer's commits must be authored as
+   `jonaas-dev` under the GitHub noreply address, never a real name or inbox. The check
+   runs whenever `hooks.maintainer` is set, whatever `user.name` says: deciding from
+   `user.name` let through the real name and inbox a machine's global config supplies
+   (#251). Override for a fork with `git config hooks.expectedName <login>` and
    `git config hooks.expectedEmail <address>`.
 2. **Secrets** — env/key files being added, and added lines matching known credential
    patterns.
@@ -82,6 +86,12 @@ GitHub's merge buttons write the resulting commit themselves, and they use the a
 
 - the GitHub profile name is set to `jonaas-dev`; or
 - merges are done by fast-forwarding the reviewed branch to `main` (no merge commit authored by GitHub).
+
+CI enforces the same rule in `ops/check-identity.py`, keyed on who opened the pull request a
+commit belongs to rather than on the commit's own identity: every commit in the maintainer's pull
+requests is checked, and on a push to `main` every commit that no outside contributor's pull
+request carries. Outside contributors keep whatever identity GitHub has on file. The cases, the
+#251 one included, run as `tests/unit/identity-guards.test.ts`.
 
 If the real name appears in `main` again, rewrite it before the repository becomes public (`git filter-branch` or `git filter-repo`), and reset every local clone and open branch.
 
