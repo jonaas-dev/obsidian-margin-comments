@@ -30,11 +30,14 @@ export function displayQuote(source: string): string {
 		.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
 		// Paired emphasis, only where the markers hug text. A lone asterisk in
 		// `2 * 3` or the underscores inside `snake_case_name` are not markup.
-		.replace(/(\*\*|__)(?=\S)(.+?)(?<=\S)\1/g, "$2")
-		.replace(/~~(?=\S)(.+?)(?<=\S)~~/g, "$1")
-		.replace(/==(?=\S)(.+?)(?<=\S)==/g, "$1")
-		.replace(/(^|[^\w*])\*(?=\S)([^*]+?)(?<=\S)\*(?![\w*])/g, "$1$2")
-		.replace(/(^|[^\w_])_(?=\S)([^_]+?)(?<=\S)_(?![\w_])/g, "$1$2")
+		// The closing side is a group that ends on a non-space, never a lookbehind:
+		// WebKit before iOS 16.4 cannot parse one, and the whole bundle fails to load
+		// there (#248).
+		.replace(/(\*\*|__)(?=\S)(.*?\S)\1/g, "$2")
+		.replace(/~~(?=\S)(.*?\S)~~/g, "$1")
+		.replace(/==(?=\S)(.*?\S)==/g, "$1")
+		.replace(/(^|[^\w*])\*(?=\S)([^*]*?[^*\s])\*(?![\w*])/g, "$1$2")
+		.replace(/(^|[^\w_])_(?=\S)([^_]*?[^_\s])_(?![\w_])/g, "$1$2")
 		// Line prefixes: headings, quotes, tasks, bullets, numbered items.
 		.replace(/^\s*#{1,6}\s+/, "")
 		.replace(/^\s*>\s?/, "")

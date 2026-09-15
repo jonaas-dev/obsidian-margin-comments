@@ -30,6 +30,16 @@ describe("displayQuote", () => {
 		expect(displayQuote("2 * 3 = 6 in snake_case_name")).toBe("2 * 3 = 6 in snake_case_name");
 	});
 
+	it("only closes emphasis on a marker that follows text, not one after a space", () => {
+		expect(displayQuote("**open ** still open**")).toBe("open ** still open");
+		expect(displayQuote("~~a ~~")).toBe("~~a ~~");
+		expect(displayQuote("==a ==b==")).toBe("a ==b");
+		expect(displayQuote("*a *b*")).toBe("*a b");
+		expect(displayQuote("_a _")).toBe("_a _");
+		expect(displayQuote("**x**")).toBe("x");
+		expect(displayQuote("*x*")).toBe("x");
+	});
+
 	it("drops heading, quote, task, bullet and numbered prefixes", () => {
 		expect(displayQuote("## Heading")).toBe("Heading");
 		expect(displayQuote("> quoted")).toBe("quoted");
