@@ -19,10 +19,12 @@ sh ops/install-hooks.sh
 does not travel with the repository, so a fresh clone has no pre-commit protection
 until you run it. See the hooks section of [AGENTS.md](AGENTS.md) for what it blocks.
 
-**Identity checks only apply to the maintainer.** If your `user.name` is not
-`jonaas-dev`, the hook does not enforce a particular email or name. The scanner
-still blocks secrets and personal data (home paths, real email addresses in code,
-etc.) in the staged diff.
+**Identity checks only apply to the maintainer.** Unless your clone sets
+`hooks.maintainer` (which only `sh ops/install-hooks.sh --maintainer` does) or your
+`user.name` is `jonaas-dev`, the hook does not enforce a particular email or name, and
+CI does not check the identity on pull requests you open. The scanner still blocks
+secrets and personal data (home paths, real email addresses in code, etc.) in the
+staged diff.
 
 ## Development vault
 
@@ -167,5 +169,5 @@ Common problems:
 |---------|-------|
 | Changes not appearing | Stale build — check `npm run dev` is still running |
 | Plugin missing after a manifest edit | `manifest.json` needs a full Obsidian restart |
-| Every commit rejected on identity | `hooks.expectedEmail` not set for your address |
+| Every commit rejected on identity | `hooks.maintainer` set, or `user.name` is `jonaas-dev`, in a clone that is not the maintainer's |
 | Handlers firing after disable | An event registered without `registerEvent()` |

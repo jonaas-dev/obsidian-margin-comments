@@ -12,8 +12,19 @@ root=$(git rev-parse --show-toplevel)
 # username, never a real name or inbox. Outside contributors are not held to this.
 expected_name=$(git config hooks.expectedName 2>/dev/null || echo "jonaas-dev")
 actual_name=$(git config user.name 2>/dev/null || echo "")
+# Set in the maintainer's clone by `sh ops/install-hooks.sh --maintainer`. Deciding
+# from user.name alone skipped the one commit this check exists for: the real name
+# and inbox a machine's global git config supplies (#251).
+maintainer=$(git config --bool hooks.maintainer 2>/dev/null || echo false)
 
-if [ "$actual_name" = "$expected_name" ]; then
+if [ "$maintainer" = "true" ] || [ "$actual_name" = "$expected_name" ]; then
+    if [ "$actual_name" != "$expected_name" ]; then
+        printf '\n\033[31m✖ pre-commit: maintainer committer name\033[0m\n\n' >&2
+        printf "  user.name is '%s', expected '%s'.\n\n" "${actual_name:-<unset>}" "$expected_name" >&2
+        printf '  Fix:  git config user.name "%s"\n\n' "$expected_name" >&2
+        exit 1
+    fi
+
     expected_email=$(git config hooks.expectedEmail 2>/dev/null || echo "100514206+jonaas-dev@users.noreply.github.com")
     actual_email=$(git config user.email 2>/dev/null || echo "")
 
@@ -21,13 +32,6 @@ if [ "$actual_name" = "$expected_name" ]; then
         printf '\n\033[31m✖ pre-commit: maintainer committer identity\033[0m\n\n' >&2
         printf "  user.email is '%s', expected '%s'.\n\n" "${actual_email:-<unset>}" "$expected_email" >&2
         printf '  Fix:  git config user.email "%s"\n\n' "$expected_email" >&2
-        exit 1
-    fi
-
-    if printf '%s' "$actual_name" | grep -qE '^[A-Z][a-z]+[[:space:]]+[A-Z]'; then
-        printf '\n\033[31m✖ pre-commit: maintainer committer name looks like a real name\033[0m\n\n' >&2
-        printf "  user.name is '%s', expected '%s'.\n\n" "$actual_name" "$expected_name" >&2
-        printf '  Fix:  git config user.name "%s"\n\n' "$expected_name" >&2
         exit 1
     fi
 fi

@@ -6,3 +6,4 @@ main.js
 coverage/
 data.json
 test-results/
+__pycache__/
