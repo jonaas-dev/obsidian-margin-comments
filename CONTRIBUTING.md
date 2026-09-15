@@ -77,6 +77,7 @@ needs a full Obsidian restart.
 | `npm run lint` | ESLint over `src` and `tests` |
 | `npm run format` | Prettier over `src` and `tests` |
 | `npm test` | Vitest unit tests, single run |
+| `npm run test:coverage` | Unit tests with coverage, failing below the thresholds CI enforces |
 | `npm run test:e2e` | End-to-end tests driving a real Obsidian |
 | `npm run test:watch` | Vitest in watch mode |
 
@@ -149,7 +150,7 @@ that fails for no visible reason.
 
 ## Before opening a pull request
 
-- `npm run lint && npm run typecheck && npm test && npm run build` all pass
+- `npm run lint && npm run typecheck && npm run build && npm run test:coverage` all pass
 - `npm run build && npm run test:e2e` passes, if you touched the UI, the editor
   extensions or anything that reads or writes the vault. CI cannot run this suite
   (see above), so a pull request is the last place it gets checked
