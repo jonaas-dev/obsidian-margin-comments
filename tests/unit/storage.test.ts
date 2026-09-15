@@ -83,7 +83,7 @@ describe("CommentStorage", () => {
 	it("updates an existing comment in place", async () => {
 		const storage = new CommentStorage(new MemoryAdapter());
 		await storage.saveComment(makeComment());
-		await storage.updateComment({ ...makeComment(), content: "edited", updatedAt: 2000 });
+		await storage.updateComment("notes/meeting.md", "c1", (c) => ({ ...c, content: "edited", updatedAt: 2000 }));
 		const [stored] = await storage.getCommentsForFile("notes/meeting.md");
 		expect(stored.content).toBe("edited");
 		expect(stored.createdAt).toBe(1000);
@@ -338,7 +338,7 @@ describe("CommentStorage", () => {
 		const adapter = new MemoryAdapter();
 		const storage = new CommentStorage(adapter);
 		await storage.saveComment(makeComment());
-		await storage.updateComment({ ...makeComment(), content: "edited" });
+		await storage.updateComment("notes/meeting.md", "c1", (c) => ({ ...c, content: "edited" }));
 		await storage.deleteComment("notes/meeting.md", "c1");
 		expect(adapter.writes.filter((p) => p.endsWith(".md"))).toEqual([]);
 	});
@@ -372,14 +372,14 @@ describe("CommentStorage", () => {
 			const storage = new CommentStorage(adapter);
 			await storage.saveComment(makeComment());
 
-			await storage.updateComment({ ...makeComment(), resolved: true });
+			await storage.updateComment("notes/meeting.md", "c1", (c) => ({ ...c, resolved: true }));
 			expect((await storage.getCommentSummaries())[0]).toEqual({
 				filePath: "notes/meeting.md",
 				threads: 1,
 				open: 0,
 			});
 
-			await storage.updateComment({ ...makeComment(), resolved: false });
+			await storage.updateComment("notes/meeting.md", "c1", (c) => ({ ...c, resolved: false }));
 			expect((await storage.getCommentSummaries())[0].open).toBe(1);
 		});
 
@@ -671,7 +671,7 @@ describe("overlapping mutations of one note", () => {
 		await storage.saveComment(root);
 
 		await Promise.all([
-			storage.updateComment({ ...root, resolved: true }),
+			storage.updateComment(root.filePath, root.id, (c) => ({ ...c, resolved: true })),
 			storage.saveComment(makeComment({ id: "reply", parentId: "root" })),
 		]);
 
@@ -1057,7 +1057,7 @@ describe("format versions", () => {
 
 		it.each([
 			["save", (s: CommentStorage) => s.saveComment(makeComment({ id: "mine" }))],
-			["update", (s: CommentStorage) => s.updateComment({ ...makeComment({ id: "future" }), content: "edited" })],
+			["update", (s: CommentStorage) => s.updateComment(NOTE, "future", (c) => ({ ...c, content: "edited" }))],
 			["delete", (s: CommentStorage) => s.deleteComment(NOTE, "future")],
 			["take", (s: CommentStorage) => s.takeComments(NOTE)],
 			["restore", (s: CommentStorage) => s.restoreComments(NOTE, [makeComment({ id: "back" })])],

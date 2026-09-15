@@ -140,7 +140,10 @@ describe("commands", () => {
 				const plugin = window.app.plugins.plugins["margin-comments"];
 				for (const comment of await plugin.storage.getCommentsForFile(note)) {
 					if (bodies.includes(comment.content)) {
-						await plugin.storage.updateComment({ ...comment, resolved });
+						await plugin.storage.updateComment(comment.filePath, comment.id, (stored: object) => ({
+							...stored,
+							resolved,
+						}));
 					}
 				}
 				await plugin.refresh();
