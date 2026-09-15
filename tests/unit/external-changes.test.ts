@@ -80,7 +80,7 @@ describe("changes that reach the storage folder from outside", () => {
 			filePath: NOTE,
 			comments: [comment("local-1")],
 		});
-		await storage.updateComment({ ...comment("local-1"), resolved: true });
+		await storage.updateComment(NOTE, "local-1", (c) => ({ ...c, resolved: true }));
 
 		expect(onDisk(adapter, sidecarFor(NOTE)).comments.map((c) => c.id)).toEqual(["local-1"]);
 	});

@@ -166,6 +166,16 @@ export class NewerFormatError extends Error {
 	}
 }
 
+/** Thrown by a change to a comment that is no longer stored: deleted since it was drawn. */
+export class CommentNotFoundError extends Error {
+	constructor(
+		readonly filePath: string,
+		readonly id: string,
+	) {
+		super("That comment was deleted, so the change was not saved.");
+	}
+}
+
 /** Said when a note's comments could not be read, so the loss is visible and recoverable. */
 export function describeUnreadableSidecar(filePath: string, keptAt: string): string {
 	return `Comments for ${noteName(filePath)} could not be read. Their file was kept as ${keptAt}.`;
@@ -407,10 +417,30 @@ export class CommentStorage {
 		await this.mutate(comment.filePath, (existing) => [...existing, comment]);
 	}
 
-	async updateComment(comment: Comment): Promise<void> {
-		await this.mutate(comment.filePath, (existing) =>
-			existing.map((c) => (c.id === comment.id ? comment : c)),
-		);
+	/**
+	 * Changes one stored comment. `change` is handed the comment as stored now, inside
+	 * the note's queue, so it builds on every change written before it. Taking a whole
+	 * comment instead put back whatever the caller's copy held: an edit and then a
+	 * resolve made from the same card lost the edit (#264).
+	 *
+	 * The comment keeps the id and note it was addressed by, whatever `change` returns.
+	 * Rejects with CommentNotFoundError, writing nothing, once the comment is gone.
+	 */
+	async updateComment(
+		filePath: string,
+		id: string,
+		change: (stored: Comment) => Comment,
+	): Promise<void> {
+		let found = false;
+		await this.mutate(filePath, (existing) => {
+			const next = existing.map((comment) => {
+				if (comment.id !== id) return comment;
+				found = true;
+				return { ...change(comment), id, filePath };
+			});
+			return found ? next : null;
+		});
+		if (!found) throw new CommentNotFoundError(filePath, id);
 	}
 
 	async deleteComment(filePath: string, id: string): Promise<void> {

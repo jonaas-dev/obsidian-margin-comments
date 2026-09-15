@@ -8,6 +8,7 @@ import {
 } from "obsidian";
 import { EditorView } from "@codemirror/view";
 import {
+	CommentNotFoundError,
 	CommentStorage,
 	describeInvalidComments,
 	describeNewerFormat,
@@ -444,13 +445,26 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	}
 
 	private async editComment(comment: Comment, content: string): Promise<void> {
-		await this.storage.updateComment(withEditedContent(comment, content));
-		await this.refresh();
-		await this.refreshPopover();
+		await this.changeComment(comment, (stored) => withEditedContent(stored, content));
 	}
 
 	private async setResolved(root: Comment, resolved: boolean): Promise<void> {
-		await this.storage.updateComment(withResolved(root, resolved));
+		await this.changeComment(root, (stored) => withResolved(stored, resolved));
+	}
+
+	/**
+	 * Applies a change to the comment as stored, not to the copy a card or the popover
+	 * drew. That copy can predate a change still being written, and saving it put the
+	 * old state back: an edit committed by the press on Resolve was undone by the
+	 * resolve that followed (#264).
+	 */
+	private async changeComment(comment: Comment, change: (stored: Comment) => Comment): Promise<void> {
+		try {
+			await this.storage.updateComment(comment.filePath, comment.id, change);
+		} catch (error) {
+			if (!(error instanceof CommentNotFoundError)) throw error;
+			new Notice(error.message);
+		}
 		await this.refresh();
 		await this.refreshPopover();
 	}
@@ -529,8 +543,14 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 				this.app,
 				describeResolveAll(open.length),
 				async () => {
+					// By id, onto each comment as stored: the roots were read before the
+					// dialog, and writing those copies undid any change made meanwhile (#264).
 					for (const root of open) {
-						await this.storage.updateComment(withResolved(root, true));
+						await this.storage
+							.updateComment(filePath, root.id, (stored) => withResolved(stored, true))
+							.catch((error: unknown) => {
+								if (!(error instanceof CommentNotFoundError)) throw error;
+							});
 					}
 					await this.refresh();
 				},
