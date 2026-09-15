@@ -133,12 +133,55 @@ describe("commands", () => {
 		expect(await cursorLine()).toBe(4);
 	});
 
+	/** Resolve or reopen the threads whose body is in `bodies`, through the store. */
+	async function setResolved(bodies: string[], resolved: boolean): Promise<void> {
+		await page.evaluate(
+			async ({ note, bodies, resolved }: { note: string; bodies: string[]; resolved: boolean }) => {
+				const plugin = window.app.plugins.plugins["margin-comments"];
+				for (const comment of await plugin.storage.getCommentsForFile(note)) {
+					if (bodies.includes(comment.content)) {
+						await plugin.storage.updateComment({ ...comment, resolved });
+					}
+				}
+				await plugin.refresh();
+			},
+			{ note: NOTE, bodies, resolved },
+		);
+	}
+
+	it("skips a resolved thread, which the editor shows no sign of (#268)", async () => {
+		await setResolved(["comment on the fifth line"], true);
+		try {
+			await setCursorLine(1);
+			await run("next-comment");
+			// Wrapped to the open thread on the first line, past the resolved fifth.
+			expect(await cursorLine()).toBe(0);
+		} finally {
+			await setResolved(["comment on the fifth line"], false);
+		}
+	});
+
+	it("says there is nothing open when every thread is resolved (#268)", async () => {
+		const both = ["comment on the first line", "comment on the fifth line"];
+		await setResolved(both, true);
+		try {
+			await setCursorLine(2);
+			await run("next-comment");
+			expect(await page.locator(".notice").last().innerText()).toContain(
+				"No open comments in this note",
+			);
+			expect(await cursorLine()).toBe(2);
+		} finally {
+			await setResolved(both, false);
+		}
+	});
+
 	it("says so in a note with no comments instead of moving the cursor", async () => {
 		await openNote(EMPTY_NOTE);
 		await setCursorLine(0);
 		await run("next-comment");
 
-		expect(await page.locator(".notice").innerText()).toContain("No comments in this note");
+		expect(await page.locator(".notice").last().innerText()).toContain("No open comments in this note");
 		expect(await cursorLine()).toBe(0);
 	});
 
