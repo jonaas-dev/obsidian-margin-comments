@@ -472,7 +472,7 @@ Panel state that has to survive a restart — filter, sort order, scope — live
 | `npm run dev` | esbuild watch |
 | `npm run build` | production build |
 | `npm test` | vitest, unit only |
-| `npm run test:coverage` | unit tests with coverage and its thresholds, as CI runs them; writes `coverage/` |
+| `npm run test:coverage` | unit tests with coverage and its thresholds (`vitest.coverage.config.ts`), timing budgets lifted; writes `coverage/` |
 | `npm run test:e2e` | vitest against a real Obsidian; needs the app installed |
 | `npm run lint` | eslint over src and tests |
 | `npx tsc --noEmit` | type check |

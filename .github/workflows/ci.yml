@@ -40,8 +40,13 @@ jobs:
       - name: Verify the build produced the release assets
         run: test -f main.js && test -f manifest.json && test -f styles.css
 
-      # Coverage thresholds fail the job when a change lowers unit coverage (#252).
-      - name: Test with coverage
+      - name: Test
+        run: npm test
+
+      # A second run, instrumented: its thresholds fail the job when a change lowers
+      # unit coverage (#252). Timing budgets are lifted there, so they are proved by
+      # the plain run above.
+      - name: Unit coverage
         run: npm run test:coverage
 
   leaks:

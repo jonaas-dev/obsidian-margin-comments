@@ -150,7 +150,7 @@ that fails for no visible reason.
 
 ## Before opening a pull request
 
-- `npm run lint && npm run typecheck && npm run build && npm run test:coverage` all pass
+- `npm run lint && npm run typecheck && npm run build && npm test && npm run test:coverage` all pass
 - `npm run build && npm run test:e2e` passes, if you touched the UI, the editor
   extensions or anything that reads or writes the vault. CI cannot run this suite
   (see above), so a pull request is the last place it gets checked
