@@ -7,3 +7,5 @@ coverage/
 data.json
 test-results/
 __pycache__/
+.scannerwork/
+.env
