@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
+import { budget } from "../helpers/timing-budget";
 import { createAnchor } from "../../src/anchor";
 
 /**
@@ -168,7 +169,7 @@ describe("resolveMarkers", () => {
  * not to police milliseconds on a shared CI runner.
  */
 describe("performance", () => {
-	const BUDGET_MS = 250;
+	const BUDGET_MS = budget(250);
 	const LINES = 10000;
 	const COUNT = 200;
 	const doc = Array.from(

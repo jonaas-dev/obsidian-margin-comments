@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { budget } from "../helpers/timing-budget";
 import { boundedLevenshtein } from "../../src/fuzzy";
 
 describe("boundedLevenshtein", () => {
@@ -46,6 +47,6 @@ describe("boundedLevenshtein", () => {
 		const b = "a completely different sentence entirely, again. ".repeat(40);
 		const start = performance.now();
 		expect(boundedLevenshtein(a, b, 5)).toBe(6);
-		expect(performance.now() - start).toBeLessThan(50);
+		expect(performance.now() - start).toBeLessThan(budget(50));
 	});
 });

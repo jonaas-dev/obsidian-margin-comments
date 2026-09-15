@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { budget } from "../helpers/timing-budget";
 import {
 	createAnchor,
 	matchAnchor,
@@ -323,7 +324,7 @@ describe("matchByFuzzy", () => {
 		// magnitude below what scoring in full costs.
 		const start = performance.now();
 		expect(matchByFuzzy(note.slice(paragraph.length + 1), anchor, 0.02)).toBeNull();
-		expect(performance.now() - start).toBeLessThan(250);
+		expect(performance.now() - start).toBeLessThan(budget(250));
 	});
 
 	it("still finds a long paragraph that picked up a typo", () => {
@@ -373,7 +374,7 @@ describe("performance", () => {
 	// Re-anchoring runs on a debounce while typing, so a slow miss is felt as
 	// editor lag. The budget is deliberately loose: it exists to catch an
 	// accidental quadratic, not to police milliseconds on a shared CI runner.
-	const BUDGET_MS = 250;
+	const BUDGET_MS = budget(250);
 	const big = Array.from({ length: 10000 }, (_, i) => `line ${i} with some filler prose`).join("\n");
 	const at = big.indexOf("line 5000");
 	const anchor = createAnchor(big, at, at + 20);
@@ -407,7 +408,7 @@ describe("performance", () => {
 		// commented text rewritten: stage 1 misses and stage 2 has to work for its
 		// answer. Scanning every offset took 139 seconds here — 1.4s per comment,
 		// on a debounce, while typing.
-		const REANCHOR_BUDGET_MS = 2000;
+		const REANCHOR_BUDGET_MS = budget(2000);
 		const lines = Array.from({ length: 10000 }, (_, i) =>
 			i % 100 === 0 ? `TARGET ${i} original sentence here` : `line ${i} with some filler prose here`,
 		);
@@ -427,7 +428,7 @@ describe("performance", () => {
 	it("re-anchors 100 comments through the fuzzy stage within budget", () => {
 		// The panel's path, and the expensive one: every comment misses stages 1
 		// and 2 and pays for a bounded fuzzy search before being called orphaned.
-		const REANCHOR_BUDGET_MS = 2000;
+		const REANCHOR_BUDGET_MS = budget(2000);
 		const lines = Array.from({ length: 10000 }, (_, i) =>
 			i % 100 === 0
 				? `TARGET ${i} the quick brown fox jumps over the lazy dog`
