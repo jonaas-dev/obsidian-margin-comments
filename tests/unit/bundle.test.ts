@@ -44,6 +44,16 @@ describe("the shipped bundle", () => {
 		expect(reached).toEqual([]);
 	});
 
+	it("holds no regex lookbehind, which stops the whole bundle loading on older iOS", () => {
+		// WebKit only parses lookbehind from iOS 16.4, and Obsidian's iOS app runs on
+		// older releases. A regex literal is parsed with the script that holds it, so
+		// one lookbehind anywhere is not a broken feature there but a plugin that
+		// never loads (#248). Chromium has parsed it since 2018, so neither desktop
+		// nor the Android emulator would ever show the failure.
+		const lookbehinds = bundle.match(/\(\?<[=!][^)]{0,30}/g) ?? [];
+		expect(lookbehinds).toEqual([]);
+	});
+
 	it("requires nothing but what Obsidian provides at runtime", () => {
 		// The same check from the other side: whatever else the bundle reaches for
 		// has to be something the editor hands it. Anything new here is either a
