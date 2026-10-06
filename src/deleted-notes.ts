@@ -18,3 +18,14 @@ export function describeNoteDeletion(filePath: string, count: number): string {
 export function describeNoteRestore(filePath: string, count: number): string {
 	return `${count} ${plural(count)} restored with ${noteName(filePath)}.`;
 }
+
+/**
+ * Said when comments followed a note that moved outside Obsidian.
+ *
+ * Obsidian reports that as a create and a delete rather than a rename, so the
+ * move is something this plugin worked out rather than was told (#289). Saying
+ * so lets the reader catch it if the guess was wrong.
+ */
+export function describeNoteMove(from: string, to: string, count: number): string {
+	return `${count} ${plural(count)} moved with ${noteName(from)}, now ${noteName(to)}.`;
+}

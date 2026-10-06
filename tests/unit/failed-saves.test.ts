@@ -118,6 +118,8 @@ describe("a rename a note cannot follow", () => {
 			storage,
 			orphanedBehavior: () => "keep",
 			refresh: () => Promise.resolve(),
+			readNote: () => Promise.resolve(null),
+			fuzzyThreshold: () => 0.3,
 		});
 
 		await events.followRename("notes", "archive");
