@@ -270,6 +270,13 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			storage: this.storage,
 			orphanedBehavior: () => this.settings.orphanedBehavior,
 			refresh: () => this.refresh(),
+			readNote: async (filePath) => {
+				const file = this.app.vault.getAbstractFileByPath(filePath);
+				// cachedRead rather than read: this runs on a vault event, and the
+				// cache is what every other reader of a note already sees.
+				return file instanceof TFile ? this.app.vault.cachedRead(file) : null;
+			},
+			fuzzyThreshold: () => this.settings.fuzzyThreshold,
 		});
 		// vault.on rather than a workspace event: a note can be renamed from the
 		// file explorer with nothing open, and the comments still have to follow.

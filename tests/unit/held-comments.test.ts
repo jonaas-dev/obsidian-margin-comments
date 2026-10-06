@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { CommentStorage, HELD_DIR, STORAGE_DIR } from "../../src/storage";
 import { NoteEvents } from "../../src/vault-events";
 import type { TAbstractFile } from "obsidian";
@@ -45,6 +45,8 @@ const events = (storage: CommentStorage) =>
 		storage,
 		orphanedBehavior: () => "delete",
 		refresh: () => Promise.resolve(),
+		readNote: () => Promise.resolve(null),
+		fuzzyThreshold: () => 0.3,
 	});
 
 describe("comments held for a note that went away", () => {
@@ -145,5 +147,89 @@ describe("a note renamed outside Obsidian", () => {
 
 		expect(await storage.getCommentsForFile(NOTE)).toHaveLength(1);
 		expect(await adapter.exists(heldFor(NOTE))).toBe(false);
+	});
+});
+
+describe("pairing a create and a delete that are really a move", () => {
+	/** A store with one commented note, and a host that can read the vault given here. */
+	async function vaultWith(files: Record<string, string>, commented: string) {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment(commented, "c1"));
+		const notes = new NoteEvents({
+			storage,
+			orphanedBehavior: () => "delete",
+			refresh: () => Promise.resolve(),
+			readNote: (filePath) => Promise.resolve(files[filePath] ?? null),
+			fuzzyThreshold: () => 0.3,
+		});
+		return { storage, notes, adapter };
+	}
+
+	beforeEach(() => clearNotices());
+
+	it("hands the comments to the note the text moved to", async () => {
+		// The order Obsidian reports for an external rename: create, then delete.
+		const text = "hello there, this is the note's only line";
+		const { storage, notes } = await vaultWith({ [RENAMED]: text }, NOTE);
+
+		await notes.followCreate(file(RENAMED));
+		await notes.followDelete(file(NOTE));
+
+		expect(await storage.getCommentsForFile(RENAMED)).toHaveLength(1);
+		expect(await storage.releaseComments(NOTE)).toBeNull();
+		expect(noticeMessages.join(" ")).toContain("moved with");
+	});
+
+	it("rewrites the comments' own filePath, not just where they are filed", async () => {
+		const text = "hello there, this is the note's only line";
+		const { storage, notes } = await vaultWith({ [RENAMED]: text }, NOTE);
+
+		await notes.followCreate(file(RENAMED));
+		await notes.followDelete(file(NOTE));
+
+		const [moved] = await storage.getCommentsForFile(RENAMED);
+		// A comment whose filePath still named the old note would be filtered out
+		// as not belonging the next time the sidecar was read.
+		expect(moved.filePath).toBe(RENAMED);
+	});
+
+	it("never pairs a note that does not hold the comments", async () => {
+		// The case timing cannot rule out: a file saved and a different one deleted
+		// within the same 100 ms. Measured on #289 at 109 ms apart, against 103 ms
+		// for a real rename.
+		const { storage, notes } = await vaultWith({ "notes/unrelated.md": "nothing alike here" }, NOTE);
+
+		await notes.followCreate(file("notes/unrelated.md"));
+		await notes.followDelete(file(NOTE));
+
+		expect(await storage.getCommentsForFile("notes/unrelated.md")).toHaveLength(0);
+		// Held, as before: recoverable, which a wrong guess is not.
+		expect(await storage.releaseComments(NOTE)).toHaveLength(1);
+	});
+
+	it("refuses to choose when two notes both fit", async () => {
+		const text = "hello there, this is the note's only line";
+		const { storage, notes } = await vaultWith({ "a/copy.md": text, "b/copy.md": text }, NOTE);
+
+		await notes.followCreate(file("a/copy.md"));
+		await notes.followCreate(file("b/copy.md"));
+		await notes.followDelete(file(NOTE));
+
+		expect(await storage.releaseComments(NOTE)).toHaveLength(1);
+	});
+
+	it("does not pair with a note created long before", async () => {
+		const text = "hello there, this is the note's only line";
+		const { storage, notes } = await vaultWith({ [RENAMED]: text }, NOTE);
+
+		await notes.followCreate(file(RENAMED));
+		// Older than the window: a note that happens to match, created minutes ago,
+		// is not evidence that this delete was a move.
+		vi.setSystemTime(Date.now() + 10_000);
+		await notes.followDelete(file(NOTE));
+		vi.useRealTimers();
+
+		expect(await storage.releaseComments(NOTE)).toHaveLength(1);
 	});
 });
