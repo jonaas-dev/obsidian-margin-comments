@@ -51,3 +51,14 @@ export function openRoots(comments: Comment[]): Comment[] {
 export function describeResolveAll(count: number): string {
 	return `Resolve ${count} open ${count === 1 ? "thread" : "threads"} in this note?`;
 }
+
+/**
+ * What a partly failed resolve-all did, said in counts.
+ *
+ * The threads that resolved stay resolved, so saying nothing would read as "all
+ * done" while some are still open (#266).
+ */
+export function describeResolveAllFailures(failed: number, total: number): string {
+	const threads = failed === 1 ? "thread" : "threads";
+	return `${failed} of ${total} ${threads} could not be resolved. The rest were.`;
+}

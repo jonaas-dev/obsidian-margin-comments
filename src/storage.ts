@@ -176,6 +176,22 @@ export class CommentNotFoundError extends Error {
 	}
 }
 
+/**
+ * Said when a change to a note's comments did not land.
+ *
+ * Every write used to be fired off with `void` after the field had already been
+ * cleared, so a rejection left the typed text gone and nothing on screen (#266).
+ * The two causes we can name say what to do about them; anything else — a full
+ * disk, permissions, a file a sync client holds — at least says the change was
+ * not saved, which is the part the user cannot otherwise tell.
+ */
+export function describeFailedSave(filePath: string, error: unknown): string {
+	if (error instanceof NewerFormatError || error instanceof CommentNotFoundError) {
+		return error.message;
+	}
+	return `Comments for ${noteName(filePath)} could not be saved. Nothing was changed.`;
+}
+
 /** Said when a note's comments could not be read, so the loss is visible and recoverable. */
 export function describeUnreadableSidecar(filePath: string, keptAt: string): string {
 	return `Comments for ${noteName(filePath)} could not be read. Their file was kept as ${keptAt}.`;

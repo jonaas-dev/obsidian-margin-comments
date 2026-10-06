@@ -10,12 +10,18 @@ import { displayQuote } from "./quote-text";
 import { sanitizeCommentBody } from "./sanitize-comment-body";
 
 export interface ThreadActions {
-	/** Store a reply to the given thread root. */
-	addReply(root: Comment, content: string): Promise<void>;
+	/**
+	 * Store a reply to the given thread root.
+	 *
+	 * These three resolve false when the write did not land, having already said
+	 * why. The caller keeps the field and its text until one resolves true: a
+	 * field cleared before the write lost what was typed on a failure (#266).
+	 */
+	addReply(root: Comment, content: string): Promise<boolean>;
 	/** Persist an edited body. */
-	editComment(comment: Comment, content: string): Promise<void>;
+	editComment(comment: Comment, content: string): Promise<boolean>;
 	/** Resolve or reopen a thread root. */
-	setResolved(root: Comment, resolved: boolean): Promise<void>;
+	setResolved(root: Comment, resolved: boolean): Promise<boolean>;
 	/** Confirm, then delete the comment and any replies it owns. */
 	deleteComment(comment: Comment): void;
 }
@@ -368,8 +374,19 @@ function renderReplyBox(
 			reset();
 			return;
 		}
-		reset();
-		void actions.addReply(root, content).then(() => options.onReplied?.());
+		// Cleared only once the reply is stored, and the field is disabled while the
+		// write is in flight so Enter cannot send it twice (#266).
+		input.disabled = true;
+		void actions
+			.addReply(root, content)
+			.then((saved) => {
+				if (!saved) return;
+				reset();
+				options.onReplied?.();
+			})
+			.finally(() => {
+				input.disabled = false;
+			});
 	};
 
 	box.addEventListener("click", (event) => event.stopPropagation());
@@ -453,8 +470,18 @@ function startEditing(
 			finish();
 			return;
 		}
-		finish();
-		void actions.editComment(comment, content);
+		// Kept open until the edit is stored: closing first discarded the new body
+		// when the write failed, and the old one was already on screen (#266).
+		textarea.disabled = true;
+		void actions
+			.editComment(comment, content)
+			.then((saved) => {
+				if (saved) finish();
+				else textarea.focus();
+			})
+			.finally(() => {
+				textarea.disabled = false;
+			});
 	};
 
 	const buttons = editor.createDiv({ cls: "inline-comment-editor-actions" });

@@ -9,7 +9,11 @@ export interface ComposerOptions {
 	initialValue?: string;
 	placeholder?: string;
 	submitLabel?: string;
-	onSubmit: (content: string) => void | Promise<void>;
+	/**
+	 * Store the comment. Resolving false keeps the composer open with the text in
+	 * it, because a cleared composer and a failed write lose what was typed (#266).
+	 */
+	onSubmit: (content: string) => boolean | Promise<boolean>;
 	onCancel?: () => void;
 	/** Open as a bottom sheet rather than beside the text. For phones (#135). */
 	sheet?: boolean;
@@ -27,6 +31,8 @@ export class FloatingComposer {
 	private onOutsideClick: ((event: MouseEvent) => void) | null = null;
 	/** Where focus was when the composer opened, so dismissing can give it back. */
 	private returnFocusTo: HTMLElement | null = null;
+	/** A write is in flight; see submit(). */
+	private submitting = false;
 	private stopWatching: (() => void) | null = null;
 	/** The document the composer is drawn in and listens on. See open. */
 	private owner: Document = document;
@@ -149,9 +155,19 @@ export class FloatingComposer {
 			this.cancel();
 			return;
 		}
-		const submit = this.options.onSubmit(content);
-		this.close();
-		await submit;
+		// Enter and the button both land here, and the write is awaited now rather
+		// than after closing, so a second press while it is in flight would store
+		// the comment twice.
+		if (this.submitting) return;
+		this.submitting = true;
+		try {
+			// Only once the comment is stored: closing first threw the text away on
+			// a write that then failed, leaving nothing to retype from (#266).
+			if (await this.options.onSubmit(content)) this.close();
+			else this.textarea?.focus();
+		} finally {
+			this.submitting = false;
+		}
 	}
 
 	private cancel(): void {

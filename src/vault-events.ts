@@ -3,6 +3,7 @@ import type { CommentStorage } from "./storage";
 import type { OrphanedBehavior } from "./types";
 import { movesFor } from "./note-moves";
 import { DeletedNotes, describeNoteDeletion, describeNoteRestore } from "./deleted-notes";
+import { describeStrandedComments } from "./note-moves";
 
 /** What keeping comments with their notes needs from the plugin. */
 export interface NoteEventsHost {
@@ -39,8 +40,22 @@ export class NoteEvents {
 		);
 		if (moves.length === 0) return;
 
-		for (const move of moves) await this.host.storage.moveComments(move.from, move.to);
+		// Each note on its own: one that cannot be moved — read-only, or a sidecar a
+		// newer plugin wrote — used to reject the whole handler on the first failure,
+		// so the notes after it kept their old paths and nothing said why (#266). The
+		// per-file events that follow a folder rename cover for it today, which is
+		// exactly what made the loss invisible.
+		const stranded: string[] = [];
+		for (const move of moves) {
+			try {
+				await this.host.storage.moveComments(move.from, move.to);
+			} catch (error) {
+				stranded.push(move.from);
+				console.error("margin-comments: comments could not follow their note", error);
+			}
+		}
 		await this.host.refresh();
+		if (stranded.length > 0) new Notice(describeStrandedComments(stranded));
 	}
 
 	/**

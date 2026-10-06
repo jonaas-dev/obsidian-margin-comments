@@ -40,3 +40,16 @@ export function movesFor(paths: string[], from: string, to: string): Move[] {
 	}
 	return moves;
 }
+
+/**
+ * Which notes' comments stayed behind when their note moved.
+ *
+ * Named, because the comments are not lost — they sit under the old path and
+ * show as a "not found" note in the all-notes view, which is unexplainable
+ * without this (#266).
+ */
+export function describeStrandedComments(paths: string[]): string {
+	const names = paths.map((path) => path.split("/").pop() ?? path);
+	const which = names.length === 1 ? names[0] : `${names.length} notes`;
+	return `Comments for ${which} could not follow the note and are still under the old path.`;
+}
