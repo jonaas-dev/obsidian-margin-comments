@@ -1,6 +1,6 @@
 import { EditorView } from "@codemirror/view";
-import type { App } from "obsidian";
-import type { CommentStorage } from "../storage";
+import { Notice, type App } from "obsidian";
+import { describeFailedSave, type CommentStorage } from "../storage";
 import type { Comment, PluginSettings } from "../types";
 import type { CommentPanelView } from "../ui/comment-panel";
 import { buildThreads, type Thread } from "../ui/threads";
@@ -154,9 +154,7 @@ export class ThreadRouting {
 		this.composer = new FloatingComposer({
 			anchorRect,
 			sheet: this.host.sheet(),
-			onSubmit: async (content) => {
-				await this.createComment(view, filePath, from, to, content);
-			},
+			onSubmit: (content) => this.createComment(view, filePath, from, to, content),
 			onCancel: () => {
 				this.composer = null;
 			},
@@ -172,7 +170,7 @@ export class ThreadRouting {
 		from: number,
 		to: number,
 		content: string,
-	): Promise<void> {
+	): Promise<boolean> {
 		const now = Date.now();
 		const comment: Comment = {
 			id: crypto.randomUUID(),
@@ -185,7 +183,16 @@ export class ThreadRouting {
 			resolved: false,
 			parentId: null,
 		};
-		await this.host.storage.saveComment(comment);
+		try {
+			await this.host.storage.saveComment(comment);
+		} catch (error) {
+			// Said, and reported as not saved, so the composer keeps the text it
+			// would otherwise have thrown away (#266).
+			console.error("margin-comments: a comment could not be saved", error);
+			new Notice(describeFailedSave(filePath, error));
+			return false;
+		}
 		await this.host.refresh();
+		return true;
 	}
 }

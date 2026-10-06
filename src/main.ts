@@ -10,6 +10,7 @@ import { EditorView } from "@codemirror/view";
 import {
 	CommentNotFoundError,
 	CommentStorage,
+	describeFailedSave,
 	describeInvalidComments,
 	describeNewerFormat,
 	describeUnreadableSidecar,
@@ -57,6 +58,7 @@ import { createReply } from "./ui/replies";
 import {
 	describeDeletion,
 	describeResolveAll,
+	describeResolveAllFailures,
 	openRoots,
 	withEditedContent,
 	withResolved,
@@ -439,17 +441,43 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		await this.saveData(this.settings);
 	}
 
-	private async addReply(root: Comment, content: string): Promise<void> {
-		await this.storage.saveComment(createReply(root, content, this.settings.author));
+	private async addReply(root: Comment, content: string): Promise<boolean> {
+		return this.attempt(root.filePath, () =>
+			this.storage.saveComment(createReply(root, content, this.settings.author)),
+		);
+	}
+
+	private async editComment(comment: Comment, content: string): Promise<boolean> {
+		return this.changeComment(comment, (stored) => withEditedContent(stored, content));
+	}
+
+	private async setResolved(root: Comment, resolved: boolean): Promise<boolean> {
+		return this.changeComment(root, (stored) => withResolved(stored, resolved));
+	}
+
+	/**
+	 * Runs a write and says whether it landed, redrawing either way.
+	 *
+	 * Every caller used to fire the write off with `void` after already clearing
+	 * its field, so a rejection became an unhandled rejection in the console: the
+	 * typed text was gone and nothing on screen said so (#266). Returning the
+	 * outcome lets the field keep what it holds until the write is known to have
+	 * worked.
+	 */
+	private async attempt(filePath: string, write: () => Promise<void>): Promise<boolean> {
+		let saved = true;
+		try {
+			await write();
+		} catch (error) {
+			saved = false;
+			console.error("margin-comments: a comment could not be saved", error);
+			new Notice(describeFailedSave(filePath, error));
+		}
+		// Even after a failure: the panel and the popover should show what is
+		// stored, not the change that did not happen.
 		await this.refresh();
-	}
-
-	private async editComment(comment: Comment, content: string): Promise<void> {
-		await this.changeComment(comment, (stored) => withEditedContent(stored, content));
-	}
-
-	private async setResolved(root: Comment, resolved: boolean): Promise<void> {
-		await this.changeComment(root, (stored) => withResolved(stored, resolved));
+		await this.refreshPopover();
+		return saved;
 	}
 
 	/**
@@ -458,15 +486,13 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	 * old state back: an edit committed by the press on Resolve was undone by the
 	 * resolve that followed (#264).
 	 */
-	private async changeComment(comment: Comment, change: (stored: Comment) => Comment): Promise<void> {
-		try {
-			await this.storage.updateComment(comment.filePath, comment.id, change);
-		} catch (error) {
-			if (!(error instanceof CommentNotFoundError)) throw error;
-			new Notice(error.message);
-		}
-		await this.refresh();
-		await this.refreshPopover();
+	private async changeComment(
+		comment: Comment,
+		change: (stored: Comment) => Comment,
+	): Promise<boolean> {
+		return this.attempt(comment.filePath, () =>
+			this.storage.updateComment(comment.filePath, comment.id, change),
+		);
 	}
 
 	private confirmDelete(comment: Comment): void {
@@ -545,14 +571,25 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 				async () => {
 					// By id, onto each comment as stored: the roots were read before the
 					// dialog, and writing those copies undid any change made meanwhile (#264).
+					let failed = 0;
 					for (const root of open) {
-						await this.storage
-							.updateComment(filePath, root.id, (stored) => withResolved(stored, true))
-							.catch((error: unknown) => {
-								if (!(error instanceof CommentNotFoundError)) throw error;
-							});
+						try {
+							await this.storage.updateComment(filePath, root.id, (stored) =>
+								withResolved(stored, true),
+							);
+						} catch (error) {
+							// One thread deleted since the dialog opened is not worth a
+							// notice of its own, but a write that failed for any other
+							// reason has to be said: the rest of the threads did resolve,
+							// so silence would read as "all done" (#266).
+							if (!(error instanceof CommentNotFoundError)) {
+								failed += 1;
+								console.error("margin-comments: a comment could not be resolved", error);
+							}
+						}
 					}
 					await this.refresh();
+					if (failed > 0) new Notice(describeResolveAllFailures(failed, open.length));
 				},
 				{
 					confirmLabel: "Resolve",
