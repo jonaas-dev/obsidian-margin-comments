@@ -26,6 +26,14 @@ export interface ThreadActions {
 	deleteComment(comment: Comment): void;
 }
 
+/** Open text in a card, keyed so a repaint can hand it back to the same places. */
+export interface CardDrafts {
+	/** What is in the thread's reply field. */
+	reply?: string;
+	/** What is in each open edit box, by the id of the comment it edits. */
+	edits?: ReadonlyMap<string, string>;
+}
+
 export interface CardOptions {
 	/** Reveal actions and the reply field without hovering. Used by the popover,
 	 *  which is already a deliberate act — hiding its controls would be coy. */
@@ -52,6 +60,16 @@ export interface CardOptions {
 	 * stands is what the reader will find when they jump there.
 	 */
 	doc?: string;
+	/**
+	 * Half-written text to put back, from the card this one replaces.
+	 *
+	 * The panel empties its scroller on every repaint, and repaints land while
+	 * someone is still typing — clicking into the note is enough. Restored
+	 * without focus on purpose: the repaint usually follows the reader moving
+	 * their attention somewhere else, and pulling focus back would fight them
+	 * (#267).
+	 */
+	drafts?: CardDrafts;
 	/**
 	 * A touch device, where nothing hovers. The reply field folds behind a Reply
 	 * button there instead of standing open under every card, which left about
@@ -217,10 +235,10 @@ export function renderThreadCard(
 		});
 	}
 
-	renderComment(card, thread.root, filePath, true, app, component, actions);
+	renderComment(card, thread.root, filePath, true, app, component, actions, options);
 	for (const reply of thread.replies) {
 		const replyEl = card.createDiv({ cls: "inline-comment-reply" });
-		renderComment(replyEl, reply, filePath, false, app, component, actions);
+		renderComment(replyEl, reply, filePath, false, app, component, actions, options);
 	}
 
 	renderReplyBox(card, thread.root, actions, options);
@@ -235,6 +253,7 @@ function renderComment(
 	app: App,
 	component: Component,
 	actions: ThreadActions,
+	options: CardOptions,
 ): void {
 	const meta = parent.createDiv({ cls: "inline-comment-meta" });
 	meta.createSpan({ text: comment.author || "You", cls: "inline-comment-author" });
@@ -293,6 +312,17 @@ function renderComment(
 			showMore.show();
 		});
 	});
+
+	// Put back an edit box the last repaint took away, with what was in it. Not
+	// focused: the repaint usually follows the reader clicking somewhere else
+	// (#267).
+	const draft = options.drafts?.edits?.get(comment.id);
+	// Nothing to preserve when the draft is what is already stored: the same test
+	// `save` uses to decline a no-op edit. Without it, a press in the note commits
+	// the edit and then this reopened the box on the repaint that followed (#114).
+	if (draft !== undefined && draft !== comment.content) {
+		startEditing(parent, body, showMore, comment, actions, draft);
+	}
 }
 
 /**
@@ -354,6 +384,8 @@ function renderReplyBox(
 		cls: "inline-comment-replybox-input",
 		attr: { rows: "1", placeholder: "Reply", "aria-label": "Write a reply" },
 	});
+	// So a repaint can find this field's text and say which thread it belongs to.
+	input.dataset.rootId = root.id;
 
 	const send = box.createEl("button", {
 		cls: "inline-comment-send",
@@ -388,6 +420,14 @@ function renderReplyBox(
 				input.disabled = false;
 			});
 	};
+
+	// Put back half-written text the last repaint took away, and stand the box
+	// open so it is where it was. Not focused: see CardOptions.drafts (#267).
+	if (options.drafts?.reply) {
+		input.value = options.drafts.reply;
+		box.addClass("is-active");
+		toggle?.hide();
+	}
 
 	box.addEventListener("click", (event) => event.stopPropagation());
 	input.addEventListener("focus", () => {
@@ -427,6 +467,7 @@ function startEditing(
 	showMore: HTMLElement,
 	comment: Comment,
 	actions: ThreadActions,
+	draft?: string,
 ): void {
 	if (parent.querySelector(".inline-comment-editor")) return;
 
@@ -445,7 +486,10 @@ function startEditing(
 		cls: "inline-comment-editor-input",
 		attr: { "aria-label": "Edit comment" },
 	});
-	textarea.value = comment.content;
+	// The draft when one is being put back, otherwise the body as stored.
+	textarea.value = draft ?? comment.content;
+	// So a repaint can find this box's text and say which comment it belongs to.
+	textarea.dataset.commentId = comment.id;
 
 	let onOutsidePress: ((event: MouseEvent) => void) | null = null;
 
@@ -510,6 +554,17 @@ function startEditing(
 	// empty one is a mis-click.
 	window.setTimeout(() => {
 		onOutsidePress = (event: MouseEvent): void => {
+			// Gone with a repaint, which removes the box without finish() running.
+			// Left registered, this fired for a detached box at the next press
+			// anywhere and saved a draft built from the comment as it was when
+			// editing began (#267).
+			if (!editor.isConnected) {
+				if (onOutsidePress) {
+					editor.ownerDocument.removeEventListener("mousedown", onOutsidePress);
+					onOutsidePress = null;
+				}
+				return;
+			}
 			if (!editor.contains(event.target as Node)) save();
 		};
 		// The card's own document: in a popout window, presses never reach the main
@@ -517,6 +572,7 @@ function startEditing(
 		editor.ownerDocument.addEventListener("mousedown", onOutsidePress);
 	}, 0);
 
-	textarea.focus();
+	// A restored box is not where the reader is looking; see CardOptions.drafts.
+	if (draft === undefined) textarea.focus();
 	textarea.setSelectionRange(textarea.value.length, textarea.value.length);
 }
