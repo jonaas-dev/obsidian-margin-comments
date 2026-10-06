@@ -24,7 +24,11 @@ function lineNumberAt(doc: string, offset: number): number {
 }
 
 function lineRangeAt(doc: string, offset: number): { from: number; to: number } {
-	const from = doc.lastIndexOf("\n", Math.max(0, offset - 1)) + 1;
+	// Offset 0 is the start of line 1 whatever is there. Clamping the search to 0
+	// instead made a note beginning with a blank line find that newline and report
+	// the line after it, so the anchor recorded context from before the start of
+	// the document (#261).
+	const from = offset === 0 ? 0 : doc.lastIndexOf("\n", offset - 1) + 1;
 	const nextBreak = doc.indexOf("\n", offset);
 	return { from, to: nextBreak === -1 ? doc.length : nextBreak };
 }
@@ -230,6 +234,84 @@ export function matchByContext(doc: string, anchor: TextAnchor): AnchorMatch | n
 	return best ? { from: best.from, to: best.to, method: "context" } : null;
 }
 
+/**
+ * Where every empty line in `doc` begins.
+ *
+ * An empty line is a line start with nothing before the next break — including
+ * the position at the very end of a note that ends in a newline, which is a line
+ * a reader can put the cursor on and comment.
+ */
+function emptyLineStarts(doc: string): number[] {
+	const starts: number[] = [];
+	if (doc.length === 0 || doc[0] === "\n") starts.push(0);
+	for (let i = doc.indexOf("\n"); i !== -1; i = doc.indexOf("\n", i + 1)) {
+		const next = i + 1;
+		if (next === doc.length || doc[next] === "\n") starts.push(next);
+	}
+	return starts;
+}
+
+/**
+ * Whether a side of the context is all there was, rather than all we kept.
+ *
+ * CONTEXT_LENGTH characters were stored, so anything shorter ran into the start
+ * or the end of the note. A short side is then complete rather than weak, which
+ * matters because the notes where this goes wrong are short ones (#261).
+ */
+const isComplete = (context: string): boolean => context.length < CONTEXT_LENGTH;
+
+/**
+ * Re-anchor a comment that was made on an empty line.
+ *
+ * An empty line has no text of its own: stage 1 has nothing to hash, stage 3
+ * refuses an empty signature, and stage 2 wants eight characters on both sides,
+ * which an empty line between two short paragraphs does not have. So several
+ * ordinary empty lines were orphaned the moment the comment was made (#261).
+ *
+ * The candidates are the note's empty lines, which is a much stronger constraint
+ * than stage 2 has: a comment on a blank line can only go on a blank line. That
+ * is what makes it safe to accept **one** strong side here, where stage 2
+ * deliberately refuses to — typing at the end of the paragraph above is the
+ * commonest edit next to an empty line, and it destroys the side before it while
+ * leaving the side after it untouched.
+ *
+ * A side that is empty because the note starts or ends there cannot vouch for
+ * anything, so it never counts as the strong one. With neither side strong the
+ * comment is reported lost, which is recoverable; placing it somewhere arbitrary
+ * is not.
+ */
+export function matchEmptyLine(doc: string, anchor: TextAnchor): AnchorMatch | null {
+	const { contextBefore, contextAfter } = anchor;
+	let best: { at: number; score: number; distance: number } | null = null;
+
+	for (const at of emptyLineStarts(doc)) {
+		const beforeScore =
+			contextBefore === "" ? 1 : suffixMatchAt(doc, at, contextBefore) / contextBefore.length;
+		const afterScore =
+			contextAfter === "" ? 1 : prefixMatchAt(doc, at, contextAfter) / contextAfter.length;
+
+		const beforeVouches =
+			contextBefore !== "" && beforeScore >= CONTEXT_MATCH_RATIO && isComplete(contextBefore);
+		const afterVouches =
+			contextAfter !== "" && afterScore >= CONTEXT_MATCH_RATIO && isComplete(contextAfter);
+		// A side longer than CONTEXT_LENGTH was truncated by us, not by the note, so
+		// it is judged on its ratio alone.
+		const longBefore = contextBefore.length >= CONTEXT_LENGTH && beforeScore >= CONTEXT_MATCH_RATIO;
+		const longAfter = contextAfter.length >= CONTEXT_LENGTH && afterScore >= CONTEXT_MATCH_RATIO;
+		if (!beforeVouches && !afterVouches && !longBefore && !longAfter) continue;
+
+		const score = beforeScore + afterScore;
+		const distance = Math.abs(lineNumberAt(doc, at) - anchor.lineHint);
+		// Nearest to where it was only when two places match equally well, which is
+		// what happens in a note with several blank lines between similar paragraphs.
+		if (!best || score > best.score || (score === best.score && distance < best.distance)) {
+			best = { at, score, distance };
+		}
+	}
+
+	return best ? { from: best.at, to: best.at, method: "context" } : null;
+}
+
 /** Lines either side of the last known position that stage 3 will search. */
 export const FUZZY_WINDOW_LINES = 40;
 
@@ -334,6 +416,14 @@ export function matchAnchor(
 	anchor: TextAnchor,
 	options: MatchOptions = {},
 ): AnchorMatch | null {
+	// An empty line has no text to hash and nothing for the fuzzy stage to sign,
+	// so stage 2 is the only ordinary stage it can use — and it is tried first,
+	// because an empty line that has since been written on should follow the text
+	// now there (#115). Only when that fails does the empty-line rule apply, and
+	// it looks for a line that is still empty (#261).
+	if (anchor.selectedText === "") {
+		return matchByContext(doc, anchor) ?? matchEmptyLine(doc, anchor);
+	}
 	const exact = matchByHash(doc, anchor) ?? matchByContext(doc, anchor);
 	if (exact || !options.fuzzy) return exact;
 	return matchByFuzzy(doc, anchor, options.threshold ?? 0.3);
