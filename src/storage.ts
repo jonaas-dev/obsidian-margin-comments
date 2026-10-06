@@ -9,6 +9,16 @@ function basename(path: string): string {
 
 export const STORAGE_DIR = ".margin-comments";
 export const INDEX_FILE = "_index.json";
+/**
+ * Where a deleted note's comments wait for it to come back.
+ *
+ * A subfolder on purpose: `isSidecar` only recognises a `.json` directly in
+ * STORAGE_DIR, so nothing held here is reconciled into the index or read by the
+ * ordinary path. Held on disk rather than in memory because a note renamed
+ * outside Obsidian never comes back at the path it left, and comments held only
+ * for the session were gone when Obsidian closed (#259).
+ */
+export const HELD_DIR = "held";
 
 /**
  * The slice of Obsidian's DataAdapter this plugin uses.
@@ -520,6 +530,53 @@ export class CommentStorage {
 	 * back. Returning them rather than dropping them is what keeps the store from
 	 * being the last place they existed.
 	 */
+	private heldPath(filePath: string): string {
+		return normalizePath(`${STORAGE_DIR}/${HELD_DIR}/${hashString(filePath)}.json`);
+	}
+
+	/**
+	 * Set a note's comments aside, off the note but still on disk.
+	 *
+	 * Written before the sidecar is cleared, so a crash in between leaves two
+	 * copies rather than none — the same order `setAside` uses.
+	 *
+	 * Merged rather than replaced when something is already held: a note deleted
+	 * twice in one session came back in between, and the second delete carries
+	 * the newer set.
+	 */
+	async holdComments(filePath: string): Promise<Comment[]> {
+		const taken = await this.mutate(filePath, (existing) => (existing.length === 0 ? null : []));
+		if (taken.length === 0) return [];
+
+		const path = this.heldPath(filePath);
+		const held = await this.readHeld(path);
+		const known = new Set(held.map((comment) => comment.id));
+		const merged = [...held, ...taken.filter((comment) => !known.has(comment.id))];
+
+		await this.ensureDir();
+		const dir = normalizePath(`${STORAGE_DIR}/${HELD_DIR}`);
+		if (!(await this.adapter.exists(dir))) await this.adapter.mkdir(dir);
+		const sidecar: Sidecar = { version: FORMAT_VERSION, filePath, comments: merged };
+		await this.adapter.write(path, JSON.stringify(sidecar, null, 2));
+		return taken;
+	}
+
+	/** What is held for a note, and stop holding it. Null when nothing is. */
+	async releaseComments(filePath: string): Promise<Comment[] | null> {
+		const path = this.heldPath(filePath);
+		if (!(await this.adapter.exists(path))) return null;
+		const held = await this.readHeld(path);
+		await this.adapter.remove(path);
+		return held.length === 0 ? null : held;
+	}
+
+	private async readHeld(path: string): Promise<Comment[]> {
+		if (!(await this.adapter.exists(path))) return [];
+		const sidecar = parseSidecar(await this.adapter.read(path).catch(() => ""));
+		if (!sidecar || !isText(sidecar.filePath)) return [];
+		return sidecar.comments.filter((c): c is Comment => isCommentOf(sidecar.filePath as string, c));
+	}
+
 	async takeComments(filePath: string): Promise<Comment[]> {
 		return this.mutate(filePath, (existing) => (existing.length === 0 ? null : []));
 	}

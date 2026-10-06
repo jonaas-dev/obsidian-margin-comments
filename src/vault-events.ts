@@ -2,7 +2,7 @@ import { Notice, TFile, type TAbstractFile } from "obsidian";
 import type { CommentStorage } from "./storage";
 import type { OrphanedBehavior } from "./types";
 import { movesFor } from "./note-moves";
-import { DeletedNotes, describeNoteDeletion, describeNoteRestore } from "./deleted-notes";
+import { describeNoteDeletion, describeNoteRestore } from "./deleted-notes";
 import { describeStrandedComments } from "./note-moves";
 
 /** What keeping comments with their notes needs from the plugin. */
@@ -14,9 +14,6 @@ export interface NoteEventsHost {
 
 /** Keeps comments with their note through renames, moves, deletes and restores. */
 export class NoteEvents {
-	/** Comments waiting for their note to come back. See DeletedNotes. */
-	private deleted = new DeletedNotes();
-
 	constructor(private host: NoteEventsHost) {}
 
 	/**
@@ -74,10 +71,12 @@ export class NoteEvents {
 			return;
 		}
 
-		const comments = await this.host.storage.takeComments(file.path);
+		// Held on disk, not taken off it. A note renamed outside Obsidian arrives
+		// here as a delete and never comes back at the path it left, so comments
+		// held only for the session were gone when Obsidian closed (#259).
+		const comments = await this.host.storage.holdComments(file.path);
 		if (comments.length === 0) return;
 
-		this.deleted.remember(file.path, comments);
 		new Notice(describeNoteDeletion(file.path, comments.length));
 		await this.host.refresh();
 	}
@@ -93,7 +92,7 @@ export class NoteEvents {
 	async followCreate(file: TAbstractFile): Promise<void> {
 		if (!(file instanceof TFile) || file.extension !== "md") return;
 
-		const comments = this.deleted.recover(file.path);
+		const comments = await this.host.storage.releaseComments(file.path);
 		if (comments === null) return;
 
 		await this.host.storage.restoreComments(file.path, comments);
