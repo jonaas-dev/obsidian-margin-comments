@@ -223,6 +223,20 @@ export class CommentPanelView extends ItemView {
 		this.paintContent(container);
 		this.drafts.clear();
 		container.scrollTop = scrollTop;
+		// And again once the bodies have landed. A card is drawn before its body is
+		// rendered — more so since #263 moved rendering into a document of its own —
+		// so the heights that decide where scrollTop lands are not final yet, and
+		// restoring only once left the list 42 px from where it was (#162).
+		if (scrollTop > 0) {
+			const win = container.ownerDocument.defaultView ?? window;
+			win.setTimeout(() => {
+				win.setTimeout(() => {
+					// Only while the list is still the one that was measured: a
+					// navigation in between starts from the top on purpose.
+					if (this.paintedList === shown) container.scrollTop = scrollTop;
+				}, 0);
+			}, 0);
+		}
 	}
 
 	/**
