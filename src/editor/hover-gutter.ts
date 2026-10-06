@@ -79,8 +79,8 @@ const countEnabledField = StateField.define<boolean>({
 
 class CommentMarker extends GutterMarker {
 	constructor(
-		private count: number,
-		private showCount: boolean,
+		private readonly count: number,
+		private readonly showCount: boolean,
 	) {
 		super();
 	}
@@ -136,7 +136,7 @@ class HoverTracker implements PluginValue {
 	private timer: number | null = null;
 	private current: number | null = null;
 
-	constructor(private view: EditorView) {
+	constructor(private readonly view: EditorView) {
 		this.onMove = this.onMove.bind(this);
 		this.onLeave = this.onLeave.bind(this);
 		view.scrollDOM.addEventListener("mousemove", this.onMove);

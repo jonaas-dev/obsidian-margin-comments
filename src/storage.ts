@@ -214,16 +214,16 @@ export function describeInvalidComments(filePath: string, count: number, keptAt:
 }
 
 export class CommentStorage {
-	private cache = new Map<string, Comment[]>();
+	private readonly cache = new Map<string, Comment[]>();
 	private index: Index | null = null;
 	/**
 	 * Serialises each storage file's read, change and write; interleaved ones lose
 	 * comments. Keyed by the file's path, so a change reported on disk (see
 	 * changedOnDisk) waits for a write of this store's own to finish.
 	 */
-	private queues = new Map<string, Promise<unknown>>();
+	private readonly queues = new Map<string, Promise<unknown>>();
 	/** Notes whose sidecar a newer plugin wrote. See accept. */
-	private readOnly = new Set<string>();
+	private readonly readOnly = new Set<string>();
 	/** Set when a newer plugin wrote the index. See indexFrom. */
 	private indexReadOnly = false;
 	/**
@@ -231,13 +231,13 @@ export class CommentStorage {
 	 * file is gone. It is what tells a change another device made apart from the file
 	 * events this store's own writes fire.
 	 */
-	private known = new Map<string, string | null>();
+	private readonly known = new Map<string, string | null>();
 	/** Sidecars no index entry can be built from, so they are not re-read on every load. */
-	private unindexable = new Set<string>();
+	private readonly unindexable = new Set<string>();
 
 	constructor(
-		private adapter: StorageAdapter,
-		private options: StorageOptions = {},
+		private readonly adapter: StorageAdapter,
+		private readonly options: StorageOptions = {},
 	) {}
 
 	private sidecarPath(filePath: string): string {

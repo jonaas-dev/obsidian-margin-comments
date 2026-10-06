@@ -27,7 +27,7 @@ export interface ThreadRoutingHost {
 export class ThreadRouting {
 	private composer: FloatingComposer | null = null;
 
-	constructor(private host: ThreadRoutingHost) {}
+	constructor(private readonly host: ThreadRoutingHost) {}
 
 	/** Close the composer, if one is open. */
 	close(): void {

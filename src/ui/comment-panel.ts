@@ -78,7 +78,7 @@ export interface PanelHost extends ThreadActions {
 export class CommentPanelView extends ItemView {
 	/** Root id to highlight after the next render, set when arriving from a marker. */
 	private pendingSelection: string | null = null;
-	private cards = new Map<string, HTMLElement>();
+	private readonly cards = new Map<string, HTMLElement>();
 	/** Last data loaded, so filter and sort can redraw without touching disk. */
 	private active: { filePath: string; doc: string; comments: Comment[] } | null = null;
 	/** Vault rows, straight from the index: paths and counts, no sidecars. */
@@ -86,8 +86,8 @@ export class CommentPanelView extends ItemView {
 	/** Notes whose section is open. Deliberately not persisted — it is a reading
 	 *  position, and restoring twenty open sections on startup would defeat the
 	 *  laziness the view is built around. */
-	private expanded = new Set<string>();
-	private hydrated = new Map<string, NoteData>();
+	private readonly expanded = new Set<string>();
+	private readonly hydrated = new Map<string, NoteData>();
 	/** The list the last paint drew, so repainting the same one keeps its place. */
 	private paintedList: string | null = null;
 	/** Drafts rescued from the cards being replaced, alive only across one repaint. */
@@ -105,7 +105,7 @@ export class CommentPanelView extends ItemView {
 
 	constructor(
 		leaf: WorkspaceLeaf,
-		private host: PanelHost,
+		private readonly host: PanelHost,
 	) {
 		super(leaf);
 	}

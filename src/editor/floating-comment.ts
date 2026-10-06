@@ -37,7 +37,7 @@ export class FloatingComposer {
 	/** The document the composer is drawn in and listens on. See open. */
 	private owner: Document = document;
 
-	constructor(private options: ComposerOptions) {}
+	constructor(private readonly options: ComposerOptions) {}
 
 	/**
 	 * Open inside `container`, which belongs to the window the reader acted in: a note

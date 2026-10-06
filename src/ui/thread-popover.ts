@@ -34,10 +34,10 @@ export class ThreadPopover extends Component {
 	 * turn it on without rebuilding the popover.
 	 */
 	constructor(
-		private app: App,
-		private actions: ThreadActions,
-		private sheet: () => boolean = () => false,
-		private touch: () => boolean = () => false,
+		private readonly app: App,
+		private readonly actions: ThreadActions,
+		private readonly sheet: () => boolean = () => false,
+		private readonly touch: () => boolean = () => false,
 	) {
 		super();
 	}

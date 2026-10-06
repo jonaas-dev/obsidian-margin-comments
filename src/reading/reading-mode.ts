@@ -31,9 +31,9 @@ export interface ReadingModeHost {
 /** Comments in reading mode: marks on the rendered note, and threads opened from them. */
 export class ReadingMode {
 	/** Threads resolved for reading mode, keyed by note path and text digest. See threadsFor. */
-	private threads = new Map<string, Thread[]>();
+	private readonly threads = new Map<string, Thread[]>();
 
-	constructor(private host: ReadingModeHost) {}
+	constructor(private readonly host: ReadingModeHost) {}
 
 	/**
 	 * Forget every resolved thread.

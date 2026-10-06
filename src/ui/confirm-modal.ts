@@ -20,9 +20,9 @@ export interface ConfirmOptions {
 export class ConfirmModal extends Modal {
 	constructor(
 		app: App,
-		private question: string,
-		private onConfirm: () => void | Promise<void>,
-		private options: ConfirmOptions = {},
+		private readonly question: string,
+		private readonly onConfirm: () => void | Promise<void>,
+		private readonly options: ConfirmOptions = {},
 	) {
 		super(app);
 	}

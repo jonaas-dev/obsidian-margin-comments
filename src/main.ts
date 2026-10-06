@@ -85,7 +85,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	private popoverFile: string | null = null;
 	/** Owned by the plugin, not the panel: the panel is rebuilt on every close
 	 *  and reopen, and the notice has to stay silent across both. */
-	private orphanNotice = new OrphanNotice();
+	private readonly orphanNotice = new OrphanNotice();
 
 	async onload(): Promise<void> {
 		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
@@ -700,7 +700,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	}
 
 	/** Redraw once typing stops. See the editor-change registration. */
-	private refreshSoon: Debounced = debounce(() => void this.refresh(), REFRESH_DEBOUNCE_MS);
+	private readonly refreshSoon: Debounced = debounce(() => void this.refresh(), REFRESH_DEBOUNCE_MS);
 
 	/** Redraw markers, highlights and the panel. Part of SettingsHost. */
 	async refresh(): Promise<void> {

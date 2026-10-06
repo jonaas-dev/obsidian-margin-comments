@@ -36,7 +36,7 @@ export interface SettingsHost extends Plugin {
 export class InlineCommentsSettingTab extends PluginSettingTab {
 	constructor(
 		app: App,
-		private host: SettingsHost,
+		private readonly host: SettingsHost,
 	) {
 		super(app, host);
 	}
