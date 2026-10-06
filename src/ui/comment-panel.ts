@@ -20,7 +20,7 @@ import {
 	vaultEmptyStateMessage,
 	type VaultSection,
 } from "./vault-sections";
-import { renderThreadCard, type ThreadActions } from "./thread-card";
+import { renderThreadCard, type CardDrafts, type ThreadActions } from "./thread-card";
 import { orphanCount } from "./orphans";
 
 export const COMMENT_PANEL_VIEW = "margin-comments-panel";
@@ -89,6 +89,8 @@ export class CommentPanelView extends ItemView {
 	private hydrated = new Map<string, NoteData>();
 	/** The list the last paint drew, so repainting the same one keeps its place. */
 	private paintedList: string | null = null;
+	/** Drafts rescued from the cards being replaced, alive only across one repaint. */
+	private drafts = new Map<string, CardDrafts>();
 	/**
 	 * Lifecycle owner of the cards drawn by the current paint.
 	 *
@@ -213,8 +215,58 @@ export class CommentPanelView extends ItemView {
 		const shown = this.host.scope() === "vault" ? "vault" : `note:${this.active?.filePath ?? ""}`;
 		const scrollTop = shown === this.paintedList ? container.scrollTop : 0;
 		this.paintedList = shown;
+		// Taken before the scroller is emptied and handed back during the repaint,
+		// the way the scroll position already was. Keyed by id rather than by
+		// position, so a card that moved or a list that was filtered still gets its
+		// own text back — and a draft whose card is gone is simply dropped (#267).
+		this.drafts = this.harvestDrafts();
 		this.paintContent(container);
+		this.drafts.clear();
 		container.scrollTop = scrollTop;
+	}
+
+	/**
+	 * Half-written text in the cards about to be destroyed, by thread root id.
+	 *
+	 * The reply field keeps its draft on blur on purpose (#136), but the panel
+	 * empties its scroller on every repaint, and a repaint arrives whenever the
+	 * active leaf changes, 300 ms after a keystroke in the note, and after every
+	 * comment write. Clicking back into the note was enough to lose a reply.
+	 */
+	private harvestDrafts(): Map<string, CardDrafts> {
+		const drafts = new Map<string, CardDrafts>();
+		const forRoot = (id: string): CardDrafts => {
+			const existing = drafts.get(id);
+			if (existing) return existing;
+			const made: CardDrafts = {};
+			drafts.set(id, made);
+			return made;
+		};
+
+		for (const [rootId, card] of this.cards) {
+			const reply = card.querySelector<HTMLTextAreaElement>(".inline-comment-replybox-input");
+			// Only text worth keeping: an untouched field is not a draft, and
+			// restoring one would stand every box open after a repaint.
+			//
+			// A disabled field is mid-write (#266), and this repaint is the one that
+			// write asked for. Its own callback clears or re-enables it, so taking a
+			// copy here would put a reply back after it had been sent.
+			if (reply && !reply.disabled && reply.value.trim() !== "") {
+				forRoot(rootId).reply = reply.value;
+			}
+
+			const open = Array.from(
+				card.querySelectorAll<HTMLTextAreaElement>(".inline-comment-editor-input"),
+			);
+			if (open.length === 0) continue;
+			const edits = new Map<string, string>();
+			for (const box of open) {
+				const id = box.dataset.commentId;
+				if (id !== undefined && !box.disabled) edits.set(id, box.value);
+			}
+			if (edits.size > 0) forRoot(rootId).edits = edits;
+		}
+		return drafts;
 	}
 
 	private paintContent(container: HTMLElement): void {
@@ -390,6 +442,7 @@ export class CommentPanelView extends ItemView {
 			onReveal: reveal,
 			doc,
 			touch: this.host.touch(),
+			drafts: this.drafts.get(thread.root.id),
 		});
 		if (!thread.orphaned) card.addEventListener("click", reveal);
 		// Reaching a different card is the reader turning their attention to the
