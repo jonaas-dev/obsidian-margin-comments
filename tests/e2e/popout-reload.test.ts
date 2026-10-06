@@ -83,9 +83,12 @@ describe("a popout that was open before the plugin loaded", () => {
 			timeout: 15000,
 		});
 		await popout.locator(".markdown-reading-view .inline-comment-reading-mark").first().click();
-		await popout.waitForTimeout(1200);
 
-		// In the popout, which is the window the reader clicked in (#236).
+		// Waited for, not slept through: this is the heaviest test in the suite —
+		// a popout, a plugin reload, then a click in the second window — so a fixed
+		// delay is the first thing to come up short under load (#294). In the
+		// popout, which is the window the reader clicked in (#236).
+		await popout.waitForSelector(".inline-comment-popover", { timeout: 15000 });
 		expect(await popout.locator(".inline-comment-popover").count()).toBe(1);
 	});
 
@@ -106,7 +109,12 @@ describe("a popout that was open before the plugin loaded", () => {
 		}, NOTE);
 
 		await popout.locator(".markdown-reading-view").first().click({ position: { x: 5, y: 5 } });
-		await main.waitForTimeout(1000);
+		// Polled until the selection clears rather than read once after a delay.
+		await main.waitForFunction(
+			() => document.querySelectorAll(".inline-comment-card.is-selected").length === 0,
+			undefined,
+			{ timeout: 15000 },
+		);
 		const after = await main.evaluate(
 			() => document.querySelectorAll(".inline-comment-card.is-selected").length,
 		);

@@ -68,7 +68,16 @@ describe("a comment the store refuses to save", () => {
 		await page.locator(".inline-comment-composer-input").click();
 		await page.locator(".inline-comment-composer-input").fill(TYPED);
 		await page.locator(".inline-comment-composer .mod-cta").click();
-		await page.waitForTimeout(2000);
+
+		// Waited for rather than slept through. A Notice is on screen for a few
+		// seconds and then gone, so reading it after a fixed delay races Obsidian's
+		// own dismissal — which is how this test failed in full-suite runs while
+		// passing alone (#294).
+		const notice = await page
+			.locator(".notice", { hasText: "newer version" })
+			.first()
+			.textContent({ timeout: 15000 });
+		expect(notice ?? "").toContain("newer version");
 
 		const after = await page.evaluate(() => {
 			const input = document.querySelector(
@@ -77,18 +86,12 @@ describe("a comment the store refuses to save", () => {
 			return {
 				stillOpen: document.querySelector(".inline-comment-composer") !== null,
 				text: input?.value ?? null,
-				notice:
-					document.querySelector(".notice")?.textContent ??
-					document.querySelector(".notice-container")?.textContent ??
-					null,
 			};
 		});
 
 		// The composer is the only place that text exists; closing it loses it.
 		expect(after.stillOpen).toBe(true);
 		expect(after.text).toBe(TYPED);
-		// And the reader is told, rather than left wondering why nothing happened.
-		expect(after.notice ?? "").toContain("newer version");
 
 		// Nothing was written either, so the refusal is real and not cosmetic.
 		const stored = await page.evaluate(async (note: string) => {
