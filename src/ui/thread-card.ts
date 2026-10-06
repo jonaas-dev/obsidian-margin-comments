@@ -1,4 +1,4 @@
-import { App, Component, MarkdownRenderer, setIcon } from "obsidian";
+import { App, Component, setIcon } from "obsidian";
 import type { Comment } from "../types";
 import { formatRelativeTime, type Thread } from "./threads";
 import { orphanExplanation } from "./orphans";
@@ -7,7 +7,7 @@ import { keyIntent } from "./key-intent";
 import { emptyLineLabel } from "./labels";
 import { shouldClamp } from "./clamp";
 import { displayQuote } from "./quote-text";
-import { sanitizeCommentBody } from "./sanitize-comment-body";
+import { renderCommentBody } from "./render-comment-body";
 
 export interface ThreadActions {
 	/**
@@ -301,7 +301,7 @@ function renderComment(
 	// Bodies come from sidecar files, which may have been written by someone else
 	// in a shared vault. Sanitize them before rendering so remote images cannot
 	// be used as read receipts and other notes are not embedded without a click.
-	void MarkdownRenderer.render(app, sanitizeCommentBody(comment.content), body, filePath, component).then(() => {
+	void renderCommentBody(app, comment.content, body, filePath, component).then(() => {
 		// Measured after rendering because the height is a property of the output,
 		// not of the Markdown: a table and a paragraph of the same length are not
 		// the same number of lines.
