@@ -17,6 +17,23 @@ function badge(alt: RegExp): { alt: string; src: string } {
 }
 
 describe("README badges", () => {
+	it("says what the coverage badge measures, not just a number", () => {
+		// "coverage 98%" would be a number nobody can check. #252 settled that the
+		// measured figure is unit coverage with the Obsidian-bound files excluded,
+		// so the label has to say so — the badge is read by people who will not
+		// open vitest.coverage.config.ts.
+		const { alt, src } = badge(/^unit coverage /);
+		expect(alt).toMatch(/^unit coverage \d+(\.\d+)?%$/);
+		expect(src).toContain("/badge/unit coverage-");
+	});
+
+	it("is kept honest by a check and not by a promise", () => {
+		// The number itself is compared with coverage-summary.json by
+		// `npm run badges -- --check`, which CI runs straight after measuring. This
+		// pins the part that check cannot see: that the badge is still there.
+		expect(readme).toContain('alt="unit coverage');
+	});
+
 	it("names the minimum Obsidian version manifest.json declares", () => {
 		const obsidian = badge(/^Obsidian /);
 		expect(obsidian.alt).toBe(`Obsidian ${manifest.minAppVersion} or later`);

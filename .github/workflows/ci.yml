@@ -49,6 +49,11 @@ jobs:
       - name: Unit coverage
         run: npm run test:coverage
 
+      # Straight after the measurement, so the README cannot drift from it. A
+      # badge typed by hand is a thing that looks green and proves nothing (#256).
+      - name: Coverage badge matches the measurement
+        run: npm run badges -- --check
+
   leaks:
     # The pre-commit hook covers the same ground locally, but it is opt-in
     # (core.hooksPath) and --no-verify skips it. This job is the enforced copy.
