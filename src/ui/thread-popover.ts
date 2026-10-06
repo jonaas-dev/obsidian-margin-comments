@@ -117,6 +117,8 @@ export class ThreadPopover extends Component {
 
 	private renderCards(threads: Thread[], filePath: string, doc?: string): void {
 		if (!this.el) return;
+		// Obsidian's Component.removeChild, which unloads the child; not the DOM's.
+		// See the note in comment-panel.ts on typescript:S7762.
 		if (this.cardScope) this.removeChild(this.cardScope);
 		this.cardScope = new Component();
 		this.addChild(this.cardScope);

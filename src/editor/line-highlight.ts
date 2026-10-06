@@ -3,7 +3,7 @@ import { StateEffect, StateField, type Extension } from "@codemirror/state";
 import { resolveMarkers, type LineRange } from "./marker-pass";
 import type { Comment } from "../types";
 
-export type { LineRange };
+export type { LineRange } from "./marker-pass";
 
 /**
  * Line spans that should be tinted, resolved against the current document.

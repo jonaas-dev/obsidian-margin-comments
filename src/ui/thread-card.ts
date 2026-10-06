@@ -101,8 +101,9 @@ function iconButton(parent: HTMLElement, options: IconButtonOptions): HTMLElemen
 	// rule wins on specificity (0,1,1 against a lone class) and paints every icon
 	// with a filled chip and no hover response — measured, the pencil's colour and
 	// background were identical with the pointer on it and off it (#96).
+	const extra = options.extraClass ? ` ${options.extraClass}` : "";
 	const button = parent.createEl("button", {
-		cls: `clickable-icon inline-comment-action${options.extraClass ? ` ${options.extraClass}` : ""}`,
+		cls: `clickable-icon inline-comment-action${extra}`,
 		attr: { "aria-label": options.label, title: options.label },
 	});
 	setIcon(button, options.icon);
@@ -129,8 +130,9 @@ interface TextButtonOptions {
  * so both ways of writing a comment end the same way.
  */
 function textButton(parent: HTMLElement, options: TextButtonOptions): HTMLElement {
+	const extra = options.extraClass ? ` ${options.extraClass}` : "";
 	const button = parent.createEl("button", {
-		cls: `inline-comment-btn${options.extraClass ? ` ${options.extraClass}` : ""}`,
+		cls: `inline-comment-btn${extra}`,
 		text: options.text,
 		attr: { "aria-label": options.label },
 	});
@@ -235,25 +237,34 @@ export function renderThreadCard(
 		});
 	}
 
-	renderComment(card, thread.root, filePath, true, app, component, actions, options);
+	// The five things every comment in this card is drawn against, gathered once:
+	// passing them one by one made renderComment an eight-parameter function
+	// nobody could call without counting (typescript:S107).
+	const scope: CommentScope = { filePath, app, component, actions, options };
+	renderComment(card, thread.root, true, scope);
 	for (const reply of thread.replies) {
 		const replyEl = card.createDiv({ cls: "inline-comment-reply" });
-		renderComment(replyEl, reply, filePath, false, app, component, actions, options);
+		renderComment(replyEl, reply, false, scope);
 	}
 
 	renderReplyBox(card, thread.root, actions, options);
 	return card;
 }
 
+/** What a card is drawn against: the same for every comment in it. */
+interface CommentScope {
+	filePath: string;
+	app: App;
+	component: Component;
+	actions: ThreadActions;
+	options: CardOptions;
+}
+
 function renderComment(
 	parent: HTMLElement,
 	comment: Comment,
-	filePath: string,
 	isRoot: boolean,
-	app: App,
-	component: Component,
-	actions: ThreadActions,
-	options: CardOptions,
+	{ filePath, app, component, actions, options }: CommentScope,
 ): void {
 	const meta = parent.createDiv({ cls: "inline-comment-meta" });
 	meta.createSpan({ text: comment.author || "You", cls: "inline-comment-author" });
@@ -481,7 +492,7 @@ function startEditing(
 	// the reply field — the text being edited and the box editing it separated
 	// by the entire conversation (#99).
 	const editor = parent.createDiv({ cls: "inline-comment-editor" });
-	body.insertAdjacentElement("afterend", editor);
+	body.after(editor);
 	const textarea = editor.createEl("textarea", {
 		cls: "inline-comment-editor-input",
 		attr: { "aria-label": "Edit comment" },

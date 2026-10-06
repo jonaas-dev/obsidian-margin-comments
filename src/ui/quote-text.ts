@@ -37,7 +37,9 @@ export function displayQuote(source: string): string {
 		.replace(/~~(?=\S)(.*?\S)~~/g, "$1")
 		.replace(/==(?=\S)(.*?\S)==/g, "$1")
 		.replace(/(^|[^\w*])\*(?=\S)([^*]*?[^*\s])\*(?![\w*])/g, "$1$2")
-		.replace(/(^|[^\w_])_(?=\S)([^_]*?[^_\s])_(?![\w_])/g, "$1$2")
+		// \w already covers _, so naming it again in these classes said nothing, and
+		// a class holding one thing is that thing.
+		.replace(/(^|\W)_(?=\S)([^_]*?[^_\s])_(?!\w)/g, "$1$2")
 		// Line prefixes: headings, quotes, tasks, bullets, numbered items.
 		.replace(/^\s*#{1,6}\s+/, "")
 		.replace(/^\s*>\s?/, "")

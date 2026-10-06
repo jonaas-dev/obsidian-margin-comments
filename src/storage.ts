@@ -213,6 +213,19 @@ export function describeInvalidComments(filePath: string, count: number, keptAt:
 	return `${count} ${noun} in ${noteName(filePath)} could not be read and ${verb} set aside in ${keptAt}.`;
 }
 
+/**
+ * Lock order for `exclusive`, by code unit rather than by locale.
+ *
+ * What this order has to be is the same for every caller; what it must not be is
+ * sensitive to anything outside the process, which is why localeCompare is wrong
+ * here however much typescript:S2871 likes it. Sidecar names are hex and ".json",
+ * so there is nothing for a locale to have an opinion about.
+ */
+const byCodeUnit = (a: string, b: string): number => {
+	if (a < b) return -1;
+	return a > b ? 1 : 0;
+};
+
 export class CommentStorage {
 	private readonly cache = new Map<string, Comment[]>();
 	private index: Index | null = null;
@@ -268,14 +281,7 @@ export class CommentStorage {
 	 */
 	private exclusive<T>(filePaths: string[], work: () => Promise<T>): Promise<T> {
 		const paths = [...new Set(filePaths.map((filePath) => this.sidecarPath(filePath)))];
-		// By code unit, deliberately, not by locale. What this order has to be is the
-		// same for every caller; what it must not be is sensitive to anything outside
-		// the process. Sidecar names are hex and ".json", so there is nothing for a
-		// locale to have an opinion about, and localeCompare would add one.
-		return this.holding(
-			paths.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
-			work,
-		);
+		return this.holding([...paths].sort(byCodeUnit), work);
 	}
 
 	private holding<T>(paths: string[], work: () => Promise<T>): Promise<T> {
@@ -783,6 +789,9 @@ export class CommentStorage {
 			if (isIndex) return true;
 
 			this.unindexable.delete(changed);
+			// Copied before iterating, because the body deletes from the map it is
+			// walking. typescript:S7747 reads the spread as a pointless conversion;
+			// without it this mutates the collection it is iterating.
 			for (const filePath of [...this.cache.keys()]) {
 				if (this.sidecarPath(filePath) !== changed) continue;
 				this.cache.delete(filePath);

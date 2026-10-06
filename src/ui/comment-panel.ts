@@ -193,6 +193,8 @@ export class CommentPanelView extends ItemView {
 		this.sections = await this.host.loadVault();
 		const present = new Set(this.sections.map((section) => section.filePath));
 
+		// Copied before iterating: the body deletes from this set. See the note in
+		// storage.ts on typescript:S7747.
 		for (const filePath of [...this.expanded]) {
 			if (!present.has(filePath)) {
 				this.expanded.delete(filePath);
@@ -439,7 +441,14 @@ export class CommentPanelView extends ItemView {
 		return threads;
 	}
 
-	/** Drop the previous paint's child components before drawing the next. */
+	/**
+	 * Drop the previous paint's child components before drawing the next.
+	 *
+	 * `removeChild` here is Obsidian's Component method, which unloads the child —
+	 * not the DOM one. typescript:S7762 reads it as DOM and asks for
+	 * `cardScope.remove()`, which would unload nothing and leak a component per
+	 * repaint; markdown-cards.test.ts counts exactly that.
+	 */
 	private resetCardScope(): void {
 		if (this.cardScope) this.removeChild(this.cardScope);
 		this.cardScope = new Component();

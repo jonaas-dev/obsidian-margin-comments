@@ -26,6 +26,10 @@ function toHex8(value: number): string {
 }
 
 /** Stable 16-character hex digest of a string. Synchronous and platform-independent. */
+// typescript:S7758 asks for codePointAt here and is wrong: these hashes name
+// sidecar files. codePointAt returns a different value for anything outside the
+// BMP, so an emoji in a note's path would change its sidecar's name and every
+// comment already stored for it would stop being found.
 export function hashString(input: string): string {
 	return toHex8(fnv1a(input, OFFSET_BASIS_A)) + toHex8(fnv1a(input, OFFSET_BASIS_B));
 }
