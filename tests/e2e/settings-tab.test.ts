@@ -153,11 +153,25 @@ describe("settings tab", () => {
 		expect(storedSettings().author).toBe("Ada");
 	});
 
+	/**
+	 * Visible rather than present.
+	 *
+	 * #250 moved the tab to Obsidian's declarative settings, where a row that
+	 * does not apply is rendered and hidden by a `visible` predicate rather than
+	 * left undrawn. Measured during that change: the row is in the DOM with
+	 * isVisible() false. What the reader sees is what this is about, so the
+	 * assertion follows the reader.
+	 */
+	const pickerVisible = async (): Promise<boolean> => {
+		const row = settingNamed("Highlight colour");
+		return (await row.count()) > 0 && (await row.first().isVisible());
+	};
+
 	it("reveals the colour picker only once the theme stops driving the colour", async () => {
-		expect(await settingNamed("Highlight colour").count()).toBe(0);
+		expect(await pickerVisible()).toBe(false);
 		await controlOf("Follow the theme accent", ".checkbox-container").click();
 		await page.waitForTimeout(800);
-		expect(await settingNamed("Highlight colour").count()).toBe(1);
+		expect(await pickerVisible()).toBe(true);
 	});
 
 	it("publishes the chosen colour to the stylesheet as it is chosen", async () => {
@@ -171,7 +185,7 @@ describe("settings tab", () => {
 	it("hides the picker again when the theme takes over", async () => {
 		await controlOf("Follow the theme accent", ".checkbox-container").click();
 		await page.waitForTimeout(800);
-		expect(await settingNamed("Highlight colour").count()).toBe(0);
+		expect(await pickerVisible()).toBe(false);
 		expect(storedSettings().highlightColor).toBe("theme");
 	});
 
