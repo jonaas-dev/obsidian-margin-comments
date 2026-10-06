@@ -8,12 +8,32 @@
  * a long paragraph off the editor's back.
  *
  * Returns `max + 1` to mean "further than max", never the real distance.
+ *
+ * typescript:S3776 still reads this at 19 against a limit of 15, with the guards
+ * already lifted out. The rest of the count is the band fill itself, and this is
+ * the loop the timing budgets in #252 exist to watch: splitting it would put a
+ * call in the innermost statement of the hottest path to satisfy a measure of
+ * how the code reads. It reads as one algorithm because it is one.
  */
-export function boundedLevenshtein(a: string, b: string, max: number): number {
+/**
+ * The distance when it can be had without filling a table, or null.
+ *
+ * Two strings whose lengths differ by more than `max` cannot be within it
+ * whatever they contain, and an empty string's distance is the other's length.
+ * Kept out of the loop below so that function reads as the band fill it is.
+ */
+function withoutMeasuring(a: string, b: string, max: number): number | null {
 	const beyond = max + 1;
 	if (Math.abs(a.length - b.length) > max) return beyond;
 	if (a.length === 0) return b.length <= max ? b.length : beyond;
 	if (b.length === 0) return a.length <= max ? a.length : beyond;
+	return null;
+}
+
+export function boundedLevenshtein(a: string, b: string, max: number): number {
+	const beyond = max + 1;
+	const trivial = withoutMeasuring(a, b, max);
+	if (trivial !== null) return trivial;
 
 	let previous = new Array<number>(b.length + 1).fill(beyond);
 	for (let j = 0; j <= Math.min(b.length, max); j++) previous[j] = j;

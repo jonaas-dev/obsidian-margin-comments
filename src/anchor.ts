@@ -280,6 +280,19 @@ const isComplete = (context: string): boolean => context.length < CONTEXT_LENGTH
  * comment is reported lost, which is recoverable; placing it somewhere arbitrary
  * is not.
  */
+/**
+ * Whether one side of the context is good enough to place the comment on its own.
+ *
+ * A side that is empty because the note starts or ends there vouches for
+ * nothing. A short one that is all the note had is judged on matching in full;
+ * one we truncated at CONTEXT_LENGTH is judged on its ratio, because the part we
+ * kept is a sample rather than the whole neighbourhood.
+ */
+function vouchesFor(context: string, score: number): boolean {
+	if (context === "" || score < CONTEXT_MATCH_RATIO) return false;
+	return isComplete(context) || context.length >= CONTEXT_LENGTH;
+}
+
 export function matchEmptyLine(doc: string, anchor: TextAnchor): AnchorMatch | null {
 	const { contextBefore, contextAfter } = anchor;
 	let best: { at: number; score: number; distance: number } | null = null;
@@ -290,15 +303,7 @@ export function matchEmptyLine(doc: string, anchor: TextAnchor): AnchorMatch | n
 		const afterScore =
 			contextAfter === "" ? 1 : prefixMatchAt(doc, at, contextAfter) / contextAfter.length;
 
-		const beforeVouches =
-			contextBefore !== "" && beforeScore >= CONTEXT_MATCH_RATIO && isComplete(contextBefore);
-		const afterVouches =
-			contextAfter !== "" && afterScore >= CONTEXT_MATCH_RATIO && isComplete(contextAfter);
-		// A side longer than CONTEXT_LENGTH was truncated by us, not by the note, so
-		// it is judged on its ratio alone.
-		const longBefore = contextBefore.length >= CONTEXT_LENGTH && beforeScore >= CONTEXT_MATCH_RATIO;
-		const longAfter = contextAfter.length >= CONTEXT_LENGTH && afterScore >= CONTEXT_MATCH_RATIO;
-		if (!beforeVouches && !afterVouches && !longBefore && !longAfter) continue;
+		if (!vouchesFor(contextBefore, beforeScore) && !vouchesFor(contextAfter, afterScore)) continue;
 
 		const score = beforeScore + afterScore;
 		const distance = Math.abs(lineNumberAt(doc, at) - anchor.lineHint);

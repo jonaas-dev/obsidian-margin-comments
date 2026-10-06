@@ -115,6 +115,22 @@ function normalise(segments: string[]): {
 	let spaceStart: SourcePosition | null = null;
 	let spaceEnd: SourcePosition | null = null;
 
+	/**
+	 * Emit the run of whitespace just walked past as the single space it collapses
+	 * to. Leading whitespace is dropped rather than emitted: a match must not begin
+	 * on space the renderer collapsed away.
+	 */
+	const flushSpace = (): void => {
+		if (spaceStart === null) return;
+		if (text.length > 0 && spaceEnd !== null) {
+			text += " ";
+			starts.push(spaceStart);
+			ends.push(spaceEnd);
+		}
+		spaceStart = null;
+		spaceEnd = null;
+	};
+
 	for (let index = 0; index < segments.length; index++) {
 		const segment = segments[index];
 		for (let offset = 0; offset < segment.length; offset++) {
@@ -123,17 +139,7 @@ function normalise(segments: string[]): {
 				spaceEnd = { index, offset: offset + 1 };
 				continue;
 			}
-			if (spaceStart !== null) {
-				// Leading whitespace is dropped rather than emitted: a match must
-				// not begin on space the renderer collapsed away.
-				if (text.length > 0) {
-					text += " ";
-					starts.push(spaceStart);
-					ends.push(spaceEnd!);
-				}
-				spaceStart = null;
-				spaceEnd = null;
-			}
+			flushSpace();
 			text += segment[offset];
 			starts.push({ index, offset });
 			ends.push({ index, offset: offset + 1 });
