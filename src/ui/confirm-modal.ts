@@ -46,7 +46,7 @@ export class ConfirmModal extends Modal {
 					this.close();
 					await this.onConfirm();
 				});
-				if (destructive) button.setWarning();
+				if (destructive) button.setDestructive();
 				else button.setCta();
 			});
 	}

@@ -1,7 +1,10 @@
-import { App, Plugin, PluginSettingTab, Setting } from "obsidian";
+import { App, Plugin, PluginSettingTab, type SettingDefinitionItem } from "obsidian";
 import { FUZZY_THRESHOLD_MAX, FUZZY_THRESHOLD_MIN, type PluginSettings } from "./types";
 import { describeFuzzy } from "./settings-values";
 import { SORT_ORDERS, sortLabel } from "./ui/panel-sort";
+
+/** Not a stored setting: the toggle that decides whether highlightColor is "theme". */
+const FOLLOW_THEME = "followThemeAccent";
 
 /**
  * What the tab needs from the plugin.
@@ -41,186 +44,162 @@ export class InlineCommentsSettingTab extends PluginSettingTab {
 		super(app, host);
 	}
 
-	display(): void {
-		const { containerEl } = this;
-		containerEl.empty();
-
-		this.renderAuthor(containerEl);
-		this.renderAppearance(containerEl);
-		this.renderAnchoring(containerEl);
-		this.renderPanel(containerEl);
+	/**
+	 * The settings, declared rather than drawn.
+	 *
+	 * Obsidian 1.13 indexes these for the settings modal's search. Measured on
+	 * 1.13.7 before changing anything: with only `display()`, searching Settings
+	 * for "author" returned "No settings found." while a control term returned
+	 * Obsidian's own rows — so the tab really was invisible to search (#250).
+	 *
+	 * Values are read and written through getControlValue/setControlValue below,
+	 * keyed by the settings field, so there is one place that knows how a change
+	 * is persisted and applied.
+	 */
+	getSettingDefinitions(): SettingDefinitionItem[] {
+		return [
+			{
+				name: "Author name",
+				desc: "Stamped on comments you write from now on. Existing comments keep the name they were written under.",
+				control: { type: "text", key: "author", placeholder: "Unattributed" },
+			},
+			{
+				type: "group",
+				heading: "Appearance",
+				items: [
+					{
+						name: "Gutter icons",
+						desc: "The markers in the left margin. With these off, comments can only be added with the Add comment to selection command.",
+						control: { type: "toggle", key: "showGutterIcons" },
+					},
+					{
+						name: "Comment count",
+						desc: "Badges the gutter marker with the number of open threads on a line. A line with a single thread stays a bare icon.",
+						control: { type: "toggle", key: "showCommentCount" },
+					},
+					{
+						name: "Highlight commented lines",
+						desc: "Tints lines carrying an open comment. Resolved threads are never tinted.",
+						control: { type: "toggle", key: "showLineHighlights" },
+					},
+					{
+						name: "Follow the theme accent",
+						desc: "Tints from the accent colour of whichever theme is active, so the highlight keeps working after a theme change.",
+						control: { type: "toggle", key: FOLLOW_THEME },
+					},
+					{
+						name: "Highlight colour",
+						desc: "Used instead of the theme accent, in every theme.",
+						// Shown only while the theme is not driving the colour. This
+						// used to be a re-call of display(), which on 1.13 does not
+						// refresh declarative settings at all.
+						visible: () => this.host.settings.highlightColor !== "theme",
+						control: { type: "color", key: "highlightColor" },
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: "Anchoring",
+				items: [
+					{
+						name: "Fuzzy matching tolerance",
+						// The number means nothing on its own; this sentence is the
+						// only thing that says what it buys.
+						desc: describeFuzzy(this.host.settings.fuzzyThreshold),
+						control: {
+							type: "slider",
+							key: "fuzzyThreshold",
+							min: FUZZY_THRESHOLD_MIN,
+							max: FUZZY_THRESHOLD_MAX,
+							step: 0.05,
+						},
+					},
+					{
+						name: "When a note is deleted",
+						desc: "Deleted comments are kept and come back if the note does, so closing Obsidian no longer ends them. Kept comments stay readable under a 'not found' note in the all-notes view.",
+						control: {
+							type: "dropdown",
+							key: "orphanedBehavior",
+							options: { delete: "Delete its comments", keep: "Keep its comments" },
+						},
+					},
+				],
+			},
+			{
+				type: "group",
+				heading: "Panel",
+				items: [
+					{
+						name: "Side",
+						desc: "Which sidebar the comments panel opens in. An open panel moves immediately.",
+						control: {
+							type: "dropdown",
+							key: "panelPosition",
+							options: { right: "Right", left: "Left" },
+						},
+					},
+					{
+						name: "Sort order",
+						desc: "Also changed by the dropdown in the panel itself, which writes the same setting.",
+						control: {
+							type: "dropdown",
+							key: "sortOrder",
+							options: Object.fromEntries(SORT_ORDERS.map((o) => [o, sortLabel(o)])),
+						},
+					},
+				],
+			},
+		];
 	}
 
-	/** Write, persist, and let the plugin act on it. */
-	private commit(apply: () => void = () => undefined): void {
-		void (async () => {
-			apply();
-			await this.host.save();
-			await this.host.refresh();
-		})();
+	getControlValue(key: string): unknown {
+		// Not a stored field: the toggle asks whether the theme drives the colour,
+		// which is what "theme" in highlightColor means.
+		if (key === FOLLOW_THEME) return this.host.settings.highlightColor === "theme";
+		return this.host.settings[key as keyof PluginSettings];
 	}
 
-	private renderAuthor(container: HTMLElement): void {
-		new Setting(container)
-			.setName("Author name")
-			.setDesc(
-				"Stamped on comments you write from now on. Existing comments keep the name they were written under.",
-			)
-			.addText((text) =>
-				text
-					.setPlaceholder("Unattributed")
-					.setValue(this.host.settings.author)
-					.onChange((value) =>
-						this.commit(() => (this.host.settings.author = value.trim())),
-					),
-			);
-	}
-
-	private renderAppearance(container: HTMLElement): void {
-		new Setting(container).setName("Appearance").setHeading();
-
-		new Setting(container)
-			.setName("Gutter icons")
-			.setDesc(
-				"The markers in the left margin. With these off, comments can only be added with the Add comment to selection command.",
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.host.settings.showGutterIcons)
-					.onChange((value) =>
-						this.commit(() => (this.host.settings.showGutterIcons = value)),
-					),
-			);
-
-		new Setting(container)
-			.setName("Comment count")
-			.setDesc(
-				"Badges the gutter marker with the number of open threads on a line. A line with a single thread stays a bare icon.",
-			)
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.host.settings.showCommentCount)
-					.onChange((value) =>
-						this.commit(() => (this.host.settings.showCommentCount = value)),
-					),
-			);
-
-		new Setting(container)
-			.setName("Highlight commented lines")
-			.setDesc("Tints lines carrying an open comment. Resolved threads are never tinted.")
-			.addToggle((toggle) =>
-				toggle
-					.setValue(this.host.settings.showLineHighlights)
-					.onChange((value) =>
-						this.commit(() => (this.host.settings.showLineHighlights = value)),
-					),
-			);
-
-		const custom = this.host.settings.highlightColor !== "theme";
-		new Setting(container)
-			.setName("Follow the theme accent")
-			.setDesc(
-				"Tints from the accent colour of whichever theme is active, so the highlight keeps working after a theme change.",
-			)
-			.addToggle((toggle) =>
-				toggle.setValue(!custom).onChange((followTheme) => {
-					this.host.settings.highlightColor = followTheme ? "theme" : "#ffb454";
-					this.commit(() => this.host.applyHighlightColour());
-					// Redrawn rather than hidden: the colour picker is only
-					// meaningful while the theme is not driving the colour.
-					this.display();
-				}),
-			);
-
-		if (custom) {
-			new Setting(container)
-				.setName("Highlight colour")
-				.setDesc("Used instead of the theme accent, in every theme.")
-				.addColorPicker((picker) =>
-					picker.setValue(this.host.settings.highlightColor).onChange((value) =>
-						this.commit(() => {
-							this.host.settings.highlightColor = value;
-							this.host.applyHighlightColour();
-						}),
-					),
-				);
+	async setControlValue(key: string, value: unknown): Promise<void> {
+		const settings = this.host.settings;
+		switch (key) {
+			case FOLLOW_THEME:
+				settings.highlightColor = value === true ? "theme" : "#ffb454";
+				this.host.applyHighlightColour();
+				// The colour picker appears or disappears with this, and its
+				// visibility is a predicate rather than a redraw.
+				this.refreshDomState();
+				break;
+			case "highlightColor":
+				settings.highlightColor = String(value);
+				this.host.applyHighlightColour();
+				break;
+			case "author":
+				settings.author = String(value).trim();
+				break;
+			case "fuzzyThreshold":
+				settings.fuzzyThreshold = Number(value);
+				// The description quotes the value, so the definitions have to be
+				// rebuilt rather than merely re-evaluated.
+				this.update();
+				break;
+			case "orphanedBehavior":
+				settings.orphanedBehavior = value === "keep" ? "keep" : "delete";
+				break;
+			case "panelPosition":
+				settings.panelPosition = value === "left" ? "left" : "right";
+				await this.host.save();
+				await this.host.movePanel();
+				return;
+			case "sortOrder": {
+				const chosen = SORT_ORDERS.find((order) => order === value);
+				if (chosen) settings.sortOrder = chosen;
+				break;
+			}
+			default:
+				settings[key as "showGutterIcons"] = value === true;
 		}
-	}
-
-	private renderAnchoring(container: HTMLElement): void {
-		new Setting(container).setName("Anchoring").setHeading();
-
-		const fuzzy = new Setting(container)
-			.setName("Fuzzy matching tolerance")
-			.setDesc(describeFuzzy(this.host.settings.fuzzyThreshold));
-
-		fuzzy.addSlider((slider) =>
-			slider
-				.setLimits(FUZZY_THRESHOLD_MIN, FUZZY_THRESHOLD_MAX, 0.05)
-				.setValue(this.host.settings.fuzzyThreshold)
-				.setDynamicTooltip()
-				.onChange((value) =>
-					this.commit(() => {
-						this.host.settings.fuzzyThreshold = value;
-						// The number means nothing on its own; the sentence under
-						// the label is the only thing that says what it buys.
-						fuzzy.setDesc(describeFuzzy(value));
-					}),
-				),
-		);
-
-		new Setting(container)
-			.setName("When a note is deleted")
-			.setDesc(
-				"Deleted comments come back if the note is restored before Obsidian closes. Kept comments stay readable under a 'not found' note in the all-notes view.",
-			)
-			.addDropdown((dropdown) =>
-				dropdown
-					.addOption("delete", "Delete its comments")
-					.addOption("keep", "Keep its comments")
-					.setValue(this.host.settings.orphanedBehavior)
-					.onChange((value) =>
-						this.commit(() => {
-							this.host.settings.orphanedBehavior =
-								value === "keep" ? "keep" : "delete";
-						}),
-					),
-			);
-	}
-
-	private renderPanel(container: HTMLElement): void {
-		new Setting(container).setName("Panel").setHeading();
-
-		new Setting(container)
-			.setName("Side")
-			.setDesc("Which sidebar the comments panel opens in. An open panel moves immediately.")
-			.addDropdown((dropdown) =>
-				dropdown
-					.addOption("right", "Right")
-					.addOption("left", "Left")
-					.setValue(this.host.settings.panelPosition)
-					.onChange((value) => {
-						this.host.settings.panelPosition = value === "left" ? "left" : "right";
-						void (async () => {
-							await this.host.save();
-							await this.host.movePanel();
-						})();
-					}),
-			);
-
-		new Setting(container)
-			.setName("Sort order")
-			.setDesc(
-				"Also changed by the dropdown in the panel itself, which writes the same setting.",
-			)
-			.addDropdown((dropdown) => {
-				for (const order of SORT_ORDERS) dropdown.addOption(order, sortLabel(order));
-				dropdown.setValue(this.host.settings.sortOrder).onChange((value) =>
-					this.commit(() => {
-						const chosen = SORT_ORDERS.find((order) => order === value);
-						if (chosen) this.host.settings.sortOrder = chosen;
-					}),
-				);
-			});
+		await this.host.save();
+		await this.host.refresh();
 	}
 }
