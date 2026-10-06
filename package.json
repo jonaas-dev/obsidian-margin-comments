@@ -36,5 +36,12 @@
 		"prettier": "^3.4.0",
 		"typescript": "^5.7.0",
 		"vitest": "^5.0.0"
+	},
+	"overrides": {
+		"minimatch": {
+			"brace-expansion": "^5.0.12"
+		},
+		"source-map-js": "^1.2.2",
+		"moment": "^2.31.0"
 	}
 }

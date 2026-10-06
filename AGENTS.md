@@ -311,6 +311,23 @@ Bisect with the files that fail, then run the full suite on the candidate. Befor
 that fails, run the same command on the current release and watch it pass: a narrowed run that
 failed everywhere would look exactly like a version boundary.
 
+## Dependency audit overrides
+
+The plugin ships one bundled `main.js` and has **no runtime dependencies**, so every advisory
+`npm audit` reports comes from the build toolchain. That makes `--omit=dev` worthless as a
+relief valve: it would report 0 always and the gate would measure nothing. The `overrides` in
+`package.json` pin the fixed versions instead, so `--audit-level=moderate` keeps biting:
+
+| Override | Why it cannot be a plain update |
+| --- | --- |
+| `moment: ^2.31.0` | `obsidian@1.13.1` pins `2.29.4` exactly. The npm `obsidian` package is types-only and the real `moment` comes from the app at runtime, so forcing it changes nothing shipped. |
+| `minimatch > brace-expansion: ^5.0.12` | Scoped on purpose. Only the `brace-expansion@5` under `minimatch@10` is in the advisory range (`>=4.0.0 <5.0.12`); the `1.1.18` copies elsewhere are not, and a global override would drag them across a major. |
+| `source-map-js: ^1.2.2` | No direct dependent asks for it; the override is the only lever. |
+
+**Review these when `obsidian` or the eslint toolchain is next bumped** (set 2026-10-06, #282):
+drop an override as soon as the dependency resolves to a fixed version on its own. Leaving a
+stale override is how a real advisory gets pinned shut.
+
 ## Markdown rendering in cards
 
 `MarkdownRenderer.render(app, md, el, sourcePath, component)` — both arguments after
