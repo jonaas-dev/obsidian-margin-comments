@@ -406,7 +406,7 @@ function renderReplyBox(
 
 	const reset = (): void => {
 		input.value = "";
-		input.style.height = "";
+		input.style.removeProperty("height");
 		box.removeClass("is-active");
 		toggle?.show();
 	};
@@ -458,7 +458,10 @@ function renderReplyBox(
 		if (input.value.trim() === "") reset();
 	});
 	input.addEventListener("input", () => {
-		input.style.height = "auto";
+		// Cleared before measuring: scrollHeight of an element already stretched to
+		// its content reports that stretched height, so the field could grow and
+		// never shrink.
+		input.style.removeProperty("height");
 		input.style.height = `${input.scrollHeight}px`;
 	});
 	submitOnEnter(input, submit, () => {

@@ -343,7 +343,9 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 				? this.app.workspace.getLeftLeaf(false)
 				: this.app.workspace.getRightLeaf(false);
 		await leaf?.setViewState({ type: COMMENT_PANEL_VIEW, active: true });
-		if (leaf) this.app.workspace.revealLeaf(leaf);
+		// void: revealLeaf returns a promise and nothing here depends on it having
+		// settled, but dropping it silently is how an unhandled rejection happens.
+		if (leaf) void this.app.workspace.revealLeaf(leaf);
 	}
 
 	private async togglePanel(): Promise<void> {
