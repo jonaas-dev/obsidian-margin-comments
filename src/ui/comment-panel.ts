@@ -1,4 +1,5 @@
 import { Component, ItemView, Platform, setIcon, type WorkspaceLeaf } from "obsidian";
+import { listenInEveryWindow } from "../windows";
 import type { Comment, PanelScope, SortOrder } from "../types";
 import { buildThreads, type Thread } from "./threads";
 import {
@@ -126,7 +127,10 @@ export class CommentPanelView extends ItemView {
 		// commonest way to move on, and a panel-only listener never heard it
 		// (#119). pointerdown precedes the marker's own click, so pressing another
 		// marker clears first and selects after.
-		this.registerDomEvent(document, "pointerdown", () => this.clearSelection());
+		//
+		// And in every window: this had no popout counterpart at all, so a click in
+		// one never cleared the selection (#265).
+		listenInEveryWindow(this, this.app.workspace, "pointerdown", () => this.clearSelection());
 		await this.render();
 	}
 
