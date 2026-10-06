@@ -45,8 +45,10 @@ export function placeSheet(el: HTMLElement, win: Window = window): void {
 		contentHeight: el.scrollHeight + el.offsetHeight - el.clientHeight,
 	});
 	el.addClass("is-sheet");
-	el.style.left = "";
-	el.style.top = "";
+	// Removed rather than set to "": a sheet is positioned from the bottom, and
+	// leaving an inline left/top behind would fight the rules that place it.
+	el.style.removeProperty("left");
+	el.style.removeProperty("top");
 	el.style.bottom = `${bottom}px`;
 	el.style.maxHeight = `${maxHeight}px`;
 	el.dataset.placement = "sheet";

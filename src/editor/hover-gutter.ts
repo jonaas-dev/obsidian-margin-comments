@@ -137,13 +137,15 @@ class HoverTracker implements PluginValue {
 	private current: number | null = null;
 
 	constructor(private readonly view: EditorView) {
-		this.onMove = this.onMove.bind(this);
-		this.onLeave = this.onLeave.bind(this);
 		view.scrollDOM.addEventListener("mousemove", this.onMove);
 		view.scrollDOM.addEventListener("mouseleave", this.onLeave);
 	}
 
-	private onMove(event: MouseEvent): void {
+	// Arrow properties rather than methods bound in the constructor. Both are
+	// handed to addEventListener, and a method passed that way loses its `this`
+	// unless something binds it — which the binding in the constructor did, and
+	// nothing in the signature said so.
+	private readonly onMove = (event: MouseEvent): void => {
 		// Measure the gutter column rather than the editor's left edge: other
 		// plugins and the built-in line numbers sit to our left, so a fixed offset
 		// from the editor would miss the marker entirely once they are enabled.
@@ -159,11 +161,11 @@ class HoverTracker implements PluginValue {
 		}
 		const pos = this.view.posAtCoords({ x: event.clientX, y: event.clientY });
 		this.schedule(pos === null ? null : this.view.state.doc.lineAt(pos).number);
-	}
+	};
 
-	private onLeave(): void {
+	private readonly onLeave = (): void => {
 		this.schedule(null);
-	}
+	};
 
 	/** Debounced so the marker does not flicker while the pointer travels. */
 	private schedule(line: number | null): void {
