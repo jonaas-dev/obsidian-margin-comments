@@ -37,6 +37,13 @@ export default mergeConfig(
 	defineConfig({
 		test: {
 			env: { MEASURING_COVERAGE: "1" },
+			// The budgets stand down under instrumentation (tests/helpers/timing-budget.ts),
+			// but vitest's own clock does not, and the default 5000 ms is not a margin:
+			// the fuzzy re-anchoring case measured 4561 ms on one CI run and 5783 ms on
+			// the next, with no change to the code between them (#284). Long enough that
+			// only a test that has genuinely stopped hits it; the real budgets are proved
+			// by `npm test`, which keeps the default.
+			testTimeout: 60_000,
 			coverage: {
 				enabled: true,
 				provider: "v8",
