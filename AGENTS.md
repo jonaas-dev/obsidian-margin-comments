@@ -254,6 +254,30 @@ is specificity 0,1,1 and sets colour, background, border and padding — so styl
 finding the quote in the theme's button colour instead of muted, with the accent rule down
 its left edge gone too. Scope through an ancestor (`.inline-comment-card .inline-comment-quote`).
 
+## Asserting in the E2E suite
+
+Three tests passed alone and failed in full-suite runs before this was written
+down. All three waited a fixed number of milliseconds and then asserted on
+something that appears and disappears on its own: a `Notice`, an `is-active`
+class, a popover opened by a click that had to survive a plugin reload.
+
+- **Assert on what is stored, not on what is on screen**, wherever both say the
+  same thing. `stale-snapshot.test.ts` already does this and says why: a failure
+  then prints what was stored, which is the thing the bug is about.
+- **Where only the screen can say it**, wait for the condition instead of
+  sleeping before it: `waitForSelector`, `waitForFunction`, or a locator with
+  `hasText`. A slow run should be slow, not red.
+- **Be careful with state the pointer owns.** `is-active` is set by focus and
+  kept by hover, so an assertion on it measures where the mouse is as much as
+  what the code did. Move focus and the pointer away first, or assert on
+  something else.
+- **A test that cannot be made to fail is worth less than no test.** Two were
+  removed during #292 and #297 after being checked and found vacuous. A suite
+  whose failures sometimes mean nothing is how #286 sat broken for three weeks.
+
+The suite is deliberately out of CI, so a local run is its only reader. That is
+the whole argument: a failure has to mean something.
+
 ## Obsidian on Android
 
 **The keyboard does not shrink `visualViewport`.** Obsidian's Android app keeps the WebView at

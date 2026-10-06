@@ -20,16 +20,31 @@ describe("the settings tab in Obsidian's settings search", () => {
 	let session: { page: any; close(): Promise<void> };
 	let page: any;
 
-	const search = (term: string): Promise<string> =>
+	const readSearch = (term: string): Promise<string> =>
 		page.evaluate(async (query: string) => {
 			const setting: any = (window.app as any).setting;
 			setting.open();
-			await new Promise((r) => setTimeout(r, 400));
 			setting.searchComponent.setValue(query);
 			setting.searchComponent.inputEl.dispatchEvent(new Event("input"));
-			await new Promise((r) => setTimeout(r, 600));
+			await new Promise((r) => setTimeout(r, 150));
 			return (setting.searchResultsEl as HTMLElement)?.innerText ?? "";
 		}, term);
+
+	/**
+	 * Search until the results say something, rather than once after a delay.
+	 *
+	 * Opening the modal, building the index and filtering are all asynchronous,
+	 * and a fixed wait is the first thing to come up short in a full-suite run —
+	 * which this test did, the day after AGENTS.md gained the section saying so.
+	 */
+	const search = async (term: string, expected: RegExp): Promise<string> => {
+		const deadline = Date.now() + 15000;
+		for (;;) {
+			const results = await readSearch(term);
+			if (expected.test(results) || Date.now() >= deadline) return results;
+			await page.waitForTimeout(250);
+		}
+	};
 
 	beforeAll(async () => {
 		vault = createTempVault({ "note.md": "alpha" });
@@ -47,20 +62,20 @@ describe("the settings tab in Obsidian's settings search", () => {
 
 	it("finds a setting by a word only this plugin uses", async () => {
 		// "author" appears in no built-in setting, so a hit can only be ours.
-		const results = await search("author");
-		expect(results).toMatch(/author name/i);
+		expect(await search("author", /author name/i)).toMatch(/author name/i);
 	});
 
 	it("finds one by a word the built-in settings also use", async () => {
 		// "highlight" matches Obsidian's own rows too; ours has to be among them
 		// rather than crowded out.
-		const results = await search("highlight");
-		expect(results).toMatch(/highlight commented lines/i);
+		expect(await search("highlight", /highlight commented lines/i)).toMatch(
+			/highlight commented lines/i,
+		);
 	});
 
 	it("still searches Obsidian's own settings", async () => {
 		// A control, so a pass above cannot come from the search being broken in
 		// a way that returns everything.
-		expect(await search("theme")).toMatch(/theme/i);
+		expect(await search("theme", /theme/i)).toMatch(/theme/i);
 	});
 });
