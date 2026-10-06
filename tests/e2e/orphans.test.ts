@@ -134,9 +134,11 @@ describe("orphaned comments", () => {
 			await window.app.commands.executeCommandById("margin-comments:next-comment");
 		});
 		await page.waitForTimeout(700);
-		expect(await page.locator(".notice").last().innerText()).toContain(
-			"No comments in this note",
-		);
+		// The wording #268 chose, and matched against every notice on screen rather
+		// than the last one in the DOM: which notice is last depends on what an
+		// earlier test left dismissing.
+		const notices = await page.locator(".notice").allInnerTexts();
+		expect(notices.join(" | ")).toContain("No open comments in this note.");
 	});
 
 	it("re-anchors by itself when the text comes back", async () => {
