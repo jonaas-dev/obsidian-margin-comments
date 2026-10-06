@@ -1,9 +1,8 @@
 import { Notice, TFile, type TAbstractFile } from "obsidian";
 import type { CommentStorage } from "./storage";
 import type { OrphanedBehavior } from "./types";
-import { movesFor } from "./note-moves";
+import { describeStrandedComments, movesFor } from "./note-moves";
 import { describeNoteDeletion, describeNoteRestore } from "./deleted-notes";
-import { describeStrandedComments } from "./note-moves";
 
 /** What keeping comments with their notes needs from the plugin. */
 export interface NoteEventsHost {

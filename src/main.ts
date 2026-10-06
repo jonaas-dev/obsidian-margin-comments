@@ -88,7 +88,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	private readonly orphanNotice = new OrphanNotice();
 
 	async onload(): Promise<void> {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+		this.settings = { ...DEFAULT_SETTINGS, ...((await this.loadData()) as object) };
 		// data.json survives across versions and can be hand-edited, so the stored
 		// filter is validated rather than trusted.
 		this.settings.panelFilter = toThreadFilter(this.settings.panelFilter);

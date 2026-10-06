@@ -243,7 +243,7 @@ export function matchByContext(doc: string, anchor: TextAnchor): AnchorMatch | n
  */
 function emptyLineStarts(doc: string): number[] {
 	const starts: number[] = [];
-	if (doc.length === 0 || doc[0] === "\n") starts.push(0);
+	if (doc.length === 0 || doc.startsWith("\n")) starts.push(0);
 	for (let i = doc.indexOf("\n"); i !== -1; i = doc.indexOf("\n", i + 1)) {
 		const next = i + 1;
 		if (next === doc.length || doc[next] === "\n") starts.push(next);
