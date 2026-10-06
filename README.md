@@ -17,6 +17,7 @@
   <img alt="Desktop and mobile" src="https://img.shields.io/badge/platforms-desktop%20%7C%20mobile-informational">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white">
   <img alt="CodeMirror 6" src="https://img.shields.io/badge/CodeMirror-6-D30707?logo=codemirror&logoColor=white">
+  <img alt="unit coverage 98.3%" src="https://img.shields.io/badge/unit%20coverage-98.3%25-brightgreen">
   <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue">
 </p>
 

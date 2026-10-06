@@ -10,6 +10,7 @@
 		"lint": "eslint src tests",
 		"format": "prettier --write \"{src,tests}/**/*.ts\"",
 		"test": "vitest run",
+		"badges": "node ops/badges.mjs",
 		"test:coverage": "vitest run --config vitest.coverage.config.ts",
 		"test:watch": "vitest",
 		"test:e2e": "vitest run --config vitest.e2e.config.ts",
