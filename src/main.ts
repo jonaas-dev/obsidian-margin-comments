@@ -6,6 +6,7 @@ import {
 	TFile,
 	type EventRef,
 } from "obsidian";
+import { listenInEveryWindow } from "./windows";
 import { EditorView } from "@codemirror/view";
 import {
 	CommentNotFoundError,
@@ -197,15 +198,12 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			refresh: () => this.refresh(),
 		});
 		this.registerMarkdownPostProcessor((el, ctx) => this.reading.markBlock(el, ctx));
-		const openFromReading = (event: MouseEvent): void => void this.reading.openFrom(event);
-		this.registerDomEvent(document, "click", openFromReading);
-		// Every popout window is a document of its own, and a click there never reaches
-		// the main window's (#236).
-		this.registerEvent(
-			this.app.workspace.on("window-open", (win) =>
-				this.registerDomEvent(win.doc, "click", openFromReading),
-			),
-		);
+		// In every window, not only the ones opened from here on: a popout that was
+		// already open when the plugin loaded never got a listener, so its marks were
+		// painted and did nothing (#236, #265).
+		listenInEveryWindow(this, this.app.workspace, "click", (event: MouseEvent) => {
+			void this.reading.openFrom(event);
+		});
 		this.registerEditorExtension(lineHighlights());
 		this.registerEditorExtension(
 			commentGutter({
