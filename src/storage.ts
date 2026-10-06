@@ -268,7 +268,14 @@ export class CommentStorage {
 	 */
 	private exclusive<T>(filePaths: string[], work: () => Promise<T>): Promise<T> {
 		const paths = [...new Set(filePaths.map((filePath) => this.sidecarPath(filePath)))];
-		return this.holding(paths.sort(), work);
+		// By code unit, deliberately, not by locale. What this order has to be is the
+		// same for every caller; what it must not be is sensitive to anything outside
+		// the process. Sidecar names are hex and ".json", so there is nothing for a
+		// locale to have an opinion about, and localeCompare would add one.
+		return this.holding(
+			paths.sort((a, b) => (a < b ? -1 : a > b ? 1 : 0)),
+			work,
+		);
 	}
 
 	private holding<T>(paths: string[], work: () => Promise<T>): Promise<T> {
