@@ -14,7 +14,7 @@ export interface NoteEventsHost {
 
 /** Keeps comments with their note through renames, moves, deletes and restores. */
 export class NoteEvents {
-	constructor(private host: NoteEventsHost) {}
+	constructor(private readonly host: NoteEventsHost) {}
 
 	/**
 	 * Move comments to wherever their note went.

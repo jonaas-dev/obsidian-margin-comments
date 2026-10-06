@@ -29,7 +29,7 @@ export interface NavigationHost {
 
 /** Takes the reader to a comment: from a panel card, or to the next one in the note. */
 export class Navigation {
-	constructor(private host: NavigationHost) {}
+	constructor(private readonly host: NavigationHost) {}
 
 	/** Open another note and put the cursor on the thread's line. */
 	async openThreadInNote(filePath: string, thread: Thread): Promise<void> {
