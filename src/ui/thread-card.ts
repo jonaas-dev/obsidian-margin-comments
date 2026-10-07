@@ -9,6 +9,7 @@ import { emptyLineLabel } from "./labels";
 import { shouldClamp } from "./clamp";
 import { displayQuote } from "./quote-text";
 import { renderCommentBody } from "./render-comment-body";
+import { inBackground } from "../background";
 
 export interface ThreadActions {
 	/**
@@ -318,17 +319,20 @@ function renderComment(
 	// Bodies come from sidecar files, which may have been written by someone else
 	// in a shared vault. Sanitize them before rendering so remote images cannot
 	// be used as read receipts and other notes are not embedded without a click.
-	void renderCommentBody(app, comment.content, body, filePath, component).then(() => {
-		// Measured after rendering because the height is a property of the output,
-		// not of the Markdown: a table and a paragraph of the same length are not
-		// the same number of lines.
-		whenLaidOut(body, component, () => {
-			if (!shouldClamp(body.scrollHeight)) return;
-			body.addClass("is-clipped");
-			showMore.addClass("is-available");
-			showMore.show();
-		});
-	});
+	inBackground(
+		"render a comment body",
+		renderCommentBody(app, comment.content, body, filePath, component).then(() => {
+			// Measured after rendering because the height is a property of the output,
+			// not of the Markdown: a table and a paragraph of the same length are not
+			// the same number of lines.
+			whenLaidOut(body, component, () => {
+				if (!shouldClamp(body.scrollHeight)) return;
+				body.addClass("is-clipped");
+				showMore.addClass("is-available");
+				showMore.show();
+			});
+		}),
+	);
 
 	// Put back an edit box the last repaint took away, with what was in it. Not
 	// focused: the repaint usually follows the reader clicking somewhere else
@@ -426,16 +430,19 @@ function renderReplyBox(
 		// Cleared only once the reply is stored, and the field is disabled while the
 		// write is in flight so Enter cannot send it twice (#266).
 		input.disabled = true;
-		void actions
-			.addReply(root, content)
-			.then((saved) => {
-				if (!saved) return;
-				reset();
-				options.onReplied?.();
-			})
-			.finally(() => {
-				input.disabled = false;
-			});
+		inBackground(
+			"send a reply",
+			actions
+				.addReply(root, content)
+				.then((saved) => {
+					if (!saved) return;
+					reset();
+					options.onReplied?.();
+				})
+				.finally(() => {
+					input.disabled = false;
+				}),
+		);
 	};
 
 	// Put back half-written text the last repaint took away, and stand the box
@@ -537,15 +544,18 @@ function startEditing(
 		// Kept open until the edit is stored: closing first discarded the new body
 		// when the write failed, and the old one was already on screen (#266).
 		textarea.disabled = true;
-		void actions
-			.editComment(comment, content)
-			.then((saved) => {
-				if (saved) finish();
-				else textarea.focus();
-			})
-			.finally(() => {
-				textarea.disabled = false;
-			});
+		inBackground(
+			"save an edited comment",
+			actions
+				.editComment(comment, content)
+				.then((saved) => {
+					if (saved) finish();
+					else textarea.focus();
+				})
+				.finally(() => {
+					textarea.disabled = false;
+				}),
+		);
 	};
 
 	const buttons = editor.createDiv({ cls: "inline-comment-editor-actions" });

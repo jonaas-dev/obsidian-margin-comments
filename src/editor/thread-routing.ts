@@ -8,6 +8,7 @@ import { createAnchor } from "../anchor";
 import { commentIntent } from "./comment-intent";
 import { FloatingComposer } from "./floating-comment";
 import type { AnchorRect } from "./floating-position";
+import { inBackground } from "../background";
 
 /** What routing a comment request needs from the plugin. */
 export interface ThreadRoutingHost {
@@ -45,7 +46,10 @@ export class ThreadRouting {
 		const file = this.host.app.workspace.getActiveFile();
 		if (!file) return;
 
-		void this.showExistingOrCompose(view, line, file.path, lastLine);
+		inBackground(
+			"open a thread from its marker",
+			this.showExistingOrCompose(view, line, file.path, lastLine),
+		);
 	}
 
 	/**

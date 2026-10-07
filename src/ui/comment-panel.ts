@@ -16,6 +16,7 @@ import {
 } from "./vault-sections";
 import { renderThreadCard, type CardDrafts, type ThreadActions } from "./thread-card";
 import { orphanCount } from "./orphans";
+import { inBackground } from "../background";
 
 export const COMMENT_PANEL_VIEW = "margin-comments-panel";
 
@@ -500,10 +501,13 @@ export class CommentPanelView extends ItemView {
 		}
 		// render, not paint: the two scopes read from different places.
 		scope.addEventListener("change", () => {
-			void (async () => {
+			inBackground(
+				"change the panel scope",
+				(async () => {
 				await this.host.setScope(toPanelScope(scope.value));
 				await this.render();
-			})();
+				})(),
+			);
 		});
 
 		if (selected === "note") {
@@ -545,10 +549,13 @@ export class CommentPanelView extends ItemView {
 			button.createSpan({ text: filterLabel(filter) });
 			button.createSpan({ cls: "inline-comment-filter-count", text: `${counts[filter]}` });
 			button.addEventListener("click", () => {
-				void (async () => {
+				inBackground(
+					"change the panel filter",
+					(async () => {
 					await this.host.setFilter(filter);
 					this.paint();
-				})();
+					})(),
+				);
 			});
 		}
 
@@ -587,10 +594,13 @@ export class CommentPanelView extends ItemView {
 		}
 
 		select.addEventListener("change", () => {
-			void (async () => {
+			inBackground(
+				"change the sort order",
+				(async () => {
 				await this.host.setSortOrder(toSortOrder(select.value));
 				this.paint();
-			})();
+				})(),
+			);
 		});
 	}
 

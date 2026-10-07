@@ -1,6 +1,7 @@
 import { computePosition, visibleViewport, type AnchorRect } from "./floating-position";
 import { placeSheet, watchPlacement } from "./bottom-sheet";
 import { keyIntent } from "../ui/key-intent";
+import { inBackground } from "../background";
 
 export interface ComposerOptions {
 	/** Screen rect of the text being commented on. */
@@ -145,7 +146,7 @@ export class FloatingComposer {
 		if (intent === "ignore" || intent === "newline") return;
 		event.preventDefault();
 		if (intent === "cancel") this.cancel();
-		else void this.submit();
+		else inBackground("send the comment", this.submit());
 	}
 
 	private async submit(): Promise<void> {

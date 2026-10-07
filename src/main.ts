@@ -66,6 +66,7 @@ import {
 } from "./ui/comment-actions";
 import { ConfirmModal } from "./ui/confirm-modal";
 import { Navigation } from "./navigation";
+import { inBackground } from "./background";
 
 /**
  * Stillness before a typing burst is redrawn.
@@ -159,7 +160,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 					countSetAside: () => this.storage.countSetAside(),
 					loadNote: (filePath) => this.loadNote(filePath),
 					openThreadInNote: (filePath, thread) =>
-						void this.navigation.openThreadInNote(filePath, thread),
+						inBackground("open a thread in another note", this.navigation.openThreadInNote(filePath, thread)),
 					notifyOrphans: (count) => this.announceOrphans(count),
 					touch: () => this.touch,
 					addCommentBinding: () => this.addCommentBinding(),
@@ -203,7 +204,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		// already open when the plugin loaded never got a listener, so its marks were
 		// painted and did nothing (#236, #265).
 		listenInEveryWindow(this, this.app.workspace, "click", (event: MouseEvent) => {
-			void this.reading.openFrom(event);
+			inBackground("open a thread from reading mode", this.reading.openFrom(event));
 		});
 		this.registerEditorExtension(lineHighlights());
 		this.registerEditorExtension(
@@ -229,14 +230,14 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		this.addCommand({
 			id: "next-comment",
 			name: "Go to next comment",
-			editorCallback: (_editor, ctx) => void this.navigation.jumpToComment(ctx as MarkdownView, "next"),
+			editorCallback: (_editor, ctx) => inBackground("jump to the next comment", this.navigation.jumpToComment(ctx as MarkdownView, "next")),
 		});
 
 		this.addCommand({
 			id: "previous-comment",
 			name: "Go to previous comment",
 			editorCallback: (_editor, ctx) =>
-				void this.navigation.jumpToComment(ctx as MarkdownView, "previous"),
+				inBackground("jump to the previous comment", this.navigation.jumpToComment(ctx as MarkdownView, "previous")),
 		});
 
 		this.addCommand({
@@ -255,8 +256,8 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 				// the workspace, and closing there shut it the instant it appeared.
 				const path = this.app.workspace.getActiveFile()?.path ?? null;
 				if (path !== this.popoverFile) this.popover?.close();
-				void this.refresh();
-				void this.checkOrphans();
+				inBackground("refresh the markers and the panel", this.refresh());
+				inBackground("check for orphaned comments", this.checkOrphans());
 			}),
 		);
 		// Debounced, and this path only. Typing is the one caller that fires per
@@ -296,8 +297,8 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			rawEvents.on("raw", (path) => void this.followStorageChange(path)),
 		);
 		this.app.workspace.onLayoutReady(() => {
-			void this.refresh();
-			void this.checkOrphans();
+			inBackground("refresh the markers and the panel", this.refresh());
+			inBackground("check for orphaned comments", this.checkOrphans());
 		});
 	}
 
@@ -353,7 +354,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		await leaf?.setViewState({ type: COMMENT_PANEL_VIEW, active: true });
 		// void: revealLeaf returns a promise and nothing here depends on it having
 		// settled, but dropping it silently is how an unhandled rejection happens.
-		if (leaf) void this.app.workspace.revealLeaf(leaf);
+		if (leaf) inBackground("reveal the panel", this.app.workspace.revealLeaf(leaf));
 	}
 
 	private async togglePanel(): Promise<void> {
@@ -504,14 +505,17 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	}
 
 	private confirmDelete(comment: Comment): void {
-		void (async () => {
+		inBackground(
+			"ask whether to delete a comment",
+			(async () => {
 			const all = await this.storage.getCommentsForFile(comment.filePath);
 			new ConfirmModal(this.app, describeDeletion(comment, all), async () => {
 				await this.storage.deleteComment(comment.filePath, comment.id);
 				await this.refresh();
 				await this.refreshPopover();
 			}).open();
-		})();
+			})(),
+		);
 	}
 
 	private async loadActive(): Promise<{
@@ -564,7 +568,9 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	 * that touches comments the user is not looking at.
 	 */
 	private confirmResolveAll(view: MarkdownView): void {
-		void (async () => {
+		inBackground(
+			"ask whether to resolve every comment in the note",
+			(async () => {
 			if (!view.file) return;
 			const filePath = view.file.path;
 			const open = openRoots(await this.storage.getCommentsForFile(filePath));
@@ -605,7 +611,8 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 					destructive: false,
 				},
 			).open();
-		})();
+			})(),
+		);
 	}
 
 	private async refreshPanel(): Promise<void> {
