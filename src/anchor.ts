@@ -429,7 +429,72 @@ export function matchAnchor(
 	if (anchor.selectedText === "") {
 		return matchByContext(doc, anchor) ?? matchEmptyLine(doc, anchor);
 	}
-	const exact = matchByHash(doc, anchor) ?? matchByContext(doc, anchor);
-	if (exact || !options.fuzzy) return exact;
+
+	// The anchor as written, then the same anchor in each other Unicode normal
+	// form (#320). Every exact stage runs over every form before any fuzzy one
+	// does: an exact match on renormalised text is better evidence than a fuzzy
+	// match on the stored text, and measurably better output. With the fuzzy
+	// stage first, a comment on "Café" in a note that had been normalised came
+	// back pointing at "Cafe" — the right place, the wrong span, accent dropped.
+	const forms = [anchor, ...renormalisations(anchor)];
+
+	for (const form of forms) {
+		const exact = matchByHash(doc, form) ?? matchByContext(doc, form);
+		if (exact) return exact;
+	}
+	if (!options.fuzzy) return null;
+
+	// Stage 3 runs once, over the anchor as stored. Repeating it per form is what
+	// the exact stages are for: measured on a 130 KB note, the fuzzy stage is
+	// ~145 ms and the exact ones are noise, so retrying it doubled the worst case
+	// for every accented note to buy a case that needs the text to have been both
+	// renormalised *and* edited past recognition. That case stays orphaned, which
+	// is what it was before this.
 	return matchByFuzzy(doc, anchor, options.threshold ?? 0.3);
 }
+
+/** The two forms a note's text realistically arrives in. */
+const NORMAL_FORMS = ["NFC", "NFD"] as const;
+
+/**
+ * The anchor rewritten in each normal form it is not already in.
+ *
+ * The **anchor** is renormalised and not the document, which is the whole trick:
+ * a match found this way carries offsets into the document exactly as stored, so
+ * there is no position map to build and no chance of returning an offset that
+ * addresses different text. Normalising the document would shift every offset
+ * after the first composed character.
+ *
+ * Both forms, because neither side's is known: macOS has written NFD for
+ * decades, several sync clients normalise on the way through, and the two mobile
+ * keyboards do not agree with each other — so one vault can hold both.
+ *
+ * The hash goes with the text. `matchByHash` compares hashes, so keeping the
+ * stored one would make stage 1 miss everything this exists to catch.
+ *
+ * Costs nothing for text that has no composed characters: `normalize` returns an
+ * identical string and the form is dropped, so ASCII notes do one comparison and
+ * carry on.
+ */
+function renormalisations(anchor: TextAnchor): TextAnchor[] {
+	const forms: TextAnchor[] = [];
+	for (const form of NORMAL_FORMS) {
+		const selectedText = anchor.selectedText.normalize(form);
+		const contextBefore = anchor.contextBefore.normalize(form);
+		const contextAfter = anchor.contextAfter.normalize(form);
+		const unchanged =
+			selectedText === anchor.selectedText &&
+			contextBefore === anchor.contextBefore &&
+			contextAfter === anchor.contextAfter;
+		if (unchanged) continue;
+		forms.push({
+			...anchor,
+			selectedText,
+			textHash: hashString(selectedText),
+			contextBefore,
+			contextAfter,
+		});
+	}
+	return forms;
+}
+

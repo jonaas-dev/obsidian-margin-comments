@@ -53,14 +53,43 @@ describe("anchors over astral and combining text", () => {
 		expect(match && doc.slice(match.from, match.to)).toBe("Café");
 	});
 
-	it("loses a combining sequence when the document is normalised (#320)", () => {
-		// The defect, pinned rather than hidden. A note whose text is normalised
-		// from NFD to NFC — routine on macOS and through some sync clients —
-		// orphans every comment on an accented word at the default tolerance.
-		const nfd = "Café au lait and more text for the context to hold on to";
-		const anchor = anchorFor(nfd, 0, 5);
-		expect(matchAnchor(nfd, anchor, options)?.method).toBe("hash");
-		expect(matchAnchor(nfd.normalize("NFC"), anchor, options)).toBeNull();
+	describe("when the document changes Unicode normal form (#320)", () => {
+		const nfd = "Cafe\u0301 au lait and more text for the context to hold on to";
+		const nfc = nfd.normalize("NFC");
+
+		it("still matches the word it was written on", () => {
+			expect(matchAnchor(nfd, anchorFor(nfd, 0, 5), options)?.method).toBe("hash");
+		});
+
+		it("follows an NFD anchor into an NFC document", () => {
+			// The defect this was filed for: routine on macOS and through several
+			// sync clients, and it orphaned every comment on an accented word at
+			// the default tolerance.
+			const match = matchAnchor(nfc, anchorFor(nfd, 0, 5), options);
+			expect(match && nfc.slice(match.from, match.to)).toBe("Caf\u00e9");
+		});
+
+		it("follows an NFC anchor into an NFD document", () => {
+			// The other direction is just as real: a phone writes NFC into a vault
+			// a Mac has been writing NFD into.
+			const match = matchAnchor(nfd, anchorFor(nfc, 0, 4), options);
+			expect(match && nfd.slice(match.from, match.to)).toBe("Cafe\u0301");
+		});
+
+		it("returns offsets into the document as stored, not a normalised copy", () => {
+			// Why the anchor is renormalised and the document is not. NFC is shorter
+			// here, so an offset taken from a normalised copy would point into the
+			// wrong place, and the text it addressed would be quietly off by one.
+			expect(nfd.length).not.toBe(nfc.length);
+			expect(matchAnchor(nfd, anchorFor(nfc, 0, 4), options)?.to).toBe(5);
+		});
+
+		it("does not confuse an accented word with its unaccented twin", () => {
+			// The retry must not become a looser search: Caf\u00e9 and Cafe are
+			// different words, and normalisation is no licence to mix them.
+			const plain = "Cafe au lait and more text for the context to hold on to";
+			expect(matchAnchor(plain, anchorFor(nfd, 0, 5), { fuzzy: false })).toBeNull();
+		});
 	});
 
 	it("keys distinct sidecars for paths that differ only by emoji", () => {
