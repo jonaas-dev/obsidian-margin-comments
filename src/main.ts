@@ -82,6 +82,28 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	private readonly orphanNotice = new OrphanNotice();
 
 	async onload(): Promise<void> {
+		await this.loadSettings();
+		this.buildCore();
+		this.registerPanel();
+		this.buildReadingAndRouting();
+		this.registerEditor();
+		this.registerCommands();
+		this.registerVaultEvents();
+
+		// Last, because it paints: everything it reaches has to exist by now.
+		this.app.workspace.onLayoutReady(() => {
+			inBackground("refresh the markers and the panel", this.refresh());
+			inBackground("check for orphaned comments", this.checkOrphans());
+		});
+	}
+
+	/**
+	 * Settings, as stored and then as trusted.
+	 *
+	 * `data.json` survives across versions and can be hand-edited, so every stored
+	 * choice is validated rather than taken at its word.
+	 */
+	private async loadSettings(): Promise<void> {
 		this.settings = { ...DEFAULT_SETTINGS, ...((await this.loadData()) as object) };
 		// data.json survives across versions and can be hand-edited, so the stored
 		// filter is validated rather than trusted.
@@ -105,6 +127,14 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			this.settings.panelPosition,
 			DEFAULT_SETTINGS.panelPosition,
 		);
+	}
+
+	/**
+	 * Storage, the popover and navigation.
+	 *
+	 * First, because everything registered below closes over them.
+	 */
+	private buildCore(): void {
 		this.storage = new CommentStorage(this.app.vault.adapter, {
 			onUnreadable: (filePath, keptAt) => {
 				// No timeout: the path in the message is the only way back to those comments.
@@ -135,7 +165,15 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			touch: () => this.touch,
 			markdownViewFor: (path) => this.markdownViewFor(path),
 		});
+	}
 
+	/**
+	 * The comments panel, its settings tab, and the two ways to open it.
+	 *
+	 * The ribbon icon and the command do the same thing, which is why they sit
+	 * together rather than filed by kind.
+	 */
+	private registerPanel(): void {
 		this.registerView(
 			COMMENT_PANEL_VIEW,
 			(leaf) =>
@@ -181,7 +219,15 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			name: "Toggle comments panel",
 			callback: () => void this.togglePanel(),
 		});
+	}
 
+	/**
+	 * Reading mode, and the routing that opens a thread from a marker.
+	 *
+	 * Together because opening the popover is the wiring they share, and because
+	 * the highlight colour has to reach the stylesheet before either paints.
+	 */
+	private buildReadingAndRouting(): void {
 		this.applyHighlightColour();
 		const openPopover: ReadingModeHost["openPopover"] = (
 			threads,
@@ -210,6 +256,16 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			openPopover,
 			refresh: () => this.refresh(),
 		});
+	}
+
+	/**
+	 * Everything that hangs off an editor or a window.
+	 *
+	 * The click handler goes to every window and not only the ones opened from
+	 * here on: a popout already open when the plugin loaded never got one, so
+	 * its marks were painted and did nothing (#236, #265).
+	 */
+	private registerEditor(): void {
 		this.registerMarkdownPostProcessor((el, ctx) => this.reading.markBlock(el, ctx));
 		// In every window, not only the ones opened from here on: a popout that was
 		// already open when the plugin loaded never got a listener, so its marks were
@@ -224,7 +280,14 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 				onActivate: (view, line, lastLine) => this.routing.open(view, line, lastLine),
 			}),
 		);
+	}
 
+	/**
+	 * The commands that act on a note.
+	 *
+	 * Editor-scoped, so they grey out anywhere that is not one.
+	 */
+	private registerCommands(): void {
 		this.addCommand({
 			id: "add-comment",
 			name: ADD_COMMENT_NAME,
@@ -267,7 +330,15 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			name: "Resolve all comments in this note",
 			editorCallback: (_editor, ctx) => this.confirmResolveAll(ctx as MarkdownView),
 		});
+	}
 
+	/**
+	 * Everything that reacts to the vault changing underneath.
+	 *
+	 * The workspace's events and the vault's both: a note can be renamed from the
+	 * file explorer with nothing open, and the comments still have to follow.
+	 */
+	private registerVaultEvents(): void {
 		this.registerEvent(
 			this.app.workspace.on("active-leaf-change", (leaf) => {
 				// A tap inside the panel activates the panel's own leaf, and nothing it
@@ -316,10 +387,6 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			on(name: "raw", callback: (path: string) => void): EventRef;
 		};
 		this.registerEvent(rawEvents.on("raw", (path) => void this.followStorageChange(path)));
-		this.app.workspace.onLayoutReady(() => {
-			inBackground("refresh the markers and the panel", this.refresh());
-			inBackground("check for orphaned comments", this.checkOrphans());
-		});
 	}
 
 	onunload(): void {
