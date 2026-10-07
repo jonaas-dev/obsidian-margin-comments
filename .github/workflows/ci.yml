@@ -132,15 +132,15 @@ jobs:
         run: |
           # Two dots on purpose: this wants the commits the range adds.
           #
-          # Identity gets no whole-history fallback where secrets does. Which
-          # commits a push added is not recoverable once the base is gone, and
-          # scanning everything instead fails on history the project has already
-          # accepted: the two 2026-09-13 merge commits under the author's real
-          # name (#178, closed as won't fix) and the dependabot commits whose
-          # pull request association GitHub drops when they land by fast-forward.
-          # Making that scan usable needs those exceptions named; #307 does it.
+          # With no base, which commits the push added is not recoverable, so the
+          # whole history is scanned instead. That used to be unusable -- it
+          # reported the two 2026-09-13 merge commits under the author's real name
+          # and every dependabot commit -- until #307 named both as what they are:
+          # an allowlist of accepted history, and a bot exemption that does not
+          # depend on a pull request association GitHub drops on fast-forward.
+          # It costs one API call per commit, on a push that happens rarely.
           if [ "$BASED" != "yes" ]; then
-            echo "::warning::identity check skipped: the push base is gone, so the commits it added cannot be determined (#307)"
+            python3 ops/check-identity.py --range "$HEAD_SHA" --maintainer "$MAINTAINER" --repo "$REPO"
           elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             python3 ops/check-identity.py --range "$BASE_SHA..$HEAD_SHA" --maintainer "$MAINTAINER" --opener "$OPENER"
           else

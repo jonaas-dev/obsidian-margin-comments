@@ -18,6 +18,15 @@ whose global git identity is the maintainer's real name and inbox (#251).
 A maintainer commit passes when its author is the maintainer, its committer is the
 maintainer or GitHub, and both addresses are GitHub noreply addresses.
 
+Two exemptions make the scan usable over a whole history, which is what a push whose
+base has been rewritten away leaves it with (#307):
+
+  * A bot's own commit, authored under a GitHub App identity. This does not go through
+    the pull request lookup, which drops the association when a pull request lands by
+    fast-forward push -- the way this repository merges -- so the exemption that was
+    meant to cover dependabot silently did not.
+  * Commits named in ACCEPTED below: history the project has looked at and kept.
+
 Pull request:  python3 ops/check-identity.py --range BASE..HEAD --maintainer LOGIN --opener LOGIN
 Push:          python3 ops/check-identity.py --range BEFORE..AFTER --maintainer LOGIN --repo OWNER/NAME
 """
@@ -36,6 +45,26 @@ NOREPLY = re.compile(
 )
 # The committer GitHub writes when it creates or signs a commit itself.
 GITHUB_COMMITTER = "GitHub"
+
+BOT_NAME = re.compile(r"^[A-Za-z0-9-]+\[bot\]$")
+
+# History this project has examined and decided to keep, by sha and by reason.
+#
+# A sha is the honest identifier for "this commit, the one we looked at", and it
+# fails in the safe direction: rewrite the history and these stop resolving, so the
+# commits that replace them are checked again rather than inheriting an exemption
+# nobody re-examined.
+ACCEPTED = {
+    "7b0f574cbb2501a6a9d680cf45430c9f577d4fac": (
+        "merge commit of 2026-09-13 under the maintainer's real display name; "
+        "the address was always the GitHub noreply alias and the public profile "
+        "publishes the name already (#178, closed as won't fix)"
+    ),
+    "16f6a34ac83e51ee0f3e7aaa0681d5510f6449a0": (
+        "merge commit of 2026-09-13 under the maintainer's real display name; "
+        "see 7b0f574 (#178)"
+    ),
+}
 
 FIELD = "\x1f"
 
@@ -71,6 +100,21 @@ def openers_from_github(repo: str, sha: str) -> list[str]:
     return json.loads(out or "[]")
 
 
+def is_bot(commit: dict[str, str]) -> bool:
+    """Whether a commit is a GitHub App's own, by its identity rather than its origin.
+
+    The name and the address have to agree: a bot's noreply address embeds the same
+    `name[bot]`, so a commit claiming to be dependabot from somewhere else fails the
+    address half and stays checked. And a name nobody else can claim, paired with a
+    GitHub noreply address, publishes no personal identity either way -- which is the
+    only thing this guard is protecting.
+    """
+    name, address = commit["an"], commit["ae"]
+    if not BOT_NAME.match(name):
+        return False
+    return re.fullmatch(rf"\d+\+{re.escape(name)}@users\.noreply\.github\.com", address) is not None
+
+
 def problems_in(commit: dict[str, str], maintainer: str) -> list[str]:
     short = commit["sha"][:7]
     found = []
@@ -98,6 +142,8 @@ def scan(
 ) -> list[str]:
     found: list[str] = []
     for commit in commits(rng):
+        if commit["sha"] in ACCEPTED or is_bot(commit):
+            continue
         if opener is not None:
             if opener != maintainer:
                 continue
