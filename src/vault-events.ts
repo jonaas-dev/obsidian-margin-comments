@@ -6,7 +6,7 @@ import { describeStrandedComments, movesFor } from "./note-moves";
 import { describeNoteDeletion, describeNoteMove, describeNoteRestore } from "./deleted-notes";
 
 /** What keeping comments with their notes needs from the plugin. */
-export interface NoteEventsHost {
+interface NoteEventsHost {
 	storage: CommentStorage;
 	orphanedBehavior(): OrphanedBehavior;
 	refresh(): Promise<void>;

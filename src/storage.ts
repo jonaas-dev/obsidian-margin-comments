@@ -158,7 +158,7 @@ function isCommentOf(filePath: string, value: unknown): value is Comment {
 	);
 }
 
-export interface StorageOptions {
+interface StorageOptions {
 	/** Told once per unreadable sidecar, after its text has been kept at `keptAt`. */
 	onUnreadable?: (filePath: string, keptAt: string) => void;
 	/** Told once per sidecar holding invalid comments, after they were kept at `keptAt`. */

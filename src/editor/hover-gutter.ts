@@ -184,7 +184,7 @@ class HoverTracker implements PluginValue {
 	}
 }
 
-export interface GutterOptions {
+interface GutterOptions {
 	/**
 	 * Whether this is a touch device, where there is no hover to depend on.
 	 *

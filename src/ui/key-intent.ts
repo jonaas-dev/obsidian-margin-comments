@@ -1,4 +1,4 @@
-export type KeyIntent = "submit" | "newline" | "cancel" | "ignore";
+type KeyIntent = "submit" | "newline" | "cancel" | "ignore";
 
 /**
  * What a keystroke means inside a comment field.

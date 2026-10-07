@@ -5,7 +5,7 @@ import type { Thread } from "../threads";
 import { renderThreadCard, type ThreadActions } from "./thread-card";
 
 /** What the popover is showing, so its host can redraw it after an action. */
-export interface PopoverContent {
+interface PopoverContent {
 	filePath: string;
 	threadIds: string[];
 }

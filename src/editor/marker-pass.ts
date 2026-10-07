@@ -7,7 +7,7 @@ export interface LineRange {
 }
 
 /** Everything the editor decorations need, from one walk over the comments. */
-export interface MarkerPass {
+interface MarkerPass {
 	/**
 	 * How many open threads each 1-based line carries.
 	 *
@@ -37,7 +37,7 @@ export interface MarkerPass {
 }
 
 /** Spans in document order, with anything overlapping or touching joined. */
-export function mergeRanges(spans: LineRange[]): LineRange[] {
+function mergeRanges(spans: LineRange[]): LineRange[] {
 	const sorted = [...spans].sort((a, b) => a.from - b.from || a.to - b.to);
 	const merged: LineRange[] = [];
 	for (const span of sorted) {

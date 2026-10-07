@@ -1,5 +1,5 @@
 /** A half-open span of the document, `to` exclusive. */
-export interface Span {
+interface Span {
 	from: number;
 	to: number;
 }
@@ -10,7 +10,7 @@ export interface AnchoredThread extends Span {
 }
 
 /** What a click on the gutter, or the add-comment command, should do. */
-export type CommentIntent =
+type CommentIntent =
 	{ kind: "compose"; from: number; to: number } | { kind: "show"; threadIds: string[] };
 
 /**

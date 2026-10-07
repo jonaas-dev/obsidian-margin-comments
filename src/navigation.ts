@@ -18,7 +18,7 @@ function goToLine(view: MarkdownView, line: number, focus = true): void {
 }
 
 /** What moving the reader to a comment needs from the plugin. */
-export interface NavigationHost {
+interface NavigationHost {
 	app: App;
 	storage: CommentStorage;
 	/** Whether this is a touch device. */

@@ -4,7 +4,7 @@ import type { Comment } from "../types";
 /** Pixels from the gutter's left edge that count as "at the edge". */
 export const EDGE_THRESHOLD = 20;
 
-export interface MarkerContext {
+interface MarkerContext {
 	/** Line currently under the pointer, 1-based, or null. */
 	hoveredLine: number | null;
 	/**
@@ -32,7 +32,7 @@ export function linesWithOpenComments(doc: string, comments: Comment[]): Set<num
 }
 
 /** Above this the badge reads "9+": two glyphs is the widest the gutter holds. */
-export const MAX_SHOWN_COUNT = 9;
+const MAX_SHOWN_COUNT = 9;
 
 /**
  * What the marker's badge says, or null for no badge.

@@ -32,7 +32,7 @@ export interface NoteData {
 	comments: Comment[];
 }
 
-export interface PanelHost extends ThreadActions {
+interface PanelHost extends ThreadActions {
 	/** Comments for the active note, plus the note's text to anchor them against. */
 	loadActive(): Promise<{ filePath: string; doc: string; comments: Comment[] } | null>;
 	/** Every commented note in the vault, counts included, from the index alone. */

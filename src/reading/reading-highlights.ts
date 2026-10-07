@@ -20,7 +20,7 @@ export interface ReadingHighlight {
 }
 
 /** Where a needle falls inside one segment of a run of text. */
-export interface TextSlice {
+interface TextSlice {
 	index: number;
 	start: number;
 	end: number;

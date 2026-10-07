@@ -1,7 +1,7 @@
 export type Direction = "next" | "previous";
 
 /** A thread as navigation needs it: whether it is settled, and where it sits. */
-export interface NavigableThread {
+interface NavigableThread {
 	root: { resolved: boolean };
 	line: number | null;
 }

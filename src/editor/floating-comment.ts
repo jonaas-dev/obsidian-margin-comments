@@ -3,7 +3,7 @@ import { placeSheet, watchPlacement } from "./bottom-sheet";
 import { keyIntent } from "../ui/key-intent";
 import { inBackground } from "../background";
 
-export interface ComposerOptions {
+interface ComposerOptions {
 	/** Screen rect of the text being commented on. */
 	anchorRect: AnchorRect;
 	/** Pre-filled body, for editing an existing comment. */

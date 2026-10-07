@@ -11,7 +11,7 @@ import type { AnchorRect } from "./floating-position";
 import { inBackground } from "../background";
 
 /** What routing a comment request needs from the plugin. */
-export interface ThreadRoutingHost {
+interface ThreadRoutingHost {
 	app: App;
 	storage: CommentStorage;
 	settings(): Pick<PluginSettings, "author" | "fuzzyThreshold">;

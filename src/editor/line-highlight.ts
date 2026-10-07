@@ -19,7 +19,7 @@ export function markedRanges(doc: string, comments: Comment[]): LineRange[] {
 	return resolveMarkers(doc, comments).ranges;
 }
 
-export interface Highlights {
+interface Highlights {
 	/** Whole lines to tint, for comments made on a line. */
 	lines: LineRange[];
 	/** Anchored spans to mark, for comments made on a selection. */

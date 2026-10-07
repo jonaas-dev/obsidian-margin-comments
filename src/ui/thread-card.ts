@@ -36,7 +36,7 @@ export interface CardDrafts {
 	edits?: ReadonlyMap<string, string>;
 }
 
-export interface CardOptions {
+interface CardOptions {
 	/** Reveal actions and the reply field without hovering. Used by the popover,
 	 *  which is already a deliberate act — hiding its controls would be coy. */
 	alwaysOpen?: boolean;

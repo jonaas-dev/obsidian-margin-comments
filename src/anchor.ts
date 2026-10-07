@@ -5,9 +5,9 @@ import { hashString } from "./utils";
 /** Characters of surrounding text kept on each side of an anchor. */
 export const CONTEXT_LENGTH = 50;
 
-export type MatchMethod = "hash" | "context" | "fuzzy";
+type MatchMethod = "hash" | "context" | "fuzzy";
 
-export interface AnchorMatch {
+interface AnchorMatch {
 	from: number;
 	to: number;
 	/** The text occurs more than once; the caller may want to warn. */
@@ -295,7 +295,7 @@ function vouchesFor(context: string, score: number): boolean {
 	return isComplete(context) || context.length >= CONTEXT_LENGTH;
 }
 
-export function matchEmptyLine(doc: string, anchor: TextAnchor): AnchorMatch | null {
+function matchEmptyLine(doc: string, anchor: TextAnchor): AnchorMatch | null {
 	const { contextBefore, contextAfter } = anchor;
 	let best: { at: number; score: number; distance: number } | null = null;
 
@@ -324,7 +324,7 @@ export function matchEmptyLine(doc: string, anchor: TextAnchor): AnchorMatch | n
 export const FUZZY_WINDOW_LINES = 40;
 
 /** How much of the anchored text is compared against each candidate. */
-export const FUZZY_SIGNATURE_CHARS = 120;
+const FUZZY_SIGNATURE_CHARS = 120;
 
 /** Offsets of the first character of each word within `[from, to)`. */
 function wordStarts(doc: string, from: number, to: number): number[] {

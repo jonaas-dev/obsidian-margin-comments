@@ -1,6 +1,6 @@
 import { App, Modal, Setting } from "obsidian";
 
-export interface ConfirmOptions {
+interface ConfirmOptions {
 	/** Text on the confirming button. It names the act, never "OK". */
 	confirmLabel?: string;
 	/** The line under the question, saying what the act costs. */

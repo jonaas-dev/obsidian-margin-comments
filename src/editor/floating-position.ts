@@ -13,7 +13,7 @@ export interface Size {
 	height: number;
 }
 
-export type Placement = "right" | "below" | "above";
+type Placement = "right" | "below" | "above";
 
 export interface Position {
 	left: number;
@@ -28,7 +28,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /** What `window` has to offer for measuring the space actually on screen. */
-export interface ViewportSource {
+interface ViewportSource {
 	innerWidth: number;
 	innerHeight: number;
 	visualViewport?: { width: number; height: number } | null;
@@ -54,7 +54,7 @@ export function visibleViewport(source: ViewportSource): Size {
 	};
 }
 
-export interface SheetMetrics {
+interface SheetMetrics {
 	/** `window.innerHeight`: the layout viewport, which the keyboard does not shrink. */
 	innerHeight: number;
 	/** Height still visible above the on-screen keyboard (`visualViewport.height`). */
@@ -67,7 +67,7 @@ export interface SheetMetrics {
 	contentHeight: number;
 }
 
-export interface SheetPosition {
+interface SheetPosition {
 	/** Distance from the bottom of the window to the sheet's bottom edge. */
 	bottom: number;
 	maxHeight: number;
@@ -81,7 +81,7 @@ export const SHEET_MAX_FRACTION = 0.5;
  * little: room for the composer's field and buttons (144px measured on a Pixel
  * 8), not for a whole thread, which can go on scrolling inside the sheet.
  */
-export const SHEET_MIN_CAP = 200;
+const SHEET_MIN_CAP = 200;
 
 /**
  * Where a bottom sheet sits on a phone.

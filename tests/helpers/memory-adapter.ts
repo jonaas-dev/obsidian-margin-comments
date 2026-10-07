@@ -1,3 +1,5 @@
+import type { StorageAdapter } from "../../src/storage";
+
 /**
  * In-memory stand-in for Obsidian's DataAdapter.
  *
@@ -5,8 +7,13 @@
  * is a dotfolder, and the Vault API skips those. This fake implements the adapter
  * surface the plugin actually uses, and records every write so a test can prove
  * no Markdown file was ever touched.
+ *
+ * `implements StorageAdapter` so the fake cannot drift from the contract it is
+ * standing in for: without it the type was exported and imported by nobody, and
+ * a method added to the real adapter would have been missing here in silence
+ * (#314).
  */
-export class MemoryAdapter {
+export class MemoryAdapter implements StorageAdapter {
 	private files = new Map<string, string>();
 	private dirs = new Set<string>();
 	/** Every path ever written to, in order. */
