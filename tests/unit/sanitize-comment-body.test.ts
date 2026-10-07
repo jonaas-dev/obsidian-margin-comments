@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { isRemote, remoteUrlIn, sanitizeCommentBody } from "../../src/ui/sanitize-comment-body";
+import {
+	DROPPED,
+	LOADERS,
+	LOADING_ATTRIBUTES,
+	isRemote,
+	remoteUrlIn,
+	remoteUrlInCss,
+	sanitizeCommentBody,
+} from "../../src/ui/sanitize-comment-body";
 
 /**
  * #263 replaced a set of regexes over the Markdown source with a pass over the
@@ -102,5 +110,54 @@ describe("sanitizeCommentBody", () => {
 		// code into something they did not write.
 		const body = "`![](https://example.com/x.png)`";
 		expect(sanitizeCommentBody(body)).toBe(body);
+	});
+});
+
+// Three of these left the machine when the audit of 2026-10-07 measured them, and
+// none of the three went through an attribute LOADERS named at the time. The E2E
+// suite asserts on the network; these pin the decisions underneath it.
+describe("the routes around the loader table", () => {
+	describe("remoteUrlInCss", () => {
+		it.each([
+			["double quotes", 'background-image:url("https://evil.example/a.png")'],
+			["single quotes", "background:url('https://evil.example/a.png')"],
+			["no quotes", "background:url(https://evil.example/a.png)"],
+			["padded", "background:url(  https://evil.example/a.png  )"],
+			["protocol-relative", "background:url(//evil.example/a.png)"],
+			["uppercase URL(", "background:URL(https://evil.example/a.png)"],
+			["second of two", "background:url(local.png),url(https://evil.example/a.png)"],
+		])("finds the remote url with %s", (_name, css) => {
+			expect(remoteUrlInCss(css)).toContain("evil.example");
+		});
+
+		it.each([
+			["nothing to fetch", "color: red"],
+			["a vault-relative image", "background:url(pictures/local.png)"],
+			["the app's own scheme", "background:url(app://local/x.png)"],
+			["an empty url", "background:url()"],
+		])("leaves alone a style with %s", (_name, css) => {
+			expect(remoteUrlInCss(css)).toBeNull();
+		});
+	});
+
+	it("looks at the SVG elements that fetch through href rather than src", () => {
+		// <svg><image href="https://…"> was measured issuing the request.
+		expect(LOADERS.image).toContain("href");
+		expect(LOADERS.use).toContain("href");
+		expect(remoteUrlIn("href", "https://evil.example/a.svg")).toBe(
+			"https://evil.example/a.svg",
+		);
+	});
+
+	it("drops the loaders that would leave foreign markup behind", () => {
+		// An HTML <a> inside an <svg>, or in place of a <link>, is not a thing a
+		// reader can use; these go rather than becoming a link.
+		expect([...DROPPED].sort()).toEqual(["image", "link", "source", "use"]);
+	});
+
+	it("knows background fetches from any element at all", () => {
+		// <table background="https://…"> was measured issuing the request. There is
+		// no tag to look up, which is why it needs its own list.
+		expect([...LOADING_ATTRIBUTES]).toEqual(["background"]);
 	});
 });

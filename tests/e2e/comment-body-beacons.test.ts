@@ -26,6 +26,24 @@ const BODIES: [string, string][] = [
 	["html-audio", '<audio src="https://evil.example/audio.mp3" autoplay></audio>'],
 	["md-plain", "![a](https://evil.example/plain.png)"],
 	["code-fence", "`![](https://evil.example/incode.png)`"],
+	// Forms that fetch without any of the attributes LOADERS names, added while
+	// auditing 2026-10-07: CSS, SVG and <link> reach the network by other routes.
+	["css-inline", '<div style="background-image:url(https://evil.example/inline.png)">x</div>'],
+	[
+		"css-block",
+		"<style>.bk{background:url(https://evil.example/styleblock.png)}</style>" +
+			'<div class="bk">x</div>',
+	],
+	["svg-image", '<svg><image href="https://evil.example/svgimage.png" /></svg>'],
+	["svg-use", '<svg><use href="https://evil.example/svguse.svg#i" /></svg>'],
+	["link-stylesheet", '<link rel="stylesheet" href="https://evil.example/link.css">'],
+	["link-preload", '<link rel="preload" as="image" href="https://evil.example/preload.png">'],
+	["html-object", '<object data="https://evil.example/object.html"></object>'],
+	["html-embed", '<embed src="https://evil.example/embed.html">'],
+	["html-input-image", '<input type="image" src="https://evil.example/input.png">'],
+	["html-track", '<video controls><track src="https://evil.example/track.vtt"></video>'],
+	["table-background", '<table background="https://evil.example/tablebg.png"><tr><td>x</td></tr></table>'],
+	["meta-refresh", '<meta http-equiv="refresh" content="0;url=https://evil.example/meta">'],
 ];
 
 function comment(id: string, content: string) {

@@ -29,7 +29,48 @@ export const LOADERS: Record<string, readonly string[]> = {
 	embed: ["src"],
 	object: ["data"],
 	input: ["src"],
+	// SVG. `<svg><image href="…">` was measured fetching on 2026-10-07, which the
+	// list above never looked at: it is not an `img`, and its URL is in `href`.
+	image: ["href", "xlink:href"],
+	use: ["href", "xlink:href"],
+	link: ["href"],
 };
+
+/**
+ * Loaders that carry no meaning of their own, so refusing the fetch leaves nothing
+ * worth linking to.
+ *
+ * A `<source>` is one of several candidates its parent picks among. An SVG `<image>`
+ * or `<use>` only means something inside its `<svg>`, where an HTML `<a>` would be
+ * foreign markup. A `<link>` is document plumbing that was never visible.
+ */
+export const DROPPED = new Set(["source", "image", "use", "link"]);
+
+/**
+ * Attributes that make any element fetch, whatever the element is.
+ *
+ * `background` is HTML 3.2 and long deprecated, which is exactly why it was missed:
+ * `<table background="https://…">` was measured issuing the request on 2026-10-07.
+ */
+export const LOADING_ATTRIBUTES = ["background"] as const;
+
+const CSS_URL = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]*))\s*\)/gi;
+
+/**
+ * The first remote URL a stylesheet or a `style` attribute fetches, or null.
+ *
+ * CSS reaches the network without any of the attributes LOADERS names:
+ * `<div style="background-image:url(https://…)">` was measured fetching on
+ * 2026-10-07. The element is ordinary content, so the fix is to drop the styling
+ * rather than the element.
+ */
+export function remoteUrlInCss(css: string): string | null {
+	for (const match of css.matchAll(CSS_URL)) {
+		const url = match[1] ?? match[2] ?? match[3] ?? "";
+		if (isRemote(url)) return url;
+	}
+	return null;
+}
 
 /**
  * Whether a URL leaves the vault.

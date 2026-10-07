@@ -1,15 +1,13 @@
-function firstRemote(el: Element, attributes: readonly string[]): string | null {
-	for (const attribute of attributes) {
-		const value = el.getAttribute(attribute);
-		if (value === null) continue;
-		const url = remoteUrlIn(attribute, value);
-		if (url !== null) return url;
-	}
-	return null;
-}
-
 import { MarkdownRenderer, type App, type Component } from "obsidian";
-import { LOADERS, remoteUrlIn, sanitizeCommentBody } from "./sanitize-comment-body";
+import {
+	DROPPED,
+	LOADERS,
+	LOADING_ATTRIBUTES,
+	isRemote,
+	remoteUrlIn,
+	remoteUrlInCss,
+	sanitizeCommentBody,
+} from "./sanitize-comment-body";
 
 /**
  * Rendering a comment body without letting it reach the network.
@@ -27,16 +25,23 @@ import { LOADERS, remoteUrlIn, sanitizeCommentBody } from "./sanitize-comment-bo
  * content outright would hide that a comment had an image in it at all.
  *
  */
+function firstRemote(el: Element, attributes: readonly string[]): string | null {
+	for (const attribute of attributes) {
+		const value = el.getAttribute(attribute);
+		if (value === null) continue;
+		const url = remoteUrlIn(attribute, value);
+		if (url !== null) return url;
+	}
+	return null;
+}
+
 function neutraliseRemoteLoads(root: HTMLElement): void {
 	for (const [tag, attributes] of Object.entries(LOADERS)) {
 		for (const el of Array.from(root.querySelectorAll(tag))) {
 			const target = firstRemote(el, attributes);
 			if (target === null) continue;
 
-			// A <source> inside <picture> or <video> has no meaning on its own: the
-			// parent picks among them, so the one that would have been chosen is
-			// simply removed and the parent's own src is handled in its turn.
-			if (tag === "source") {
+			if (DROPPED.has(tag)) {
 				el.remove();
 				continue;
 			}
@@ -48,6 +53,35 @@ function neutraliseRemoteLoads(root: HTMLElement): void {
 			link.textContent = alt && alt !== "" ? alt : describe(tag);
 			el.replaceWith(link);
 		}
+	}
+	neutraliseLoadingAttributes(root);
+}
+
+/**
+ * Take the fetch off elements that are ordinary content carrying a loading
+ * attribute, and drop stylesheets that fetch.
+ *
+ * These route around the table above entirely: a `style` attribute with
+ * `url(…)`, or the deprecated `background` attribute, fetches from any element
+ * at all, so there is no tag to look up. The attribute goes rather than the
+ * element — a styled paragraph is still a paragraph, and removing it would take
+ * the comment's text with it.
+ */
+function neutraliseLoadingAttributes(root: HTMLElement): void {
+	for (const el of Array.from(root.querySelectorAll("*"))) {
+		for (const attribute of LOADING_ATTRIBUTES) {
+			const value = el.getAttribute(attribute);
+			if (value !== null && isRemote(value)) el.removeAttribute(attribute);
+		}
+		const style = el.getAttribute("style");
+		if (style !== null && remoteUrlInCss(style) !== null) el.removeAttribute("style");
+	}
+	// A <style> block is not content, so it goes whole. This one was not measured
+	// reaching the network on 2026-10-07 — Obsidian appears to drop it first — and
+	// is here because it is the same hole as the attribute above, one renderer
+	// change away from being open.
+	for (const el of Array.from(root.querySelectorAll("style"))) {
+		if (remoteUrlInCss(el.textContent ?? "") !== null) el.remove();
 	}
 }
 
