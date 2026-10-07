@@ -34,10 +34,18 @@ describe("README badges", () => {
 		expect(readme).toContain('alt="unit coverage');
 	});
 
-	it("names the minimum Obsidian version manifest.json declares", () => {
+	it("reads the minimum Obsidian version out of manifest.json rather than repeating it", () => {
+		// It used to be a static badge, and this test existed to catch the drift.
+		// Now shields reads manifest.json on main directly, so the number cannot
+		// drift — what can is the badge pointing at the wrong file or field, which
+		// no amount of comparing numbers would notice (#257).
 		const obsidian = badge(/^Obsidian /);
+		expect(obsidian.src).toContain("/badge/dynamic/json");
+		expect(obsidian.src).toContain("/main/manifest.json");
+		expect(obsidian.src).toContain("query=$.minAppVersion");
+		// The alt text is read by people and by screen readers, so that one still
+		// has to say the number, and still has to match.
 		expect(obsidian.alt).toBe(`Obsidian ${manifest.minAppVersion} or later`);
-		expect(obsidian.src).toContain(`/badge/Obsidian-≥ ${manifest.minAppVersion}-`);
 	});
 
 	it("names the platforms isDesktopOnly allows", () => {

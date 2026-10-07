@@ -13,12 +13,14 @@
 </p>
 
 <p align="center">
-  <img alt="Obsidian 1.13.4 or later" src="https://img.shields.io/badge/Obsidian-%E2%89%A5%201.13.4-7C3AED?logo=obsidian&logoColor=white">
+  <a href="https://github.com/jonaas-dev/obsidian-margin-comments/releases/latest"><img alt="latest release" src="https://img.shields.io/github/v/release/jonaas-dev/obsidian-margin-comments?sort=semver&label=release"></a>
+  <a href="https://github.com/jonaas-dev/obsidian-margin-comments/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/jonaas-dev/obsidian-margin-comments/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Obsidian 1.13.4 or later" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjonaas-dev%2Fobsidian-margin-comments%2Fmain%2Fmanifest.json&query=%24.minAppVersion&label=Obsidian&prefix=%E2%89%A5%20&color=7C3AED&logo=obsidian&logoColor=white">
   <img alt="Desktop and mobile" src="https://img.shields.io/badge/platforms-desktop%20%7C%20mobile-informational">
   <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white">
   <img alt="CodeMirror 6" src="https://img.shields.io/badge/CodeMirror-6-D30707?logo=codemirror&logoColor=white">
   <img alt="unit coverage 98.3%" src="https://img.shields.io/badge/unit%20coverage-98.3%25-brightgreen">
-  <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue">
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue"></a>
 </p>
 
 <p align="center">
