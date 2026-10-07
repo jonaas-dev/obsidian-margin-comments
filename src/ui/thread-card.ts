@@ -211,7 +211,12 @@ export function renderThreadCard(
 			})
 		: card.createDiv({ cls: "inline-comment-quote" });
 	if (thread.orphaned) {
-		setIcon(quote.createSpan({ cls: "inline-comment-quote-icon" }), "unlink");
+		// aria-hidden: it decorates the quote rather than naming anything, and it was
+		// the one icon in the card saying neither this nor aria-label (#318).
+		setIcon(
+			quote.createSpan({ cls: "inline-comment-quote-icon", attr: { "aria-hidden": "true" } }),
+			"unlink",
+		);
 	}
 	// The full text as a tooltip, because the visible quote is clamped (#98) and
 	// a long selection has to stay readable somewhere.

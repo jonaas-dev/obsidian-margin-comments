@@ -93,8 +93,8 @@ Open **Settings → Margin Comments**.
 | Gutter icons | on | Shows the markers in the left margin. Without them, add comments with the **Add comment to selection** command. |
 | Comment count | on | Badges a marker with the number of open threads on its line, when there is more than one. |
 | Highlight commented lines | on | Tints lines that carry an open comment, in editing and reading mode. |
-| Follow the theme accent | on | Takes the highlight colour from your theme. |
-| Highlight colour | none | Appears when **Follow the theme accent** is off. The colour used in every theme. |
+| Follow the theme accent | on | Takes the highlight color from your theme. |
+| Highlight color | none | Appears when **Follow the theme accent** is off. The color used in every theme. |
 | Fuzzy matching tolerance | 0.3 | How far edited text may drift before a comment stops finding it. |
 | When a note is deleted | Delete its comments | Deleted comments are held on disk and come back whenever the note does, including after a restart or a rename made outside Obsidian. Kept comments stay readable in the all-notes view. |
 | Side | Right | Which sidebar the panel opens in. |

@@ -1105,3 +1105,49 @@ describe("format versions", () => {
 		expect(message).toContain("newer version");
 	});
 });
+
+describe("countSetAside", () => {
+	// A sidecar that cannot be read, or whose comments the plugin cannot use, is
+	// renamed rather than deleted. Nothing mentioned those files again, so on a
+	// vault with a noisy sync they piled up in a hidden folder (#318).
+	async function storageWith(files: Record<string, string>): Promise<CommentStorage> {
+		const adapter = new MemoryAdapter();
+		// The folder explicitly, because the plugin creates it before writing and
+		// the fake adapter does not infer one from the paths inside it.
+		await adapter.mkdir(STORAGE_DIR);
+		for (const [path, text] of Object.entries(files)) await adapter.write(path, text);
+		return new CommentStorage(adapter);
+	}
+
+	it("counts nothing when nothing failed", async () => {
+		const storage = await storageWith({ [sidecarFor("note.md")]: "{}" });
+		expect(await storage.countSetAside()).toEqual({ count: 0, folder: STORAGE_DIR });
+	});
+
+	it("counts both kinds and names the folder to look in", async () => {
+		const storage = await storageWith({
+			[`${STORAGE_DIR}/aaa.json`]: "{}",
+			[`${STORAGE_DIR}/aaa.json.invalid-1700000000000`]: "{}",
+			[`${STORAGE_DIR}/bbb.json.unreadable-1700000000001`]: "not json",
+		});
+		expect(await storage.countSetAside()).toEqual({ count: 2, folder: STORAGE_DIR });
+	});
+
+	it("does not count a sidecar that merely has the words in its name", async () => {
+		// The suffix carries a timestamp, which is what separates a file the plugin
+		// set aside from a note someone happened to call "invalid".
+		const storage = await storageWith({
+			[`${STORAGE_DIR}/${hashString("my invalid notes.md")}.json`]: "{}",
+			[`${STORAGE_DIR}/ccc.json.invalid-`]: "{}",
+			[`${STORAGE_DIR}/ddd.json.unreadable`]: "{}",
+		});
+		expect((await storage.countSetAside()).count).toBe(0);
+	});
+
+	it("counts nothing before the folder exists", async () => {
+		expect(await new CommentStorage(new MemoryAdapter()).countSetAside()).toEqual({
+			count: 0,
+			folder: STORAGE_DIR,
+		});
+	});
+});

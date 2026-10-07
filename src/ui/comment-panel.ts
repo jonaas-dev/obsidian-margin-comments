@@ -30,6 +30,8 @@ export interface PanelHost extends ThreadActions {
 	loadActive(): Promise<{ filePath: string; doc: string; comments: Comment[] } | null>;
 	/** Every commented note in the vault, counts included, from the index alone. */
 	loadVault(): Promise<VaultSection[]>;
+	/** How many sidecars were set aside after a failure, and the folder holding them. */
+	countSetAside(): Promise<{ count: number; folder: string }>;
 	/** One note's text and comments, read when its section is opened. */
 	loadNote(filePath: string): Promise<NoteData>;
 	/** Scroll the editor to a thread's anchor. */
@@ -76,6 +78,8 @@ export class CommentPanelView extends ItemView {
 	private active: { filePath: string; doc: string; comments: Comment[] } | null = null;
 	/** Vault rows, straight from the index: paths and counts, no sidecars. */
 	private sections: VaultSection[] = [];
+	/** Sidecars set aside after a failure, read with the vault rows (#318). */
+	private setAside: { count: number; folder: string } = { count: 0, folder: "" };
 	/** Notes whose section is open. Deliberately not persisted — it is a reading
 	 *  position, and restoring twenty open sections on startup would defeat the
 	 *  laziness the view is built around. */
@@ -170,7 +174,10 @@ export class CommentPanelView extends ItemView {
 	}
 
 	async render(): Promise<void> {
-		if (this.host.scope() === "vault") await this.loadVault();
+		if (this.host.scope() === "vault") {
+			this.setAside = await this.host.countSetAside();
+			await this.loadVault();
+		}
 		else this.active = await this.host.loadActive();
 		this.paint();
 	}
@@ -347,6 +354,8 @@ export class CommentPanelView extends ItemView {
 		const filter = this.host.filter();
 		this.renderFilters(container, countSections(this.sections), filter);
 
+		this.renderSetAside(container);
+
 		const sections = filterSections(this.sections, filter);
 		if (sections.length === 0) {
 			this.renderEmpty(container, vaultEmptyStateMessage(filter));
@@ -361,8 +370,13 @@ export class CommentPanelView extends ItemView {
 
 	private renderSection(list: HTMLElement, section: VaultSection, filter: ThreadFilter): void {
 		const expanded = this.expanded.has(section.filePath);
+		// role=listitem because the container is a role=list: a list whose children
+		// are plain divs is announced with no items at all, however many notes it
+		// holds. The note-scope list above gets this right, which is what made it
+		// look like an oversight rather than a decision (#318).
 		const wrapper = list.createDiv({
 			cls: `inline-comment-section${section.missing ? " is-missing" : ""}`,
+			attr: { role: "listitem" },
 		});
 
 		const head = wrapper.createEl("button", {
@@ -577,6 +591,24 @@ export class CommentPanelView extends ItemView {
 				await this.host.setSortOrder(toSortOrder(select.value));
 				this.paint();
 			})();
+		});
+	}
+
+	/**
+	 * Say that some sidecars were set aside, when any were.
+	 *
+	 * They are kept rather than deleted, which is right, and then never mentioned
+	 * again, which is not: on a vault with a noisy sync they accumulate inside a
+	 * hidden folder nobody opens (#318). Shown in the all-notes view because that
+	 * is the one place about the vault rather than about a note, and it names the
+	 * folder because finding it is the whole point.
+	 */
+	private renderSetAside(container: HTMLElement): void {
+		if (this.setAside.count === 0) return;
+		const one = this.setAside.count === 1;
+		container.createDiv({
+			cls: "inline-comment-set-aside",
+			text: `${this.setAside.count} sidecar file${one ? "" : "s"} ${one ? "was" : "were"} set aside after a failure and ${one ? "is" : "are"} kept in ${this.setAside.folder}.`,
 		});
 	}
 

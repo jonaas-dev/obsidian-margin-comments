@@ -20,6 +20,9 @@ export const INDEX_FILE = "_index.json";
  */
 export const HELD_DIR = "held";
 
+/** The two names a set-aside sidecar is given, both stamped with the time. */
+const SET_ASIDE = /\.(invalid|unreadable)-\d+$/;
+
 /**
  * The slice of Obsidian's DataAdapter this plugin uses.
  *
@@ -720,6 +723,23 @@ export class CommentStorage {
 	 * all-notes view reads the index alone, and never showed such a note (#260). It costs
 	 * one directory listing; a sidecar is read only when nothing lists it.
 	 */
+	/**
+	 * How many sidecars have been set aside, and where they are.
+	 *
+	 * A sidecar that cannot be read, or that holds comments the plugin cannot use,
+	 * is renamed rather than deleted: the data outlives the failure. Nothing ever
+	 * mentioned those files again, so on a vault with a noisy sync they piled up
+	 * inside a hidden folder nobody opens (#318). Counting them is cheap — one
+	 * directory listing, no reads — and it is the difference between data that was
+	 * kept and data that was quietly lost.
+	 */
+	async countSetAside(): Promise<{ count: number; folder: string }> {
+		const folder = normalizePath(STORAGE_DIR);
+		if (!(await this.adapter.exists(folder))) return { count: 0, folder };
+		const { files } = await this.adapter.list(folder);
+		return { count: files.filter((path) => SET_ASIDE.test(path)).length, folder };
+	}
+
 	private async addUnlisted(index: Index): Promise<void> {
 		const dir = normalizePath(STORAGE_DIR);
 		if (!(await this.adapter.exists(dir))) return;

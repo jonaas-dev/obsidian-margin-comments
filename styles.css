@@ -1009,3 +1009,18 @@
 .inline-comment-card.is-editing .inline-comment-reply-toggle {
 	display: none;
 }
+
+/* Sidecars kept after a failure. Quiet by default — it is information, not an
+   error — but it names a folder the reader has to go and find, so it stays
+   selectable and does not wrap into an unreadable block. */
+.inline-comment-set-aside {
+	margin: 0 var(--size-4-3) var(--size-4-2);
+	padding: var(--size-4-2);
+	border-radius: var(--radius-s);
+	background: var(--background-modifier-border);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	line-height: 1.4;
+	user-select: text;
+	overflow-wrap: anywhere;
+}

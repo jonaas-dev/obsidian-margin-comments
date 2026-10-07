@@ -45,8 +45,8 @@ export function toAuthor(value: unknown, fallback: string): string {
 
 /** What the fuzzy slider is actually promising, in words rather than a number. */
 export function describeFuzzy(threshold: number): string {
-	if (threshold <= 0.15) return "Strict: only near-identical text is recognised.";
+	if (threshold <= 0.15) return "Strict: only near-identical text is recognized.";
 	if (threshold >= 0.4)
-		return "Loose: heavily rewritten text is still recognised, sometimes wrongly.";
-	return "Balanced: text that was edited is recognised, text that was replaced is not.";
+		return "Loose: heavily rewritten text is still recognized, sometimes wrongly.";
+	return "Balanced: text that was edited is recognized, text that was replaced is not.";
 }

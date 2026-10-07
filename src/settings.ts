@@ -84,11 +84,15 @@ export class InlineCommentsSettingTab extends PluginSettingTab {
 					},
 					{
 						name: "Follow the theme accent",
-						desc: "Tints from the accent colour of whichever theme is active, so the highlight keeps working after a theme change.",
+						desc: "Tints from the accent color of whichever theme is active, so the highlight keeps working after a theme change.",
 						control: { type: "toggle", key: FOLLOW_THEME },
 					},
 					{
-						name: "Highlight colour",
+						// American, like the rest of Obsidian's interface and like the
+						// code behind it (`highlightColor`). The settings search filters
+						// on this label, so "colour" meant a reader typing "color" did
+						// not find the setting at all (#318).
+						name: "Highlight color",
 						desc: "Used instead of the theme accent, in every theme.",
 						// Shown only while the theme is not driving the colour. This
 						// used to be a re-call of display(), which on 1.13 does not

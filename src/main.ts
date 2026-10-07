@@ -156,6 +156,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 					scope: () => this.settings.panelScope,
 					setScope: (scope) => this.setPanelScope(scope),
 					loadVault: () => this.loadVault(),
+					countSetAside: () => this.storage.countSetAside(),
 					loadNote: (filePath) => this.loadNote(filePath),
 					openThreadInNote: (filePath, thread) =>
 						void this.navigation.openThreadInNote(filePath, thread),
