@@ -3,7 +3,7 @@ import {
 	highlightsInBlock,
 	locateAcrossSegments,
 } from "../../src/reading/reading-highlights";
-import type { Thread } from "../../src/ui/threads";
+import type { Thread } from "../../src/threads";
 import type { Comment } from "../../src/types";
 
 function comment(id: string, overrides: Partial<Comment> = {}): Comment {

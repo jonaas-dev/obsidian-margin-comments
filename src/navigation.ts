@@ -1,7 +1,7 @@
 import { MarkdownView, Notice, TFile, type App } from "obsidian";
 import type { CommentStorage } from "./storage";
 import { COMMENT_PANEL_VIEW } from "./ui/comment-panel";
-import { buildThreads, type Thread } from "./ui/threads";
+import { buildThreads, type Thread } from "./threads";
 import { findAdjacentLine, navigableLines, type Direction } from "./editor/comment-navigation";
 
 /**

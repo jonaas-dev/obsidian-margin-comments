@@ -1,13 +1,13 @@
 import { describe, it, expect } from "vitest";
 import {
-	THREAD_FILTERS,
 	countThreads,
 	emptyStateMessage,
 	filterThreads,
 	filterLabel,
 	toThreadFilter,
 } from "../../src/ui/panel-filter";
-import type { Thread } from "../../src/ui/threads";
+import { THREAD_FILTERS } from "../../src/types";
+import type { Thread } from "../../src/threads";
 import { createAnchor } from "../../src/anchor";
 import type { Comment } from "../../src/types";
 

@@ -5,7 +5,7 @@ import {
 	filterSections,
 	vaultEmptyStateMessage,
 } from "../../src/ui/vault-sections";
-import { THREAD_FILTERS } from "../../src/ui/panel-filter";
+import { THREAD_FILTERS } from "../../src/types";
 import type { CommentSummary } from "../../src/storage";
 
 const summary = (filePath: string, threads: number, open: number): CommentSummary => ({

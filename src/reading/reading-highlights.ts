@@ -1,4 +1,4 @@
-import type { Thread } from "../ui/threads";
+import type { Thread } from "../threads";
 
 /** A stretch of a block's rendered text that carries an open thread. */
 export interface ReadingHighlight {

@@ -1,5 +1,5 @@
 import type { SortOrder } from "../types";
-import type { Thread } from "./threads";
+import type { Thread } from "../threads";
 
 export const SORT_ORDERS: readonly SortOrder[] = ["position", "date", "lastActivity"];
 

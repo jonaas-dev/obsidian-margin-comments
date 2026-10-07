@@ -3,7 +3,7 @@ import { Notice, type App } from "obsidian";
 import { describeFailedSave, type CommentStorage } from "../storage";
 import type { Comment, PluginSettings } from "../types";
 import type { CommentPanelView } from "../ui/comment-panel";
-import { buildThreads, type Thread } from "../ui/threads";
+import { buildThreads, type Thread } from "../threads";
 import { createAnchor } from "../anchor";
 import { commentIntent } from "./comment-intent";
 import { FloatingComposer } from "./floating-comment";

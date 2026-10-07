@@ -1,8 +1,8 @@
-import type { Thread } from "./threads";
+import type { Thread } from "../threads";
+import { THREAD_FILTERS, type ThreadFilter } from "../types";
 
-export type ThreadFilter = "all" | "open" | "resolved";
+export type { ThreadFilter };
 
-export const THREAD_FILTERS: readonly ThreadFilter[] = ["all", "open", "resolved"];
 
 /**
  * Narrow the panel to one bucket.

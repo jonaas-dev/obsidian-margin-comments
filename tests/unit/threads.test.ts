@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { buildThreads, formatRelativeTime } from "../../src/ui/threads";
+import { buildThreads } from "../../src/threads";
+import { formatRelativeTime } from "../../src/ui/relative-time";
 import { createAnchor } from "../../src/anchor";
 import type { Comment } from "../../src/types";
 

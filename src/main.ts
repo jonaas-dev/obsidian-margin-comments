@@ -53,7 +53,7 @@ import { buildSections, toPanelScope, type VaultSection } from "./ui/vault-secti
 import { toThreadFilter, type ThreadFilter } from "./ui/panel-filter";
 import { toSortOrder } from "./ui/panel-sort";
 import { ThreadPopover } from "./ui/thread-popover";
-import { buildThreads } from "./ui/threads";
+import { buildThreads } from "./threads";
 import { OrphanNotice, orphanCount } from "./ui/orphans";
 import { createReply } from "./ui/replies";
 import {

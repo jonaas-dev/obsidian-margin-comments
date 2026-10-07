@@ -1,7 +1,7 @@
 import { App, Component } from "obsidian";
 import { computePosition, type AnchorRect } from "../editor/floating-position";
 import { placeSheet, watchPlacement } from "../editor/bottom-sheet";
-import type { Thread } from "./threads";
+import type { Thread } from "../threads";
 import { renderThreadCard, type ThreadActions } from "./thread-card";
 
 /** What the popover is showing, so its host can redraw it after an action. */

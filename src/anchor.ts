@@ -15,7 +15,8 @@ export interface AnchorMatch {
 }
 
 /** 1-based line number containing `offset`. */
-function lineNumberAt(doc: string, offset: number): number {
+/** 1-based line number containing `offset`. Exported for src/threads.ts. */
+export function lineNumberAt(doc: string, offset: number): number {
 	let line = 1;
 	for (let i = 0; i < offset && i < doc.length; i++) {
 		if (doc[i] === "\n") line++;

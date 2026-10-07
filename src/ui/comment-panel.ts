@@ -1,15 +1,8 @@
 import { Component, ItemView, Platform, setIcon, type WorkspaceLeaf } from "obsidian";
 import { listenInEveryWindow } from "../windows";
-import type { Comment, PanelScope, SortOrder } from "../types";
-import { buildThreads, type Thread } from "./threads";
-import {
-	THREAD_FILTERS,
-	countThreads,
-	emptyStateMessage,
-	filterLabel,
-	filterThreads,
-	type ThreadFilter,
-} from "./panel-filter";
+import { THREAD_FILTERS, type Comment, type PanelScope, type SortOrder, type ThreadFilter } from "../types";
+import { buildThreads, type Thread } from "../threads";
+import { countThreads, emptyStateMessage, filterLabel, filterThreads } from "./panel-filter";
 import { SORT_ORDERS, sortLabel, sortThreads, toSortOrder } from "./panel-sort";
 import { hotkeyHint, type Binding } from "./hotkey";
 import {

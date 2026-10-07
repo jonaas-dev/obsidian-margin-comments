@@ -1,6 +1,7 @@
 import { App, Component, setIcon } from "obsidian";
 import type { Comment } from "../types";
-import { formatRelativeTime, type Thread } from "./threads";
+import { type Thread } from "../threads";
+import { formatRelativeTime } from "./relative-time";
 import { orphanExplanation } from "./orphans";
 import { wasEdited } from "./comment-actions";
 import { keyIntent } from "./key-intent";

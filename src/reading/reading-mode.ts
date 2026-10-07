@@ -3,7 +3,7 @@ import type { CommentStorage } from "../storage";
 import type { Comment, PluginSettings } from "../types";
 import type { AnchorRect } from "../editor/floating-position";
 import type { CommentPanelView } from "../ui/comment-panel";
-import { buildThreads, type Thread } from "../ui/threads";
+import { buildThreads, type Thread } from "../threads";
 import { hashString } from "../utils";
 import { highlightsInBlock } from "./reading-highlights";
 import {

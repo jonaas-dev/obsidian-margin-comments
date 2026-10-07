@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { OrphanNotice, orphanCount, orphanExplanation } from "../../src/ui/orphans";
-import { buildThreads, type Thread } from "../../src/ui/threads";
+import { buildThreads, type Thread } from "../../src/threads";
 import { createAnchor } from "../../src/anchor";
 import type { Comment } from "../../src/types";
 

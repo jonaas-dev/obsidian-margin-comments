@@ -1,5 +1,5 @@
 import { noteName } from "../utils";
-import type { Thread } from "./threads";
+import type { Thread } from "../threads";
 
 /** Threads whose anchor no stage could place in the note. */
 export function orphanCount(threads: Thread[]): number {

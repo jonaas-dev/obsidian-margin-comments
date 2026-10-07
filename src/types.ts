@@ -1,4 +1,11 @@
-import type { ThreadFilter } from "./ui/panel-filter";
+/**
+ * The panel's buckets. Here rather than next to the filtering so that types.ts
+ * imports nothing: it used to reach into src/ui/panel-filter, which put the
+ * domain's types downstream of the interface and closed two import cycles (#312).
+ */
+export type ThreadFilter = "all" | "open" | "resolved";
+
+export const THREAD_FILTERS: readonly ThreadFilter[] = ["all", "open", "resolved"];
 
 /** How a comment finds its text again after the note has been edited. */
 export interface TextAnchor {

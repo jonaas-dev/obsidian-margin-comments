@@ -1,5 +1,5 @@
-import { matchAnchor, type MatchOptions } from "../anchor";
-import type { Comment } from "../types";
+import { lineNumberAt, matchAnchor, type MatchOptions } from "./anchor";
+import type { Comment } from "./types";
 
 export interface Thread {
 	root: Comment;
@@ -11,14 +11,6 @@ export interface Thread {
 	/** Offset just past the anchor, so callers can read the matched text back. */
 	end: number | null;
 	orphaned: boolean;
-}
-
-function lineNumberAt(doc: string, offset: number): number {
-	let line = 1;
-	for (let i = 0; i < offset && i < doc.length; i++) {
-		if (doc[i] === "\n") line++;
-	}
-	return line;
 }
 
 /**
@@ -70,23 +62,4 @@ export function buildThreads(
 		if (b.position === null) return -1;
 		return a.position - b.position;
 	});
-}
-
-const MINUTE = 60_000;
-const HOUR = 60 * MINUTE;
-const DAY = 24 * HOUR;
-const MONTH = 30 * DAY;
-
-function plural(value: number, unit: string): string {
-	return `${value} ${unit}${value === 1 ? "" : "s"} ago`;
-}
-
-/** Human-readable age, falling back to an absolute date once it stops helping. */
-export function formatRelativeTime(timestamp: number, now: number = Date.now()): string {
-	const elapsed = now - timestamp;
-	if (elapsed < MINUTE) return "just now";
-	if (elapsed < HOUR) return plural(Math.floor(elapsed / MINUTE), "minute");
-	if (elapsed < DAY) return plural(Math.floor(elapsed / HOUR), "hour");
-	if (elapsed < MONTH) return plural(Math.floor(elapsed / DAY), "day");
-	return new Date(timestamp).toLocaleDateString();
 }

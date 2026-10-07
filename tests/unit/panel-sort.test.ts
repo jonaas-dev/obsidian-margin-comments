@@ -6,7 +6,7 @@ import {
 	sortThreads,
 	toSortOrder,
 } from "../../src/ui/panel-sort";
-import type { Thread } from "../../src/ui/threads";
+import type { Thread } from "../../src/threads";
 import { createAnchor } from "../../src/anchor";
 import type { Comment } from "../../src/types";
 

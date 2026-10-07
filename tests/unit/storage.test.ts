@@ -8,7 +8,7 @@ import {
 	describeNewerFormat,
 	describeUnreadableSidecar,
 } from "../../src/storage";
-import { buildThreads } from "../../src/ui/threads";
+import { buildThreads } from "../../src/threads";
 import { hashString } from "../../src/utils";
 import type { Comment } from "../../src/types";
 import { MemoryAdapter } from "../helpers/memory-adapter";
