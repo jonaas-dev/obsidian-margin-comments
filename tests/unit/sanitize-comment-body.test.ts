@@ -161,3 +161,36 @@ describe("the routes around the loader table", () => {
 		expect([...LOADING_ATTRIBUTES]).toEqual(["background"]);
 	});
 });
+
+describe("remoteUrlInCss under hostile input", () => {
+	// The regex this replaced was measured quadratic on 2026-10-07. Comment bodies
+	// are untrusted by this project's own trust model, so this was reachable from
+	// a sidecar in a shared vault.
+	//
+	// The first case is the one with teeth: against the old implementation it took
+	// **9,481 ms**, so it fails the budget below by two orders of magnitude. The
+	// other three were measured passing on the old one too — they are neighbouring
+	// shapes kept as guards, not evidence, and saying so here stops a later reader
+	// taking four green ticks for four proofs.
+	it.each([
+		["url( repeated, never closed", "url(".repeat(50_000)],
+		["one url( over a long tail", `url(${"a".repeat(200_000)}`],
+		["many url( before one close", `${"url(".repeat(50_000)})`],
+		["quotes never closed", `url("${"a".repeat(200_000)}`],
+	])("stays fast on %s", (_name, css) => {
+		const started = Date.now();
+		remoteUrlInCss(css);
+		// Two orders of magnitude under what the regex took on a quarter of this.
+		expect(Date.now() - started).toBeLessThan(100);
+	});
+
+	it("still reads a url after one it rejected", () => {
+		expect(remoteUrlInCss("background:url(local.png),url(https://evil.example/a.png)")).toBe(
+			"https://evil.example/a.png",
+		);
+	});
+
+	it("leaves an unterminated url( alone", () => {
+		expect(remoteUrlInCss("background:url(https://evil.example/a.png")).toBeNull();
+	});
+});

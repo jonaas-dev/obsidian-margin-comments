@@ -12,6 +12,10 @@
 export function displayQuote(source: string): string {
 	// A quote is a single line in the UI; running the regex chain on pathological
 	// Markdown can backtrack. Fall back to the raw text for very long anchors.
+	// Also a complexity bound, not only a display one. The three Markdown-stripping
+	// regexes below are super-linear — `[[` repeated 40,000 times measured 2,639 ms
+	// on 2026-10-07 — and this ceiling is what keeps them to about 7 ms. Raising or
+	// removing it puts a hostile sidecar back in reach of freezing Obsidian (#322).
 	if (source.length > 4000) return source;
 
 	// Code spans first, and their content kept verbatim: `a*b*c` is code, not

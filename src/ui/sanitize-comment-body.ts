@@ -54,7 +54,30 @@ export const DROPPED = new Set(["source", "image", "use", "link"]);
  */
 export const LOADING_ATTRIBUTES = ["background"] as const;
 
-const CSS_URL = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]*))\s*\)/gi;
+/** Where the `url(` token starting at or after `from` ends, or -1. */
+function afterUrlToken(css: string, from: number): number {
+	// Scanned rather than matched. The regex this replaces was measured
+	// quadratic: `url(` repeated 32,000 times took 3.9 s, and a comment body is
+	// untrusted by this project's own trust model, so a megabyte of it would
+	// freeze Obsidian for minutes. Every index here only moves forward.
+	for (let i = from; i + 3 < css.length; i++) {
+		const u = css[i];
+		if (u !== "u" && u !== "U") continue;
+		const r = css[i + 1];
+		const l = css[i + 2];
+		if ((r === "r" || r === "R") && (l === "l" || l === "L") && css[i + 3] === "(") {
+			return i + 4;
+		}
+	}
+	return -1;
+}
+
+/** `"x"` and `'x'` give up their quotes; anything else is returned as it came. */
+function unquote(value: string): string {
+	const quote = value[0];
+	if (quote !== '"' && quote !== "'") return value;
+	return value.length > 1 && value.endsWith(quote) ? value.slice(1, -1) : value;
+}
 
 /**
  * The first remote URL a stylesheet or a `style` attribute fetches, or null.
@@ -63,11 +86,20 @@ const CSS_URL = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]*))\s*\)/gi;
  * `<div style="background-image:url(https://…)">` was measured fetching on
  * 2026-10-07. The element is ordinary content, so the fix is to drop the styling
  * rather than the element.
+ *
+ * Linear by construction: `from` only ever jumps past a closing parenthesis that
+ * `indexOf` already reached, so no character is examined twice.
  */
 export function remoteUrlInCss(css: string): string | null {
-	for (const match of css.matchAll(CSS_URL)) {
-		const url = match[1] ?? match[2] ?? match[3] ?? "";
+	let from = 0;
+	while (from < css.length) {
+		const open = afterUrlToken(css, from);
+		if (open === -1) return null;
+		const close = css.indexOf(")", open);
+		if (close === -1) return null;
+		const url = unquote(css.slice(open, close).trim());
 		if (isRemote(url)) return url;
+		from = close + 1;
 	}
 	return null;
 }
