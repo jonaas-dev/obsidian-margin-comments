@@ -9,7 +9,6 @@
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint src tests --max-warnings 0",
 		"format:check": "prettier --check \"{src,tests}/**/*.ts\"",
-		"lint:css": "stylelint styles.css",
 		"format": "prettier --write \"{src,tests}/**/*.ts\"",
 		"test": "vitest run",
 		"badges": "node ops/badges.mjs",
@@ -40,7 +39,6 @@
 		"obsidian": "1.13.1",
 		"playwright": "^1.63.0",
 		"prettier": "^3.9.9",
-		"stylelint": "^17.16.0",
 		"typescript": "^5.7.0",
 		"vitest": "^5.0.0"
 	},

@@ -34,13 +34,6 @@ jobs:
       - name: Formatting
         run: npm run format:check
 
-      # The community directory reviews the stylesheet too, and found seven
-      # duplicate declarations this had no way of seeing (#336). The rule set is
-      # defects only — duplicates, unknown properties, invalid values — and not
-      # taste, so it stays something to fix rather than something to silence.
-      - name: Lint the stylesheet
-        run: npm run lint:css
-
       - name: Typecheck
         run: npm run typecheck
 

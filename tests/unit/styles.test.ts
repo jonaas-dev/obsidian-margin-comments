@@ -88,6 +88,33 @@ describe("styles.css theme awareness", () => {
 		expect(offenders).toEqual([]);
 	});
 
+	it("declares each property once per rule", () => {
+		// What the community directory's CSS review found: seven `background-color`
+		// declarations repeated inside their own rule (#336). They were fallbacks
+		// and are now an @supports block, and this is what stops the pattern coming
+		// back under a different property.
+		//
+		// Checked here rather than with stylelint. Adding it pulled in a dependency
+		// tree that `npm audit` immediately reported five high-severity advisories
+		// in — a poor trade for a project with zero production dependencies, to
+		// catch something fifteen lines can catch. Narrower than stylelint on
+		// purpose: this is the one CSS rule there is evidence the directory runs.
+		const offenders: string[] = [];
+		for (const match of stripped.matchAll(/([^{}@]+)\{([^{}]*)\}/g)) {
+			const selector = match[1].trim().split("\n").pop()!.trim();
+			const seen = new Set<string>();
+			for (const declaration of match[2].split(";")) {
+				const property = declaration.split(":")[0]?.trim();
+				// Custom properties are the one case where repeating is normal: a
+				// block may redefine several, and they are not the same property.
+				if (!property || property.startsWith("--") || !/^[a-z-]+$/.test(property)) continue;
+				if (seen.has(property)) offenders.push(`${selector} declares ${property} twice`);
+				seen.add(property);
+			}
+		}
+		expect(offenders).toEqual([]);
+	});
+
 	it("keeps every color-mix behind @supports, with a fallback before it", () => {
 		// The mechanism used to be two `background-color` declarations in a row,
 		// relying on a renderer dropping the one it cannot parse. The community
