@@ -96,7 +96,7 @@ class CommentMarker extends GutterMarker {
 
 	toDOM(): HTMLElement {
 		const commented = this.count > 0;
-		const span = document.createElement("span");
+		const span = createSpan();
 		span.className = commented
 			? "inline-comment-marker inline-comment-marker-active"
 			: "inline-comment-marker";

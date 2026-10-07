@@ -147,6 +147,11 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 				new Notice(describeNewerFormat(filePath), 0);
 			},
 		});
+		// The main window's timers, named rather than reached for: a bare setTimeout
+		// is this window's anyway, and saying so is what lets the unit suite pass a
+		// stub instead of needing a browser (#336).
+		this.refreshSoon = debounce(() => void this.refresh(), REFRESH_DEBOUNCE_MS, window);
+
 		this.popover = new ThreadPopover(
 			this.app,
 			{
@@ -811,11 +816,13 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		if (await this.storage.changedOnDisk(path)) this.refreshSoon();
 	}
 
-	/** Redraw once typing stops. See the editor-change registration. */
-	private readonly refreshSoon: Debounced = debounce(
-		() => void this.refresh(),
-		REFRESH_DEBOUNCE_MS,
-	);
+	/**
+	 * Redraw once typing stops. See the editor-change registration.
+	 *
+	 * Built in onload rather than as a field initialiser, because it now takes the
+	 * window whose timers it should use and the workspace is not up at construction.
+	 */
+	private refreshSoon!: Debounced;
 
 	/** Redraw markers, highlights and the panel. Part of SettingsHost. */
 	async refresh(): Promise<void> {

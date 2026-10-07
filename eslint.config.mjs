@@ -45,48 +45,6 @@ export default [
 		},
 	},
 	{
-		// Three rules that are wrong in these particular places. They are turned off
-		// here rather than at the call site because obsidianmd's own config forbids
-		// silencing them inline (eslint-comments/no-restricted-disable), and they are
-		// scoped to the files concerned so the rule keeps working everywhere else.
-		//
-		// `prefer-create-el` in render-comment-body: the suggestion goes through
-		// `.win`, and this document is deliberately one with no browsing context —
-		// which is the entire reason nothing in it fetches. The `<a>` already uses the
-		// element's own document, which is what the rule is for.
-		//
-		// `prefer-create-el` in hover-gutter and reading-marks: `createSpan()` reads
-		// the same global `document`, so the suggestion changes nothing. The node is
-		// adopted when CodeMirror or the post-processor inserts it, and the popout case
-		// is asserted end to end (#236).
-		//
-		// `prefer-instanceof` in reading-marks: measured backwards in this process —
-		// `instanceofMain` true, `instanceofOwn` false — so `.instanceOf()` would reject
-		// the elements the walk exists to find (#249).
-		files: [
-			"src/ui/render-comment-body.ts",
-			"src/editor/hover-gutter.ts",
-			"src/reading/reading-marks.ts",
-		],
-		rules: {
-			"obsidianmd/prefer-create-el": "off",
-			"obsidianmd/prefer-instanceof": "off",
-		},
-	},
-	{
-		// `prefer-window-timers` guards against a timer belonging to the wrong window.
-		// This debounce is constructed once, by the plugin instance, in the main
-		// window, and never from a popout — so the bare timers are the right ones.
-		//
-		// Reaching for `window` here was tried on 2026-10-07 and reverted: it took the
-		// module's reason to exist with it. Its docblock says it is hand-rolled rather
-		// than Obsidian's so the delay can be tested with fake timers without standing
-		// up the plugin, and the unit suite runs in node, where there is no `window`.
-		// Six tests went red.
-		files: ["src/debounce.ts"],
-		rules: { "obsidianmd/prefer-window-timers": "off" },
-	},
-	{
 		files: ["**/*.ts"],
 		languageOptions: {
 			parser: tsparser,

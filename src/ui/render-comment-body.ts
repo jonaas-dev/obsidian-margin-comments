@@ -46,7 +46,13 @@ function neutraliseRemoteLoads(root: HTMLElement): void {
 				continue;
 			}
 
-			const link = el.ownerDocument.createElement("a");
+			// createEl, not `el.ownerDocument.createElement`: the rule's suggested
+			// `ownerDocument.win.createEl` cannot work here, because this document is
+			// deliberately one with no browsing context and its `win` is null — which
+			// is the whole reason nothing in it fetches. The link is built in the
+			// global document and `replaceWith` adopts it, which is a no-op away from
+			// where it ends up: every node here is adopted into the card below (#336).
+			const link = createEl("a");
 			link.setAttribute("href", target);
 			link.setAttribute("rel", "noopener noreferrer");
 			const alt = el.getAttribute("alt")?.trim();
@@ -109,9 +115,12 @@ export async function renderCommentBody(
 	filePath: string,
 	component: Component,
 ): Promise<void> {
+	// `inert.body` is the holder. It used to be a <div> created inside the inert
+	// document, which bought nothing: the body is already an HTMLElement the renderer
+	// accepts, and creating the div was the second site the directory review flagged
+	// for not using Obsidian's helpers — helpers that cannot run here (#336).
 	const inert = target.ownerDocument.implementation.createHTMLDocument("");
-	const holder = inert.createElement("div");
-	inert.body.appendChild(holder);
+	const holder = inert.body;
 
 	// Started, not awaited to completion. A document with no browsing context never
 	// loads an image, and the renderer's promise waits for the ones it rendered: #263

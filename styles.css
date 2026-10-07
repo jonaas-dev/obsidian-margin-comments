@@ -117,7 +117,6 @@
 	   theme colour rather than the accent, which at full strength would be a
 	   solid block over the text. */
 	background-color: var(--background-modifier-hover);
-	background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 12%, transparent);
 	box-shadow: inset 2px 0 0 0 var(--ic-highlight, var(--text-accent));
 }
 
@@ -128,7 +127,6 @@
 .inline-comment-reading-mark {
 	border-radius: var(--radius-s);
 	background-color: var(--background-modifier-hover);
-	background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 18%, transparent);
 	box-shadow: inset 0 -1px 0 0 var(--ic-highlight, var(--text-accent));
 }
 
@@ -212,12 +210,10 @@
    was barely distinguishable from the page in the default dark theme (#142). */
 .inline-comment-active-line:is(.theme-dark *) {
 	background-color: var(--background-modifier-hover);
-	background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 22%, transparent);
 }
 
 .inline-comment-reading-mark:is(.theme-dark *) {
 	background-color: var(--background-modifier-hover);
-	background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 28%, transparent);
 }
 
 /* The stronger of the two layers: it names particular words, so it carries the
@@ -226,13 +222,11 @@
 .inline-comment-active-range {
 	border-radius: var(--radius-s);
 	background-color: var(--background-modifier-border);
-	background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 28%, transparent);
 	box-shadow: inset 0 -1px 0 0 var(--ic-highlight, var(--text-accent));
 }
 
 .inline-comment-active-range:is(.theme-dark *) {
 	background-color: var(--background-modifier-border);
-	background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 38%, transparent);
 }
 
 /* Inside a code block the syntax highlighter splits the text into one span per
@@ -992,7 +986,6 @@
    file. */
 .inline-comment-card.is-selected {
 	background-color: var(--background-modifier-active-hover);
-	background-color: color-mix(in srgb, var(--text-accent) 10%, transparent);
 	box-shadow: inset 3px 0 0 0 var(--text-accent);
 }
 
@@ -1023,4 +1016,52 @@
 	line-height: 1.4;
 	user-select: text;
 	overflow-wrap: anywhere;
+}
+
+/* The color-mix half of every tint, in one place.
+
+   These used to sit as a second `background-color` directly after the flat one,
+   relying on a renderer without color-mix dropping the declaration it cannot
+   parse. That works, and it reads as seven duplicated properties — which is
+   exactly what the community directory's CSS review called them (#336). The
+   @supports block says the same thing as a condition instead of as a side
+   effect of parsing, and leaves one declaration per rule.
+
+   It comes last in the file on purpose: these selectors match the ones above
+   exactly, so equal specificity means source order decides, and these have to
+   win where color-mix is understood.
+
+   Why a fallback is needed at all: every desktop build at minAppVersion has
+   color-mix, but mobile runs the system webview, where it arrived in iOS 16.2.
+   Without the flat colour underneath, the tint would simply not be painted
+   there. A theme surface colour rather than the accent, which at full strength
+   would be a solid block over the text. */
+@supports (background-color: color-mix(in srgb, red 50%, transparent)) {
+	.inline-comment-active-line {
+		background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 12%, transparent);
+	}
+
+	.inline-comment-reading-mark {
+		background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 18%, transparent);
+	}
+
+	.inline-comment-active-line:is(.theme-dark *) {
+		background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 22%, transparent);
+	}
+
+	.inline-comment-reading-mark:is(.theme-dark *) {
+		background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 28%, transparent);
+	}
+
+	.inline-comment-active-range {
+		background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 28%, transparent);
+	}
+
+	.inline-comment-active-range:is(.theme-dark *) {
+		background-color: color-mix(in srgb, var(--ic-highlight, var(--text-accent)) 38%, transparent);
+	}
+
+	.inline-comment-card.is-selected {
+		background-color: color-mix(in srgb, var(--text-accent) 10%, transparent);
+	}
 }

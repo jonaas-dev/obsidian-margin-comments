@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
-import builtins from "builtin-modules";
+// node:module, not the `builtin-modules` package: the directory review flagged
+// that dependency as replaceable, so it is gone from package.json (#336).
+import { builtinModules as builtins } from "node:module";
 
 /**
  * The built plugin. `main.js` is generated and not in the repository, so this

@@ -88,40 +88,48 @@ describe("styles.css theme awareness", () => {
 		expect(offenders).toEqual([]);
 	});
 
-	it("puts the color-mix fallback before the color-mix, in every rule that mixes", () => {
-		// The whole mechanism is the order: a renderer that does not understand
-		// color-mix drops that declaration and keeps whatever came before it.
-		// Reversed, the fallback wins everywhere and the tint is never mixed.
+	it("keeps every color-mix behind @supports, with a fallback before it", () => {
+		// The mechanism used to be two `background-color` declarations in a row,
+		// relying on a renderer dropping the one it cannot parse. The community
+		// directory's CSS review reads that as seven duplicated properties, which
+		// it also is (#336), so the condition is now stated rather than implied.
 		//
-		// Every rule, not just the editor's line highlight: reading mode (#34)
-		// added a second one, and a guard naming a single selector would have let
-		// it ship unpaired.
-		const mixing = [...rules.matchAll(/([^{}@;]+)\{([^}]*)\}/g)]
-			.map((match) => ({ selector: match[1].trim(), body: match[2] }))
-			.filter((rule) => rule.body.includes("color-mix"));
+		// What has to hold is the pairing, and it is checked here because nothing
+		// else can see it: a selector inside @supports with no plain declaration
+		// earlier in the file paints nothing at all on a renderer without
+		// color-mix — which is every mobile webview before iOS 16.2.
+		const supports = /@supports \(background-color: color-mix\([^)]*\)[^)]*\)\s*\{/.exec(
+			stripped,
+		);
+		expect(supports).not.toBeNull();
+		const blockStart = supports!.index;
+		const before = stripped.slice(0, blockStart);
+		// Past the prelude, which contains a color-mix of its own — the probe the
+		// condition tests with — and would otherwise read as a selector.
+		const inside = stripped.slice(blockStart + supports![0].length);
 
-		expect(mixing.length).toBeGreaterThanOrEqual(2);
+		// Nothing mixes outside the block: a stray color-mix in an ordinary rule
+		// would be the regression this guards, and it would be invisible on the
+		// machine of whoever wrote it.
+		expect({ mixesOutsideTheBlock: before.includes("color-mix") }).toEqual({
+			mixesOutsideTheBlock: false,
+		});
 
-		for (const rule of mixing) {
-			const backgrounds = [...rule.body.matchAll(/background-color\s*:\s*([^;]+);/g)].map(
-				(match) => match[1],
-			);
-			expect({ selector: rule.selector, count: backgrounds.length }).toEqual({
-				selector: rule.selector,
-				count: 2,
-			});
-			expect({
-				selector: rule.selector,
-				fallbackFirst: !backgrounds[0].includes("color-mix"),
-			}).toEqual({ selector: rule.selector, fallbackFirst: true });
-			expect({
-				selector: rule.selector,
-				mixSecond: backgrounds[1].includes("color-mix"),
-			}).toEqual({
-				selector: rule.selector,
-				mixSecond: true,
-			});
-		}
+		const mixed = [...inside.matchAll(/([^{}@;]+)\{([^}]*color-mix[^}]*)\}/g)].map((match) => ({
+			selector: match[1].trim(),
+			body: match[2],
+		}));
+		expect(mixed.length).toBeGreaterThanOrEqual(7);
+
+		const unpaired = mixed
+			.filter((rule) => {
+				const earlier = new RegExp(
+					`${rule.selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*\\{[^}]*background-color\\s*:`,
+				);
+				return !earlier.test(before);
+			})
+			.map((rule) => rule.selector);
+		expect(unpaired).toEqual([]);
 	});
 
 	it("roots every selector in the plugin's own namespace", () => {

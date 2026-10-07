@@ -42,7 +42,7 @@ export function paintReadingMarks(el: HTMLElement, highlights: ReadingHighlight[
 			const length = slice.end - slice.start;
 			if (length < target.data.length) target.splitText(length);
 
-			const mark = document.createElement("span");
+			const mark = createSpan();
 			mark.className = READING_MARK_CLASS;
 			mark.dataset.threadId = highlight.id;
 			target.replaceWith(mark);
@@ -63,7 +63,12 @@ export function paintReadingMarks(el: HTMLElement, highlights: ReadingHighlight[
 export function threadIdsAt(target: Element): string[] {
 	const ids: string[] = [];
 	for (let el: Element | null = target; el !== null; el = el.parentElement) {
-		if (!(el instanceof HTMLElement)) continue;
+		// Obsidian's cross-window check, not `instanceof`. Measured in a popout on
+		// 2026-10-07: the mark is an instance of the *main* window's HTMLElement and
+		// not of its own window's, so a bare `instanceof` happens to work here only
+		// because this code created the element from the main document. `.instanceOf`
+		// returned true for the same element and does not depend on that (#336).
+		if (!el.instanceOf(HTMLElement)) continue;
 		if (el.classList.contains(READING_MARK_CLASS) && el.dataset.threadId)
 			ids.push(el.dataset.threadId);
 		if (el.classList.contains(READING_BLOCK_CLASS) && el.dataset.threadIds) {

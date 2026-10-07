@@ -15,6 +15,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # Provenance attestations: id-token to prove which workflow ran, attestations
+      # to record it. The community directory asks for these so a user can verify
+      # cryptographically that main.js came from this repository rather than from
+      # someone's laptop (#336).
+      id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -44,6 +50,15 @@ jobs:
             echo "::error::versions.json has no entry for $TAG"
             exit 1
           fi
+
+      # Before the release is created, so a tag that produced no attestation never
+      # reaches anyone.
+      - name: Attest the release assets
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            main.js
+            styles.css
 
       - name: Create a draft release
         env:
