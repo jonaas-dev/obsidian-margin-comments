@@ -8,6 +8,7 @@
 		"build": "tsc --noEmit && node esbuild.config.mjs production",
 		"typecheck": "tsc --noEmit",
 		"lint": "eslint src tests --max-warnings 0",
+		"format:check": "prettier --check \"{src,tests}/**/*.ts\"",
 		"format": "prettier --write \"{src,tests}/**/*.ts\"",
 		"test": "vitest run",
 		"badges": "node ops/badges.mjs",

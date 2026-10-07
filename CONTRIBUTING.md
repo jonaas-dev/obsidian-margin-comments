@@ -76,11 +76,24 @@ needs a full Obsidian restart.
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint over `src` and `tests` |
 | `npm run format` | Prettier over `src` and `tests` |
+| `npm run format:check` | The same, reporting instead of writing — what CI runs |
 | `npm test` | Vitest unit tests, single run |
 | `npm run test:coverage` | Unit tests with coverage, failing below the thresholds CI enforces |
 | `npm run test:e2e` | End-to-end tests driving a real Obsidian |
 | `npm run test:watch` | Vitest in watch mode |
 | `npm run sonar` | Unit coverage, then a SonarQube analysis (optional, see below) |
+
+### One-time setup
+
+```sh
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
+The repository had drifted from its own Prettier settings across 77 files, and
+putting that right took one commit that touched almost everything. Without this
+setting, `git blame` names that commit as the last author of every line it
+reformatted. The file lists the commits worth skipping, and nothing goes in it
+that is not provably formatting-only.
 
 ## Code quality (optional)
 

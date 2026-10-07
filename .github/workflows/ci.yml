@@ -27,6 +27,13 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Checked rather than written. 77 files had drifted from the .prettierrc
+      # the repository ships, because the format script existed and nothing ran
+      # it; a change that reformats what it touches then arrives as a diff
+      # nobody can review (#327).
+      - name: Formatting
+        run: npm run format:check
+
       - name: Typecheck
         run: npm run typecheck
 

@@ -1,0 +1,11 @@
+# Commits that changed formatting and nothing else. `git blame` skips them with
+# --ignore-revs-file, so a reformat does not become the last author of every line
+# it touched.
+#
+# Set it up once per clone, which CONTRIBUTING.md asks for:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+#
+# Only add a commit here that is provably formatting-only.
+
+# style: format src/ and tests/ with the project's own prettier (#327)
+718998f6825a58d0929ec15a834a3b71f5ef7db3
