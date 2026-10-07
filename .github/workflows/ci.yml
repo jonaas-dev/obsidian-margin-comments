@@ -72,24 +72,49 @@ jobs:
       # injection vector the moment one of these values is not a commit SHA.
       - name: Resolve scan range
         id: range
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.event.after }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
-            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            echo "base=$PR_BASE" >> "$GITHUB_OUTPUT"
+            echo "head=$PR_HEAD" >> "$GITHUB_OUTPUT"
+            echo "based=yes" >> "$GITHUB_OUTPUT"
+          # Push to main: scan the commits this push introduced. A force-push or
+          # a history rewrite leaves `before` naming a commit no clone has, and a
+          # branch creation sends all zeros; the range then fails to resolve and
+          # the job died with "git exited 128", which reads as a broken scanner
+          # rather than as a missing base (#179).
+          elif git cat-file -e "${BEFORE}^{commit}" 2> /dev/null; then
+            echo "base=$BEFORE" >> "$GITHUB_OUTPUT"
+            echo "head=$AFTER" >> "$GITHUB_OUTPUT"
+            echo "based=yes" >> "$GITHUB_OUTPUT"
           else
-            # Push to main: scan the commits this push introduced.
-            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
-            echo "head=${{ github.event.after }}" >> "$GITHUB_OUTPUT"
+            echo "::notice::push base $BEFORE is unavailable (force-push, rewrite or new branch); scanning the whole tree"
+            echo "head=$AFTER" >> "$GITHUB_OUTPUT"
+            echo "based=no" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Scan for secrets and personal data
         env:
           BASE_SHA: ${{ steps.range.outputs.base }}
           HEAD_SHA: ${{ steps.range.outputs.head }}
+          BASED: ${{ steps.range.outputs.based }}
         # Three dots: diff against the merge base. Two dots compares the two
         # tips, so anything main deleted after the fork point would show up as
         # an addition here and fail the PR for someone else's change.
-        run: python3 ops/check-secrets.py --range "$BASE_SHA...$HEAD_SHA"
+        #
+        # With no base, the empty tree stands in and every file reads as an
+        # addition. That scans strictly more than the range it replaces, so a
+        # rewrite cannot be the way a secret arrives unnoticed.
+        run: |
+          if [ "$BASED" = "yes" ]; then
+            python3 ops/check-secrets.py --range "$BASE_SHA...$HEAD_SHA"
+          else
+            python3 ops/check-secrets.py --range "$(git hash-object -t tree /dev/null)..$HEAD_SHA"
+          fi
 
       # Keyed on who opened the pull request a commit belongs to, never on the commit's
       # own identity: the commit made under the wrong identity is exactly the one that
@@ -102,10 +127,21 @@ jobs:
           MAINTAINER: ${{ github.repository_owner }}
           OPENER: ${{ github.event.pull_request.user.login }}
           REPO: ${{ github.repository }}
+          BASED: ${{ steps.range.outputs.based }}
           GH_TOKEN: ${{ github.token }}
         run: |
           # Two dots on purpose: this wants the commits the range adds.
-          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+          #
+          # Identity gets no whole-history fallback where secrets does. Which
+          # commits a push added is not recoverable once the base is gone, and
+          # scanning everything instead fails on history the project has already
+          # accepted: the two 2026-09-13 merge commits under the author's real
+          # name (#178, closed as won't fix) and the dependabot commits whose
+          # pull request association GitHub drops when they land by fast-forward.
+          # Making that scan usable needs those exceptions named; #307 does it.
+          if [ "$BASED" != "yes" ]; then
+            echo "::warning::identity check skipped: the push base is gone, so the commits it added cannot be determined (#307)"
+          elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
             python3 ops/check-identity.py --range "$BASE_SHA..$HEAD_SHA" --maintainer "$MAINTAINER" --opener "$OPENER"
           else
             python3 ops/check-identity.py --range "$BASE_SHA..$HEAD_SHA" --maintainer "$MAINTAINER" --repo "$REPO"
