@@ -163,9 +163,24 @@ describe("settings tab", () => {
 	 * assertion follows the reader.
 	 */
 	const pickerVisible = async (): Promise<boolean> => {
-		const row = settingNamed("Highlight colour");
+		// The label, not a class: this is what the reader looks for, and what the
+		// settings search filters on. It also means a rename has to come past here
+		// — which is how "Highlight colour" becoming "Highlight color" in #318 was
+		// caught, by a full E2E run rather than by CI, which cannot launch Obsidian.
+		const row = settingNamed("Highlight color");
 		return (await row.count()) > 0 && (await row.first().isVisible());
 	};
+
+	it("finds the setting by the label the reader sees", async () => {
+		// Guards the half of pickerVisible that can pass by accident: `toBe(false)`
+		// is also what a misspelt label returns, so without this the rename showed
+		// up as one failure out of three instead of three out of three.
+		await controlOf("Follow the theme accent", ".checkbox-container").click();
+		await page.waitForTimeout(800);
+		expect(await settingNamed("Highlight color").count()).toBe(1);
+		await controlOf("Follow the theme accent", ".checkbox-container").click();
+		await page.waitForTimeout(800);
+	});
 
 	it("reveals the colour picker only once the theme stops driving the colour", async () => {
 		expect(await pickerVisible()).toBe(false);
