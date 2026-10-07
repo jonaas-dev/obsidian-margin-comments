@@ -38,8 +38,12 @@ describe("a note open in two panes", () => {
 		page.evaluate(() => {
 			const editors = Array.from(document.querySelectorAll(".cm-editor"));
 			return {
-				markers: editors.map((e) => e.querySelectorAll(".inline-comment-marker-active").length),
-				highlights: editors.map((e) => e.querySelectorAll(".inline-comment-active-range").length),
+				markers: editors.map(
+					(e) => e.querySelectorAll(".inline-comment-marker-active").length,
+				),
+				highlights: editors.map(
+					(e) => e.querySelectorAll(".inline-comment-active-range").length,
+				),
 			};
 		});
 
@@ -61,7 +65,13 @@ describe("a note open in two panes", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf("beta");
-			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, "a comment on beta");
+			await plugin.routing.createComment(
+				cm,
+				leaf.view.file.path,
+				at,
+				at + 4,
+				"a comment on beta",
+			);
 		});
 		await page.waitForTimeout(1500);
 

@@ -49,7 +49,9 @@ describe("opening a thread from reading mode", () => {
 			const el = document.querySelector(".inline-comment-popover") as HTMLElement | null;
 			if (!el) return null;
 			return {
-				bodies: Array.from(el.querySelectorAll(".inline-comment-body")).map((b) => (b.textContent ?? "").trim()),
+				bodies: Array.from(el.querySelectorAll(".inline-comment-body")).map((b) =>
+					(b.textContent ?? "").trim(),
+				),
 				placement: el.dataset.placement ?? null,
 			};
 		});
@@ -60,7 +62,11 @@ describe("opening a thread from reading mode", () => {
 	};
 
 	const phraseMark = () =>
-		page.locator(".markdown-reading-view .inline-comment-reading-mark", { hasText: "a commented phrase" }).first();
+		page
+			.locator(".markdown-reading-view .inline-comment-reading-mark", {
+				hasText: "a commented phrase",
+			})
+			.first();
 
 	async function commentOn(needle: string, content: string): Promise<void> {
 		await page.evaluate(
@@ -69,7 +75,13 @@ describe("opening a thread from reading mode", () => {
 				const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 				const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 				const at = cm.state.doc.toString().indexOf(text);
-				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + text.length, body);
+				await plugin.routing.createComment(
+					cm,
+					leaf.view.file.path,
+					at,
+					at + text.length,
+					body,
+				);
 			},
 			[needle, content],
 		);
@@ -94,9 +106,14 @@ describe("opening a thread from reading mode", () => {
 		await commentOn(LINKED, "Around the link.");
 		await page.evaluate(async () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
-			await leaf.setViewState({ type: "markdown", state: { file: leaf.view.file.path, mode: "preview" } });
+			await leaf.setViewState({
+				type: "markdown",
+				state: { file: leaf.view.file.path, mode: "preview" },
+			});
 		});
-		await page.waitForSelector(".markdown-reading-view .inline-comment-reading-mark", { timeout: 10000 });
+		await page.waitForSelector(".markdown-reading-view .inline-comment-reading-mark", {
+			timeout: 10000,
+		});
 		await page.waitForTimeout(800);
 	}, 240000);
 
@@ -115,7 +132,9 @@ describe("opening a thread from reading mode", () => {
 	});
 
 	it("opens a code block's thread from the marked block", async () => {
-		const block = page.locator(".markdown-reading-view .inline-comment-reading-block", { has: page.locator("pre") });
+		const block = page.locator(".markdown-reading-view .inline-comment-reading-block", {
+			has: page.locator("pre"),
+		});
 		await block.first().click({ position: { x: 24, y: 16 } });
 		await page.waitForTimeout(700);
 		expect((await popover())?.bodies).toEqual(["On the code."]);
@@ -125,7 +144,9 @@ describe("opening a thread from reading mode", () => {
 	it("leaves a link inside a marked stretch to the link", async () => {
 		const marked = await page.evaluate(() => {
 			const link = document.querySelector(".markdown-reading-view a.internal-link");
-			return link?.closest(".inline-comment-reading-mark, .inline-comment-reading-block") != null;
+			return (
+				link?.closest(".inline-comment-reading-mark, .inline-comment-reading-block") != null
+			);
 		});
 		// Guard: the link must sit inside something a tap would otherwise open.
 		expect(marked).toBe(true);
@@ -136,9 +157,9 @@ describe("opening a thread from reading mode", () => {
 
 	it("treats a click that ends a text selection as a selection", async () => {
 		const opened = await page.evaluate(async () => {
-			const mark = Array.from(document.querySelectorAll(".markdown-reading-view .inline-comment-reading-mark")).find(
-				(m) => m.textContent === "a commented phrase",
-			) as HTMLElement;
+			const mark = Array.from(
+				document.querySelectorAll(".markdown-reading-view .inline-comment-reading-mark"),
+			).find((m) => m.textContent === "a commented phrase") as HTMLElement;
 			const range = document.createRange();
 			range.selectNodeContents(mark);
 			const selection = window.getSelection()!;
@@ -170,7 +191,9 @@ describe("opening a thread from reading mode", () => {
 		await page.evaluate(async () => {
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
-		await page.waitForSelector(".inline-comment-panel .inline-comment-card", { timeout: 10000 });
+		await page.waitForSelector(".inline-comment-panel .inline-comment-card", {
+			timeout: 10000,
+		});
 		await page.evaluate(async () => {
 			const ws = window.app.workspace;
 			ws.rightSplit.expand();
@@ -181,7 +204,10 @@ describe("opening a thread from reading mode", () => {
 		await page.waitForTimeout(900);
 		const result = await page.evaluate(() => ({
 			popover: document.querySelector(".inline-comment-popover") !== null,
-			selected: document.querySelector(".inline-comment-card.is-selected .inline-comment-quote-text")?.textContent ?? null,
+			selected:
+				document.querySelector(
+					".inline-comment-card.is-selected .inline-comment-quote-text",
+				)?.textContent ?? null,
 		}));
 		expect(result).toEqual({ popover: false, selected: "a commented phrase" });
 	});

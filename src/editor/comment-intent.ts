@@ -11,8 +11,7 @@ export interface AnchoredThread extends Span {
 
 /** What a click on the gutter, or the add-comment command, should do. */
 export type CommentIntent =
-	| { kind: "compose"; from: number; to: number }
-	| { kind: "show"; threadIds: string[] };
+	{ kind: "compose"; from: number; to: number } | { kind: "show"; threadIds: string[] };
 
 /**
  * Whether a thread's anchor covers any of a line.
@@ -58,8 +57,7 @@ export function commentIntent(
 	// surprising, and storage order is creation order.
 	const inOrder = [...onLine].sort((a, b) => a.from - b.from);
 
-	const usable =
-		selection.from !== selection.to && overlaps(selection, line) ? selection : null;
+	const usable = selection.from !== selection.to && overlaps(selection, line) ? selection : null;
 
 	if (usable) {
 		const covering = inOrder.find((thread) => overlaps(thread, usable));

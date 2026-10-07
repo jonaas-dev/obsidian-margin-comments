@@ -156,7 +156,9 @@ describe("panel sorting", () => {
 				host.innerHTML = "";
 				const clone = panel.cloneNode(true) as HTMLElement;
 				host.appendChild(clone);
-				const title = clone.querySelector(".inline-comment-panel-title") as HTMLElement | null;
+				const title = clone.querySelector(
+					".inline-comment-panel-title",
+				) as HTMLElement | null;
 				if (title) title.textContent = "Meeting notes 2026-09-08";
 				await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
@@ -171,10 +173,12 @@ describe("panel sorting", () => {
 				const barChildren = Array.from(bar.children) as HTMLElement[];
 				out.push({
 					width,
-					barRows: new Set(barChildren.map((el) => Math.round(el.getBoundingClientRect().top)))
-						.size,
+					barRows: new Set(
+						barChildren.map((el) => Math.round(el.getBoundingClientRect().top)),
+					).size,
 					sortOffsetFromSegments: Math.abs(
-						sort.getBoundingClientRect().left - segments[0].getBoundingClientRect().left,
+						sort.getBoundingClientRect().left -
+							segments[0].getBoundingClientRect().left,
 					),
 					titleShare: title ? title.getBoundingClientRect().width / width : 1,
 				});

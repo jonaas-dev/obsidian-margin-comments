@@ -83,7 +83,11 @@ describe("CommentStorage", () => {
 	it("updates an existing comment in place", async () => {
 		const storage = new CommentStorage(new MemoryAdapter());
 		await storage.saveComment(makeComment());
-		await storage.updateComment("notes/meeting.md", "c1", (c) => ({ ...c, content: "edited", updatedAt: 2000 }));
+		await storage.updateComment("notes/meeting.md", "c1", (c) => ({
+			...c,
+			content: "edited",
+			updatedAt: 2000,
+		}));
 		const [stored] = await storage.getCommentsForFile("notes/meeting.md");
 		expect(stored.content).toBe("edited");
 		expect(stored.createdAt).toBe(1000);
@@ -142,7 +146,10 @@ describe("CommentStorage", () => {
 		const NOTE = "notes/meeting.md";
 		// What a crash mid-write or a half-finished sync leaves: a real sidecar, cut short.
 		const truncated = JSON.stringify(
-			{ filePath: NOTE, comments: [makeComment({ id: "old1" }), makeComment({ id: "old2" })] },
+			{
+				filePath: NOTE,
+				comments: [makeComment({ id: "old1" }), makeComment({ id: "old2" })],
+			},
 			null,
 			2,
 		).slice(0, 400);
@@ -219,7 +226,9 @@ describe("CommentStorage", () => {
 			await storage.getCommentsForFile(NOTE);
 			await storage.getCommentsForFile(NOTE);
 
-			expect(reports).toEqual([{ filePath: NOTE, keptAt: keptCopies(adapter, truncated)[0] }]);
+			expect(reports).toEqual([
+				{ filePath: NOTE, keptAt: keptCopies(adapter, truncated)[0] },
+			]);
 			warn.mockRestore();
 		});
 
@@ -233,7 +242,10 @@ describe("CommentStorage", () => {
 				}
 			}
 			const warn = quiet();
-			const original = JSON.stringify({ filePath: NOTE, comments: [makeComment({ id: "old" })] });
+			const original = JSON.stringify({
+				filePath: NOTE,
+				comments: [makeComment({ id: "old" })],
+			});
 			const adapter = new FailingRead({ [sidecarFor(NOTE)]: original });
 			const storage = new CommentStorage(adapter);
 
@@ -278,7 +290,9 @@ describe("CommentStorage", () => {
 			// its content. The fake has to agree, or these tests prove a swap that
 			// Obsidian would refuse.
 			const adapter = new MemoryAdapter({ a: "1", b: "2" });
-			await expect(adapter.rename("a", "b")).rejects.toThrow("Destination file already exists!");
+			await expect(adapter.rename("a", "b")).rejects.toThrow(
+				"Destination file already exists!",
+			);
 			expect(adapter.snapshot()).toEqual({ a: "1", b: "2" });
 		});
 
@@ -372,14 +386,20 @@ describe("CommentStorage", () => {
 			const storage = new CommentStorage(adapter);
 			await storage.saveComment(makeComment());
 
-			await storage.updateComment("notes/meeting.md", "c1", (c) => ({ ...c, resolved: true }));
+			await storage.updateComment("notes/meeting.md", "c1", (c) => ({
+				...c,
+				resolved: true,
+			}));
 			expect((await storage.getCommentSummaries())[0]).toEqual({
 				filePath: "notes/meeting.md",
 				threads: 1,
 				open: 0,
 			});
 
-			await storage.updateComment("notes/meeting.md", "c1", (c) => ({ ...c, resolved: false }));
+			await storage.updateComment("notes/meeting.md", "c1", (c) => ({
+				...c,
+				resolved: false,
+			}));
 			expect((await storage.getCommentSummaries())[0].open).toBe(1);
 		});
 
@@ -786,7 +806,10 @@ describe("overlapping mutations of one note", () => {
 		]);
 
 		expect(settled).toBe(true);
-		const everywhere = [...(await onDisk(adapter)), ...(await onDisk(adapter, "notes/renamed.md"))];
+		const everywhere = [
+			...(await onDisk(adapter)),
+			...(await onDisk(adapter, "notes/renamed.md")),
+		];
 		expect(ids(everywhere)).toEqual(["c1"]);
 	});
 });
@@ -795,7 +818,8 @@ describe("overlapping mutations of one note", () => {
 // copied from another vault, or written by another version of the plugin.
 describe("sidecar contents that do not fit the data model", () => {
 	const NOTE = "notes/meeting.md";
-	const sidecarOf = (comments: unknown[], filePath = NOTE) => JSON.stringify({ filePath, comments });
+	const sidecarOf = (comments: unknown[], filePath = NOTE) =>
+		JSON.stringify({ filePath, comments });
 	const without = (value: object, key: string) =>
 		Object.fromEntries(Object.entries(value).filter(([k]) => k !== key));
 	const quiet = () => vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -810,8 +834,14 @@ describe("sidecar contents that do not fit the data model", () => {
 		["no id", (c) => without(c, "id")],
 		["an empty id", (c) => ({ ...c, id: "" })],
 		["content that is not text", (c) => ({ ...c, content: 42 })],
-		["an anchor without its text hash", (c) => ({ ...c, anchor: without(c.anchor, "textHash") })],
-		["a line hint that is not a number", (c) => ({ ...c, anchor: { ...c.anchor, lineHint: "3" } })],
+		[
+			"an anchor without its text hash",
+			(c) => ({ ...c, anchor: without(c.anchor, "textHash") }),
+		],
+		[
+			"a line hint that is not a number",
+			(c) => ({ ...c, anchor: { ...c.anchor, lineHint: "3" } }),
+		],
 		["a parent that is neither null nor an id", (c) => ({ ...c, parentId: 7 })],
 		["a timestamp that is not a number", (c) => ({ ...c, createdAt: "yesterday" })],
 		["a resolved flag that is not a boolean", (c) => ({ ...c, resolved: "yes" })],
@@ -819,17 +849,23 @@ describe("sidecar contents that do not fit the data model", () => {
 		["the path of another note", (c) => ({ ...c, filePath: "notes/other.md" })],
 	];
 
-	it.each(broken)("sets aside a comment with %s, keeping the valid one beside it", async (_, breakIt) => {
-		const warn = quiet();
-		const adapter = new MemoryAdapter({
-			[sidecarFor(NOTE)]: sidecarOf([makeComment({ id: "good" }), breakIt(makeComment({ id: "bad" }))]),
-		});
+	it.each(broken)(
+		"sets aside a comment with %s, keeping the valid one beside it",
+		async (_, breakIt) => {
+			const warn = quiet();
+			const adapter = new MemoryAdapter({
+				[sidecarFor(NOTE)]: sidecarOf([
+					makeComment({ id: "good" }),
+					breakIt(makeComment({ id: "bad" })),
+				]),
+			});
 
-		const loaded = await new CommentStorage(adapter).getCommentsForFile(NOTE);
+			const loaded = await new CommentStorage(adapter).getCommentsForFile(NOTE);
 
-		expect(loaded.map((c) => c.id)).toEqual(["good"]);
-		warn.mockRestore();
-	});
+			expect(loaded.map((c) => c.id)).toEqual(["good"]);
+			warn.mockRestore();
+		},
+	);
 
 	it("still draws the valid threads of a note holding an invalid comment", async () => {
 		const warn = quiet();
@@ -848,7 +884,10 @@ describe("sidecar contents that do not fit the data model", () => {
 
 	it("accepts a comment with an edit time and one without", async () => {
 		const adapter = new MemoryAdapter({
-			[sidecarFor(NOTE)]: sidecarOf([makeComment({ id: "a", editedAt: 2000 }), makeComment({ id: "b" })]),
+			[sidecarFor(NOTE)]: sidecarOf([
+				makeComment({ id: "a", editedAt: 2000 }),
+				makeComment({ id: "b" }),
+			]),
 		});
 
 		const loaded = await new CommentStorage(adapter).getCommentsForFile(NOTE);
@@ -918,8 +957,14 @@ describe("sidecar contents that do not fit the data model", () => {
 		// another. Indexed as it claims, the all-notes view would list a note whose own
 		// sidecar does not exist.
 		const adapter = new MemoryAdapter({
-			[sidecarFor("notes/b.md")]: sidecarOf([makeComment({ filePath: "notes/a.md" })], "notes/a.md"),
-			[sidecarFor("notes/c.md")]: sidecarOf([makeComment({ filePath: "notes/c.md" })], "notes/c.md"),
+			[sidecarFor("notes/b.md")]: sidecarOf(
+				[makeComment({ filePath: "notes/a.md" })],
+				"notes/a.md",
+			),
+			[sidecarFor("notes/c.md")]: sidecarOf(
+				[makeComment({ filePath: "notes/c.md" })],
+				"notes/c.md",
+			),
 		});
 		// Seeding files does not create their folder, and a rebuild with no folder
 		// returns before reading anything: this test would pass without scanning.
@@ -986,7 +1031,10 @@ describe("format versions", () => {
 
 	it("reads a sidecar written before versions existed, and versions it on the next write", async () => {
 		const adapter = new MemoryAdapter({
-			[sidecarFor(NOTE)]: JSON.stringify({ filePath: NOTE, comments: [makeComment({ id: "old" })] }),
+			[sidecarFor(NOTE)]: JSON.stringify({
+				filePath: NOTE,
+				comments: [makeComment({ id: "old" })],
+			}),
 		});
 		const storage = new CommentStorage(adapter);
 
@@ -1004,7 +1052,9 @@ describe("format versions", () => {
 		});
 		const storage = new CommentStorage(adapter);
 
-		expect(await storage.getCommentSummaries()).toEqual([{ filePath: OTHER, threads: 2, open: 1 }]);
+		expect(await storage.getCommentSummaries()).toEqual([
+			{ filePath: OTHER, threads: 2, open: 1 },
+		]);
 		await storage.saveComment(makeComment());
 
 		const index = JSON.parse(adapter.snapshot()[INDEX]);
@@ -1052,19 +1102,31 @@ describe("format versions", () => {
 			await storage.getCommentsForFile(NOTE);
 
 			expect(adapter.snapshot()[sidecarFor(NOTE)]).toBe(newer);
-			expect(Object.keys(adapter.snapshot()).filter((p) => p.includes(".invalid-"))).toEqual([]);
+			expect(Object.keys(adapter.snapshot()).filter((p) => p.includes(".invalid-"))).toEqual(
+				[],
+			);
 		});
 
 		it.each([
 			["save", (s: CommentStorage) => s.saveComment(makeComment({ id: "mine" }))],
-			["update", (s: CommentStorage) => s.updateComment(NOTE, "future", (c) => ({ ...c, content: "edited" }))],
+			[
+				"update",
+				(s: CommentStorage) =>
+					s.updateComment(NOTE, "future", (c) => ({ ...c, content: "edited" })),
+			],
 			["delete", (s: CommentStorage) => s.deleteComment(NOTE, "future")],
 			["take", (s: CommentStorage) => s.takeComments(NOTE)],
-			["restore", (s: CommentStorage) => s.restoreComments(NOTE, [makeComment({ id: "back" })])],
+			[
+				"restore",
+				(s: CommentStorage) => s.restoreComments(NOTE, [makeComment({ id: "back" })]),
+			],
 			["move away", (s: CommentStorage) => s.moveComments(NOTE, OTHER)],
 			["move onto", (s: CommentStorage) => s.moveComments(OTHER, NOTE)],
 		])("refuses to %s, and leaves both files as they were", async (_, act) => {
-			const adapter = new MemoryAdapter({ [sidecarFor(NOTE)]: newer, [sidecarFor(OTHER)]: other });
+			const adapter = new MemoryAdapter({
+				[sidecarFor(NOTE)]: newer,
+				[sidecarFor(OTHER)]: other,
+			});
 			const storage = new CommentStorage(adapter);
 
 			await expect(act(storage)).rejects.toThrow();
@@ -1076,7 +1138,9 @@ describe("format versions", () => {
 		it("tells the owner once", async () => {
 			const adapter = new MemoryAdapter({ [sidecarFor(NOTE)]: newer });
 			const told: string[] = [];
-			const storage = new CommentStorage(adapter, { onNewerFormat: (filePath) => told.push(filePath) });
+			const storage = new CommentStorage(adapter, {
+				onNewerFormat: (filePath) => told.push(filePath),
+			});
 
 			await storage.getCommentsForFile(NOTE);
 			await storage.saveComment(makeComment({ id: "mine" })).catch(() => undefined);
@@ -1086,7 +1150,11 @@ describe("format versions", () => {
 		});
 
 		it("leaves a newer index untouched, and counts from the sidecars instead", async () => {
-			const newerIndex = JSON.stringify({ version: FORMAT_VERSION + 1, notes: {}, somethingNew: true });
+			const newerIndex = JSON.stringify({
+				version: FORMAT_VERSION + 1,
+				notes: {},
+				somethingNew: true,
+			});
 			const adapter = new MemoryAdapter({ [INDEX]: newerIndex });
 			await adapter.mkdir(STORAGE_DIR);
 			const storage = new CommentStorage(adapter);
@@ -1094,7 +1162,9 @@ describe("format versions", () => {
 			await storage.saveComment(makeComment());
 
 			expect(adapter.snapshot()[INDEX]).toBe(newerIndex);
-			expect(await storage.getCommentSummaries()).toEqual([{ filePath: NOTE, threads: 1, open: 1 }]);
+			expect(await storage.getCommentSummaries()).toEqual([
+				{ filePath: NOTE, threads: 1, open: 1 },
+			]);
 		});
 	});
 

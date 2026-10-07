@@ -72,7 +72,13 @@ describe("the gutter marker", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf("beta");
-			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, "a comment on beta");
+			await plugin.routing.createComment(
+				cm,
+				leaf.view.file.path,
+				at,
+				at + 4,
+				"a comment on beta",
+			);
 		});
 		await page.waitForTimeout(1500);
 	}, 240000);
@@ -134,9 +140,9 @@ describe("the gutter marker", () => {
 			// back as whatever it is halfway to.
 			await new Promise((r) => setTimeout(r, 300));
 			const active = document.querySelector(".inline-comment-marker-active") as HTMLElement;
-			const affordance = Array.from(
-				document.querySelectorAll(".inline-comment-marker"),
-			).find((m) => !m.classList.contains("inline-comment-marker-active")) as HTMLElement;
+			const affordance = Array.from(document.querySelectorAll(".inline-comment-marker")).find(
+				(m) => !m.classList.contains("inline-comment-marker-active"),
+			) as HTMLElement;
 			const out = {
 				active: getComputedStyle(active).color,
 				affordance: affordance ? getComputedStyle(affordance).color : "MISSING",
@@ -153,7 +159,8 @@ describe("the gutter marker", () => {
 	it("says what the line carries, in a tooltip a pointer user gets (#84)", async () => {
 		const title = await page.evaluate(
 			() =>
-				document.querySelector(".inline-comment-marker-active")?.getAttribute("title") ?? null,
+				document.querySelector(".inline-comment-marker-active")?.getAttribute("title") ??
+				null,
 		);
 		expect(title).toBe("1 comment on this line");
 	});
@@ -165,13 +172,20 @@ describe("the gutter marker", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf("gamma");
-			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 5, "a second thread");
+			await plugin.routing.createComment(
+				cm,
+				leaf.view.file.path,
+				at,
+				at + 5,
+				"a second thread",
+			);
 		});
 		await page.waitForTimeout(1500);
 
 		const title = await page.evaluate(
 			() =>
-				document.querySelector(".inline-comment-marker-active")?.getAttribute("title") ?? null,
+				document.querySelector(".inline-comment-marker-active")?.getAttribute("title") ??
+				null,
 		);
 		expect(title).toBe("2 comments on this line");
 	});

@@ -1,11 +1,4 @@
-import {
-	MarkdownView,
-	Notice,
-	Platform,
-	Plugin,
-	TFile,
-	type EventRef,
-} from "obsidian";
+import { MarkdownView, Notice, Platform, Plugin, TFile, type EventRef } from "obsidian";
 import { listenInEveryWindow } from "./windows";
 import { EditorView } from "@codemirror/view";
 import {
@@ -124,12 +117,17 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 				new Notice(describeNewerFormat(filePath), 0);
 			},
 		});
-		this.popover = new ThreadPopover(this.app, {
-			addReply: (root, content) => this.addReply(root, content),
-			editComment: (comment, content) => this.editComment(comment, content),
-			setResolved: (root, resolved) => this.setResolved(root, resolved),
-			deleteComment: (comment) => this.confirmDelete(comment),
-		}, () => this.sheet, () => this.touch);
+		this.popover = new ThreadPopover(
+			this.app,
+			{
+				addReply: (root, content) => this.addReply(root, content),
+				editComment: (comment, content) => this.editComment(comment, content),
+				setResolved: (root, resolved) => this.setResolved(root, resolved),
+				deleteComment: (comment) => this.confirmDelete(comment),
+			},
+			() => this.sheet,
+			() => this.touch,
+		);
 		this.addChild(this.popover);
 		this.navigation = new Navigation({
 			app: this.app,
@@ -160,7 +158,10 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 					countSetAside: () => this.storage.countSetAside(),
 					loadNote: (filePath) => this.loadNote(filePath),
 					openThreadInNote: (filePath, thread) =>
-						inBackground("open a thread in another note", this.navigation.openThreadInNote(filePath, thread)),
+						inBackground(
+							"open a thread in another note",
+							this.navigation.openThreadInNote(filePath, thread),
+						),
 					notifyOrphans: (count) => this.announceOrphans(count),
 					touch: () => this.touch,
 					addCommentBinding: () => this.addCommentBinding(),
@@ -170,7 +171,11 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 
 		this.addSettingTab(new InlineCommentsSettingTab(this.app, this));
 
-		this.addRibbonIcon("message-square", "Toggle comments panel", () => void this.togglePanel());
+		this.addRibbonIcon(
+			"message-square",
+			"Toggle comments panel",
+			() => void this.togglePanel(),
+		);
 		this.addCommand({
 			id: "toggle-comments-panel",
 			name: "Toggle comments panel",
@@ -178,7 +183,13 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		});
 
 		this.applyHighlightColour();
-		const openPopover: ReadingModeHost["openPopover"] = (threads, filePath, rect, doc, owner) => {
+		const openPopover: ReadingModeHost["openPopover"] = (
+			threads,
+			filePath,
+			rect,
+			doc,
+			owner,
+		) => {
 			this.popoverFile = filePath;
 			this.popover?.open(threads, filePath, rect, doc, owner);
 		};
@@ -222,7 +233,11 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			// it, the panel's empty state names the command instead (#122).
 			editorCallback: (_editor, ctx) => {
 				const view = (ctx as MarkdownView).editor as unknown as { cm?: EditorView };
-				if (view.cm) this.routing.open(view.cm, view.cm.state.doc.lineAt(view.cm.state.selection.main.head).number);
+				if (view.cm)
+					this.routing.open(
+						view.cm,
+						view.cm.state.doc.lineAt(view.cm.state.selection.main.head).number,
+					);
 			},
 		});
 
@@ -230,14 +245,21 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		this.addCommand({
 			id: "next-comment",
 			name: "Go to next comment",
-			editorCallback: (_editor, ctx) => inBackground("jump to the next comment", this.navigation.jumpToComment(ctx as MarkdownView, "next")),
+			editorCallback: (_editor, ctx) =>
+				inBackground(
+					"jump to the next comment",
+					this.navigation.jumpToComment(ctx as MarkdownView, "next"),
+				),
 		});
 
 		this.addCommand({
 			id: "previous-comment",
 			name: "Go to previous comment",
 			editorCallback: (_editor, ctx) =>
-				inBackground("jump to the previous comment", this.navigation.jumpToComment(ctx as MarkdownView, "previous")),
+				inBackground(
+					"jump to the previous comment",
+					this.navigation.jumpToComment(ctx as MarkdownView, "previous"),
+				),
 		});
 
 		this.addCommand({
@@ -293,9 +315,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		const rawEvents = this.app.vault as unknown as {
 			on(name: "raw", callback: (path: string) => void): EventRef;
 		};
-		this.registerEvent(
-			rawEvents.on("raw", (path) => void this.followStorageChange(path)),
-		);
+		this.registerEvent(rawEvents.on("raw", (path) => void this.followStorageChange(path)));
 		this.app.workspace.onLayoutReady(() => {
 			inBackground("refresh the markers and the panel", this.refresh());
 			inBackground("check for orphaned comments", this.checkOrphans());
@@ -508,12 +528,12 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		inBackground(
 			"ask whether to delete a comment",
 			(async () => {
-			const all = await this.storage.getCommentsForFile(comment.filePath);
-			new ConfirmModal(this.app, describeDeletion(comment, all), async () => {
-				await this.storage.deleteComment(comment.filePath, comment.id);
-				await this.refresh();
-				await this.refreshPopover();
-			}).open();
+				const all = await this.storage.getCommentsForFile(comment.filePath);
+				new ConfirmModal(this.app, describeDeletion(comment, all), async () => {
+					await this.storage.deleteComment(comment.filePath, comment.id);
+					await this.refresh();
+					await this.refreshPopover();
+				}).open();
 			})(),
 		);
 	}
@@ -541,7 +561,10 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		const summaries = await this.storage.getCommentSummaries();
 		// getAbstractFileByPath is an in-memory lookup, so this stays free of I/O
 		// even on a vault with hundreds of commented notes.
-		return buildSections(summaries, (path) => this.app.vault.getAbstractFileByPath(path) !== null);
+		return buildSections(
+			summaries,
+			(path) => this.app.vault.getAbstractFileByPath(path) !== null,
+		);
 	}
 
 	/**
@@ -571,46 +594,49 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		inBackground(
 			"ask whether to resolve every comment in the note",
 			(async () => {
-			if (!view.file) return;
-			const filePath = view.file.path;
-			const open = openRoots(await this.storage.getCommentsForFile(filePath));
-			if (open.length === 0) {
-				new Notice("No open comments in this note.");
-				return;
-			}
+				if (!view.file) return;
+				const filePath = view.file.path;
+				const open = openRoots(await this.storage.getCommentsForFile(filePath));
+				if (open.length === 0) {
+					new Notice("No open comments in this note.");
+					return;
+				}
 
-			new ConfirmModal(
-				this.app,
-				describeResolveAll(open.length),
-				async () => {
-					// By id, onto each comment as stored: the roots were read before the
-					// dialog, and writing those copies undid any change made meanwhile (#264).
-					let failed = 0;
-					for (const root of open) {
-						try {
-							await this.storage.updateComment(filePath, root.id, (stored) =>
-								withResolved(stored, true),
-							);
-						} catch (error) {
-							// One thread deleted since the dialog opened is not worth a
-							// notice of its own, but a write that failed for any other
-							// reason has to be said: the rest of the threads did resolve,
-							// so silence would read as "all done" (#266).
-							if (!(error instanceof CommentNotFoundError)) {
-								failed += 1;
-								console.error("margin-comments: a comment could not be resolved", error);
+				new ConfirmModal(
+					this.app,
+					describeResolveAll(open.length),
+					async () => {
+						// By id, onto each comment as stored: the roots were read before the
+						// dialog, and writing those copies undid any change made meanwhile (#264).
+						let failed = 0;
+						for (const root of open) {
+							try {
+								await this.storage.updateComment(filePath, root.id, (stored) =>
+									withResolved(stored, true),
+								);
+							} catch (error) {
+								// One thread deleted since the dialog opened is not worth a
+								// notice of its own, but a write that failed for any other
+								// reason has to be said: the rest of the threads did resolve,
+								// so silence would read as "all done" (#266).
+								if (!(error instanceof CommentNotFoundError)) {
+									failed += 1;
+									console.error(
+										"margin-comments: a comment could not be resolved",
+										error,
+									);
+								}
 							}
 						}
-					}
-					await this.refresh();
-					if (failed > 0) new Notice(describeResolveAllFailures(failed, open.length));
-				},
-				{
-					confirmLabel: "Resolve",
-					note: "Every thread can be reopened afterwards.",
-					destructive: false,
-				},
-			).open();
+						await this.refresh();
+						if (failed > 0) new Notice(describeResolveAllFailures(failed, open.length));
+					},
+					{
+						confirmLabel: "Resolve",
+						note: "Every thread can be reopened afterwards.",
+						destructive: false,
+					},
+				).open();
 			})(),
 		);
 	}
@@ -663,7 +689,9 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		})
 			.filter((thread) => shown.threadIds.includes(thread.root.id))
 			.filter((thread) => !thread.root.resolved && !thread.orphaned)
-			.sort((a, b) => shown.threadIds.indexOf(a.root.id) - shown.threadIds.indexOf(b.root.id));
+			.sort(
+				(a, b) => shown.threadIds.indexOf(a.root.id) - shown.threadIds.indexOf(b.root.id),
+			);
 		this.popover?.redraw(threads, doc);
 	}
 
@@ -717,7 +745,10 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	}
 
 	/** Redraw once typing stops. See the editor-change registration. */
-	private readonly refreshSoon: Debounced = debounce(() => void this.refresh(), REFRESH_DEBOUNCE_MS);
+	private readonly refreshSoon: Debounced = debounce(
+		() => void this.refresh(),
+		REFRESH_DEBOUNCE_MS,
+	);
 
 	/** Redraw markers, highlights and the panel. Part of SettingsHost. */
 	async refresh(): Promise<void> {

@@ -19,7 +19,10 @@ describe("SonarQube coverage exclusions", () => {
 			.split(/\r?\n/)
 			.find((l) => l.startsWith("sonar.coverage.exclusions="));
 		if (!line) throw new Error("sonar.coverage.exclusions is not set");
-		return line.slice("sonar.coverage.exclusions=".length).split(",").map((p) => p.trim());
+		return line
+			.slice("sonar.coverage.exclusions=".length)
+			.split(",")
+			.map((p) => p.trim());
 	})();
 
 	it("lists the same files as the coverage config", () => {

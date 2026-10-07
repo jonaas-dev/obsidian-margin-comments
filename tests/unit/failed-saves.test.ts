@@ -132,4 +132,4 @@ describe("a rename a note cannot follow", () => {
 		expect(await storage.getCommentsForFile(stuck)).toHaveLength(1);
 		expect(noticeMessages.join(" ")).toContain("stuck.md");
 	});
-})
+});

@@ -34,7 +34,9 @@ describe("linesWithOpenComments", () => {
 	});
 
 	it("ignores resolved comments", () => {
-		expect(linesWithOpenComments(doc, [commentOn("beta", { resolved: true })])).toEqual(new Set());
+		expect(linesWithOpenComments(doc, [commentOn("beta", { resolved: true })])).toEqual(
+			new Set(),
+		);
 	});
 
 	it("ignores replies, which share their root's line", () => {
@@ -184,14 +186,23 @@ describe("blockMarker", () => {
 
 	it("answers for an ordinary line exactly as shouldShowMarker does", () => {
 		const counts = new Map([[2, 1]]);
-		expect(blockMarker(2, 2, counts, { ...idle, commented: counts })).toEqual({ visible: true, count: 1 });
-		expect(blockMarker(3, 3, counts, { ...idle, commented: counts })).toEqual({ visible: false, count: 0 });
+		expect(blockMarker(2, 2, counts, { ...idle, commented: counts })).toEqual({
+			visible: true,
+			count: 1,
+		});
+		expect(blockMarker(3, 3, counts, { ...idle, commented: counts })).toEqual({
+			visible: false,
+			count: 0,
+		});
 	});
 
 	it("marks a block when any line inside it is commented, not only its first (#140)", () => {
 		// A table's rows 3-6 are one rendered block; the comment is on row 6.
 		const counts = new Map([[6, 1]]);
-		expect(blockMarker(3, 6, counts, { ...idle, commented: counts })).toEqual({ visible: true, count: 1 });
+		expect(blockMarker(3, 6, counts, { ...idle, commented: counts })).toEqual({
+			visible: true,
+			count: 1,
+		});
 	});
 
 	it("counts the threads of every line in the block", () => {
@@ -204,7 +215,9 @@ describe("blockMarker", () => {
 
 	it("shows the affordance when the caret is anywhere in the block on touch", () => {
 		const counts = new Map<number, number>();
-		expect(blockMarker(3, 6, counts, { ...idle, touch: true, cursorLine: 5, commented: counts })).toEqual({
+		expect(
+			blockMarker(3, 6, counts, { ...idle, touch: true, cursorLine: 5, commented: counts }),
+		).toEqual({
 			visible: true,
 			count: 0,
 		});
@@ -212,6 +225,8 @@ describe("blockMarker", () => {
 
 	it("shows nothing with the gutter switched off, commented or not", () => {
 		const counts = new Map([[5, 1]]);
-		expect(blockMarker(3, 6, counts, { ...idle, enabled: false, commented: counts }).visible).toBe(false);
+		expect(
+			blockMarker(3, 6, counts, { ...idle, enabled: false, commented: counts }).visible,
+		).toBe(false);
 	});
 });

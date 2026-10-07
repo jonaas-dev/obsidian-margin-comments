@@ -90,11 +90,13 @@ describe("comment count in the gutter", () => {
 	/** The badge text on each commented line, in document order. */
 	const badges = (): Promise<string[]> =>
 		page.evaluate(() =>
-			(Array.from(document.querySelectorAll(".inline-comment-marker-active")) as HTMLElement[])
+			(
+				Array.from(
+					document.querySelectorAll(".inline-comment-marker-active"),
+				) as HTMLElement[]
+			)
 				.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
-				.map(
-					(m) => m.querySelector(".inline-comment-marker-count")?.textContent ?? "",
-				),
+				.map((m) => m.querySelector(".inline-comment-marker-count")?.textContent ?? ""),
 		);
 
 	/**
@@ -106,7 +108,11 @@ describe("comment count in the gutter", () => {
 	 */
 	const labels = (): Promise<string[]> =>
 		page.evaluate(() =>
-			(Array.from(document.querySelectorAll(".inline-comment-marker-active")) as HTMLElement[])
+			(
+				Array.from(
+					document.querySelectorAll(".inline-comment-marker-active"),
+				) as HTMLElement[]
+			)
 				.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)
 				.map((m) => m.getAttribute("title") ?? ""),
 		);
@@ -117,13 +123,13 @@ describe("comment count in the gutter", () => {
 	 * about the text moving, and that is what a reader sees.
 	 */
 	const textLeft = (): Promise<number> =>
-		page.evaluate(() =>
-			+document.querySelector(".cm-line")!.getBoundingClientRect().left.toFixed(1),
+		page.evaluate(
+			() => +document.querySelector(".cm-line")!.getBoundingClientRect().left.toFixed(1),
 		);
 
 	const gutterWidth = (): Promise<number> =>
-		page.evaluate(() =>
-			+document.querySelector(".cm-gutters")!.getBoundingClientRect().width.toFixed(1),
+		page.evaluate(
+			() => +document.querySelector(".cm-gutters")!.getBoundingClientRect().width.toFixed(1),
 		);
 
 	/**
@@ -145,7 +151,10 @@ describe("comment count in the gutter", () => {
 					.querySelector(".cm-gutters")!
 					.getBoundingClientRect()
 					.width.toFixed(1),
-				textLeft: +document.querySelector(".cm-line")!.getBoundingClientRect().left.toFixed(1),
+				textLeft: +document
+					.querySelector(".cm-line")!
+					.getBoundingClientRect()
+					.left.toFixed(1),
 			};
 			badge.textContent = was;
 			return measured;

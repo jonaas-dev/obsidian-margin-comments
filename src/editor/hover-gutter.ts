@@ -228,7 +228,9 @@ export function commentGutter(options: GutterOptions): Extension {
 						enabled: view.state.field(gutterEnabledField),
 					},
 				);
-				return visible ? new CommentMarker(count, view.state.field(countEnabledField)) : null;
+				return visible
+					? new CommentMarker(count, view.state.field(countEnabledField))
+					: null;
 			},
 			// Without this the gutter never re-runs lineMarker for our effects: it
 			// only recomputes on document and viewport changes, so the hover state
@@ -240,11 +242,14 @@ export function commentGutter(options: GutterOptions): Extension {
 				// off the keystroke.
 				if (options.touch() && update.selectionSet) return true;
 				return (
-					update.startState.field(hoveredLineField) !== update.state.field(hoveredLineField) ||
+					update.startState.field(hoveredLineField) !==
+						update.state.field(hoveredLineField) ||
 					update.startState.field(commentedLinesField) !==
 						update.state.field(commentedLinesField) ||
-					update.startState.field(gutterEnabledField) !== update.state.field(gutterEnabledField) ||
-					update.startState.field(countEnabledField) !== update.state.field(countEnabledField)
+					update.startState.field(gutterEnabledField) !==
+						update.state.field(gutterEnabledField) ||
+					update.startState.field(countEnabledField) !==
+						update.state.field(countEnabledField)
 				);
 			},
 			domEventHandlers: {

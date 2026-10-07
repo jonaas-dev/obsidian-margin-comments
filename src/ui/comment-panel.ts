@@ -1,6 +1,12 @@
 import { Component, ItemView, Platform, setIcon, type WorkspaceLeaf } from "obsidian";
 import { listenInEveryWindow } from "../windows";
-import { THREAD_FILTERS, type Comment, type PanelScope, type SortOrder, type ThreadFilter } from "../types";
+import {
+	THREAD_FILTERS,
+	type Comment,
+	type PanelScope,
+	type SortOrder,
+	type ThreadFilter,
+} from "../types";
 import { buildThreads, type Thread } from "../threads";
 import { countThreads, emptyStateMessage, filterLabel, filterThreads } from "./panel-filter";
 import { SORT_ORDERS, sortLabel, sortThreads, toSortOrder } from "./panel-sort";
@@ -178,8 +184,7 @@ export class CommentPanelView extends ItemView {
 		if (this.host.scope() === "vault") {
 			this.setAside = await this.host.countSetAside();
 			await this.loadVault();
-		}
-		else this.active = await this.host.loadActive();
+		} else this.active = await this.host.loadActive();
 		this.paint();
 	}
 
@@ -219,7 +224,8 @@ export class CommentPanelView extends ItemView {
 		// resolving a card and expanding a section all repaint, and emptying the
 		// scroller sent the list back to its top each time (#162). A different note
 		// or scope is a different list, and starts from the top.
-		const shown = this.host.scope() === "vault" ? "vault" : `note:${this.active?.filePath ?? ""}`;
+		const shown =
+			this.host.scope() === "vault" ? "vault" : `note:${this.active?.filePath ?? ""}`;
 		const scrollTop = shown === this.paintedList ? container.scrollTop : 0;
 		this.paintedList = shown;
 		// Taken before the scroller is emptied and handed back during the repaint,
@@ -317,7 +323,10 @@ export class CommentPanelView extends ItemView {
 			return;
 		}
 
-		this.renderHeaderControls(header, active.filePath.replace(/\.md$/, "").split("/").pop() ?? "");
+		this.renderHeaderControls(
+			header,
+			active.filePath.replace(/\.md$/, "").split("/").pop() ?? "",
+		);
 
 		const all = sortThreads(this.threadsOf(active), this.host.sortOrder());
 		const filter = this.host.filter();
@@ -333,7 +342,11 @@ export class CommentPanelView extends ItemView {
 				container,
 				emptyStateMessage(filter, this.host.touch()),
 				all.length === 0
-					? hotkeyHint(this.host.addCommentBinding(), Platform.isMacOS, this.host.addCommentName())
+					? hotkeyHint(
+							this.host.addCommentBinding(),
+							Platform.isMacOS,
+							this.host.addCommentName(),
+						)
 					: null,
 			);
 			return;
@@ -389,9 +402,10 @@ export class CommentPanelView extends ItemView {
 		// The text in its own isolated run: the box is right-to-left so a long path
 		// is cut at its start, and without isolation that same direction reorders
 		// leading digits and brackets — "01 Long note.md" drew as "Long note.md 01" (#130).
-		head
-			.createSpan({ cls: "inline-comment-section-path" })
-			.createSpan({ cls: "inline-comment-section-path-text", text: section.filePath });
+		head.createSpan({ cls: "inline-comment-section-path" }).createSpan({
+			cls: "inline-comment-section-path-text",
+			text: section.filePath,
+		});
 		if (section.missing) {
 			// Named rather than hidden: the note was renamed or deleted, and its
 			// comments are still here to be read or cleaned up.
@@ -473,12 +487,20 @@ export class CommentPanelView extends ItemView {
 		// One destination for the quote and the card. The quote keeps its click
 		// from reaching the card, so a quote wired to the active note sent a card
 		// in another note's section to the wrong note (#155).
-		const card = renderThreadCard(parent, thread, filePath, this.app, this.cardScope, this.host, {
-			onReveal: reveal,
-			doc,
-			touch: this.host.touch(),
-			drafts: this.drafts.get(thread.root.id),
-		});
+		const card = renderThreadCard(
+			parent,
+			thread,
+			filePath,
+			this.app,
+			this.cardScope,
+			this.host,
+			{
+				onReveal: reveal,
+				doc,
+				touch: this.host.touch(),
+				drafts: this.drafts.get(thread.root.id),
+			},
+		);
 		if (!thread.orphaned) card.addEventListener("click", reveal);
 		// Reaching a different card is the reader turning their attention to the
 		// panel, which is exactly when the arrival marker has served its purpose.
@@ -504,8 +526,8 @@ export class CommentPanelView extends ItemView {
 			inBackground(
 				"change the panel scope",
 				(async () => {
-				await this.host.setScope(toPanelScope(scope.value));
-				await this.render();
+					await this.host.setScope(toPanelScope(scope.value));
+					await this.render();
 				})(),
 			);
 		});
@@ -552,8 +574,8 @@ export class CommentPanelView extends ItemView {
 				inBackground(
 					"change the panel filter",
 					(async () => {
-					await this.host.setFilter(filter);
-					this.paint();
+						await this.host.setFilter(filter);
+						this.paint();
 					})(),
 				);
 			});
@@ -597,8 +619,8 @@ export class CommentPanelView extends ItemView {
 			inBackground(
 				"change the sort order",
 				(async () => {
-				await this.host.setSortOrder(toSortOrder(select.value));
-				this.paint();
+					await this.host.setSortOrder(toSortOrder(select.value));
+					this.paint();
 				})(),
 			);
 		});

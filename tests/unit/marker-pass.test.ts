@@ -92,7 +92,10 @@ describe("resolveMarkers", () => {
 
 	it("merges two marks over the same words into one", () => {
 		const at = doc.indexOf("second");
-		const pass = resolveMarkers(doc, [comment(doc, at, 6), comment(doc, at, 6, { id: "twin" })]);
+		const pass = resolveMarkers(doc, [
+			comment(doc, at, 6),
+			comment(doc, at, 6, { id: "twin" }),
+		]);
 		expect(pass.ranges).toHaveLength(1);
 	});
 

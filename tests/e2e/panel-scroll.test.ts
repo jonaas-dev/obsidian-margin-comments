@@ -16,7 +16,9 @@ const OTHER = "other.md";
 const COMMENTS = 14;
 const SCROLLED = 250;
 const note = (name: string): string =>
-	Array.from({ length: 40 }, (_, i) => `${name} line ${i + 1} has a word to comment on.`).join("\n");
+	Array.from({ length: 40 }, (_, i) => `${name} line ${i + 1} has a word to comment on.`).join(
+		"\n",
+	);
 
 /**
  * #162: every repaint of the panel sent its list back to the top, because the
@@ -82,7 +84,9 @@ describe("the panel's scroll position", () => {
 			window.app.commands.executeCommandById("margin-comments:toggle-comments-panel"),
 		);
 		await page.waitForFunction(
-			(count: number) => document.querySelectorAll(".inline-comment-panel .inline-comment-card").length >= count,
+			(count: number) =>
+				document.querySelectorAll(".inline-comment-panel .inline-comment-card").length >=
+				count,
 			COMMENTS,
 			{ timeout: 10000 },
 		);

@@ -63,7 +63,13 @@ describe("reading mode", () => {
 				const doc = cm.state.doc.toString();
 				const at = doc.indexOf(text);
 				cm.dispatch({ selection: { anchor: at, head: at + text.length } });
-				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + text.length, content);
+				await plugin.routing.createComment(
+					cm,
+					leaf.view.file.path,
+					at,
+					at + text.length,
+					content,
+				);
 			},
 			[needle, body],
 		);
@@ -72,14 +78,16 @@ describe("reading mode", () => {
 
 	const marks = (): Promise<string[]> =>
 		page.evaluate(() =>
-			Array.from(document.querySelectorAll(".markdown-reading-view .inline-comment-reading-mark"))
-				.map((m) => m.textContent ?? ""),
+			Array.from(
+				document.querySelectorAll(".markdown-reading-view .inline-comment-reading-mark"),
+			).map((m) => m.textContent ?? ""),
 		);
 
 	const markedBlocks = (): Promise<string[]> =>
 		page.evaluate(() =>
-			Array.from(document.querySelectorAll(".markdown-reading-view .inline-comment-reading-block"))
-				.map((b) => (b.textContent ?? "").slice(0, 30)),
+			Array.from(
+				document.querySelectorAll(".markdown-reading-view .inline-comment-reading-block"),
+			).map((b) => (b.textContent ?? "").slice(0, 30)),
 		);
 
 	beforeAll(async () => {

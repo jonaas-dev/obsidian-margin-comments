@@ -36,32 +36,33 @@ describe("the panel's empty state", () => {
 	 * prototype and writing to it did nothing at all.
 	 */
 	async function setBinding(binding: { modifiers: string[]; key: string } | null): Promise<void> {
-		await page.evaluate(
-			async (b: { modifiers: string[]; key: string } | null) => {
-				const manager = (window.app as unknown as {
+		await page.evaluate(async (b: { modifiers: string[]; key: string } | null) => {
+			const manager = (
+				window.app as unknown as {
 					hotkeyManager: {
 						setHotkeys(id: string, keys: unknown[]): void;
 						removeHotkeys(id: string): void;
 					};
-				}).hotkeyManager;
-				const id = "margin-comments:add-comment";
-				// An empty list is a cleared binding: removeHotkeys would restore
-				// the default instead, which is a different case.
-				manager.setHotkeys(id, b === null ? [] : [b]);
-				const plugin = window.app.plugins.plugins["margin-comments"];
-				await plugin.refresh();
-			},
-			binding,
-		);
+				}
+			).hotkeyManager;
+			const id = "margin-comments:add-comment";
+			// An empty list is a cleared binding: removeHotkeys would restore
+			// the default instead, which is a different case.
+			manager.setHotkeys(id, b === null ? [] : [b]);
+			const plugin = window.app.plugins.plugins["margin-comments"];
+			await plugin.refresh();
+		}, binding);
 		await page.waitForTimeout(800);
 	}
 
 	/** Put the command back on its default binding. */
 	async function resetBinding(): Promise<void> {
 		await page.evaluate(async () => {
-			const manager = (window.app as unknown as {
-				hotkeyManager: { removeHotkeys(id: string): void };
-			}).hotkeyManager;
+			const manager = (
+				window.app as unknown as {
+					hotkeyManager: { removeHotkeys(id: string): void };
+				}
+			).hotkeyManager;
 			manager.removeHotkeys("margin-comments:add-comment");
 			await window.app.plugins.plugins["margin-comments"].refresh();
 		});
@@ -121,20 +122,26 @@ describe("the panel's empty state", () => {
 			plugin.touch = true;
 			await plugin.refresh();
 			await new Promise((r) => setTimeout(r, 600));
-			const text = document.querySelector(".inline-comment-empty")?.firstElementChild?.textContent ?? null;
+			const text =
+				document.querySelector(".inline-comment-empty")?.firstElementChild?.textContent ??
+				null;
 			plugin.touch = false;
 			await plugin.refresh();
 			return text;
 		});
 		await page.waitForTimeout(600);
-		expect(message).toBe("Tap a line, then the comment icon beside it, to add the first comment.");
+		expect(message).toBe(
+			"Tap a line, then the comment icon beside it, to add the first comment.",
+		);
 	});
 
 	it("says nothing once the note has a comment", async () => {
 		await page.evaluate(async () => {
 			const plugin = window.app.plugins.plugins["margin-comments"];
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
-			const cm = (leaf.view.editor as unknown as { cm: { state: { doc: { toString(): string } } } }).cm;
+			const cm = (
+				leaf.view.editor as unknown as { cm: { state: { doc: { toString(): string } } } }
+			).cm;
 			const at = cm.state.doc.toString().indexOf("beta");
 			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, "A comment.");
 		});

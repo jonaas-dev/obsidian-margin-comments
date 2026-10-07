@@ -40,7 +40,10 @@ describe("reading mode and code blocks", () => {
 	async function setMode(mode: "source" | "preview"): Promise<void> {
 		await page.evaluate(async (next: string) => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
-			await leaf.setViewState({ type: "markdown", state: { file: leaf.view.file.path, mode: next } });
+			await leaf.setViewState({
+				type: "markdown",
+				state: { file: leaf.view.file.path, mode: next },
+			});
 		}, mode);
 		await page.waitForTimeout(1200);
 	}
@@ -52,7 +55,13 @@ describe("reading mode and code blocks", () => {
 				const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 				const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 				const at = cm.state.doc.toString().indexOf(text);
-				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + text.length, content);
+				await plugin.routing.createComment(
+					cm,
+					leaf.view.file.path,
+					at,
+					at + text.length,
+					content,
+				);
 			},
 			[needle, body],
 		);
@@ -64,7 +73,8 @@ describe("reading mode and code blocks", () => {
 			const pre = document.querySelector(".markdown-reading-view pre");
 			const section = pre?.closest(".el-pre");
 			return {
-				rendered: pre?.querySelector("code") !== null && pre?.querySelector("code") !== undefined,
+				rendered:
+					pre?.querySelector("code") !== null && pre?.querySelector("code") !== undefined,
 				ruled: section?.classList.contains("inline-comment-reading-block") ?? false,
 			};
 		});
@@ -102,9 +112,9 @@ describe("reading mode and code blocks", () => {
 
 	it("still marks the words of a comment in an ordinary paragraph", async () => {
 		const marks = await page.evaluate(() =>
-			Array.from(document.querySelectorAll(".markdown-reading-view .inline-comment-reading-mark")).map(
-				(m) => m.textContent,
-			),
+			Array.from(
+				document.querySelectorAll(".markdown-reading-view .inline-comment-reading-mark"),
+			).map((m) => m.textContent),
 		);
 		expect(marks).toContain("a commented phrase");
 	});

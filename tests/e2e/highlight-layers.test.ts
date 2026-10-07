@@ -32,9 +32,15 @@ describe("the editor's highlight layers", () => {
 			async ([n, ln, text]: [string | null, number, string]) => {
 				const plugin = window.app.plugins.plugins["margin-comments"];
 				const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
-				const cm = (leaf.view.editor as unknown as {
-					cm: { state: { doc: { toString(): string; line(n: number): { from: number } } } };
-				}).cm;
+				const cm = (
+					leaf.view.editor as unknown as {
+						cm: {
+							state: {
+								doc: { toString(): string; line(n: number): { from: number } };
+							};
+						};
+					}
+				).cm;
 				const doc = cm.state.doc.toString();
 				const from = n === null ? cm.state.doc.line(ln).from : doc.indexOf(n);
 				const to = n === null ? from : from + n.length;
@@ -135,7 +141,12 @@ describe("the editor's highlight layers", () => {
 				document.querySelectorAll(".inline-comment-active-range"),
 			) as HTMLElement[];
 			const onTarget = marks.filter((m) => (m.textContent ?? "").includes("objetivo"));
-			return { count: onTarget.length, nested: onTarget.some((m) => m.querySelector(".inline-comment-active-range") !== null) };
+			return {
+				count: onTarget.length,
+				nested: onTarget.some(
+					(m) => m.querySelector(".inline-comment-active-range") !== null,
+				),
+			};
 		});
 		expect(stacked).toEqual({ count: 1, nested: false });
 	});

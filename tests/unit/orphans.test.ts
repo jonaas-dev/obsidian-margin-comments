@@ -128,6 +128,8 @@ describe("OrphanNotice with the panel on screen (#143)", () => {
 	});
 
 	it("still points to the panel when it is not on screen", () => {
-		expect(new OrphanNotice().take(2, false)).toContain("Open the comments panel to see which.");
+		expect(new OrphanNotice().take(2, false)).toContain(
+			"Open the comments panel to see which.",
+		);
 	});
 });

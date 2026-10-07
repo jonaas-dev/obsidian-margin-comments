@@ -25,7 +25,13 @@ export interface ReadingModeHost {
 	/** Whether threads open as a bottom sheet. */
 	sheet(): boolean;
 	/** `owner` is the document of the window the reader acted in. */
-	openPopover(threads: Thread[], filePath: string, rect: AnchorRect, doc: string, owner: Document): void;
+	openPopover(
+		threads: Thread[],
+		filePath: string,
+		rect: AnchorRect,
+		doc: string,
+		owner: Document,
+	): void;
 }
 
 /** Comments in reading mode: marks on the rendered note, and threads opened from them. */

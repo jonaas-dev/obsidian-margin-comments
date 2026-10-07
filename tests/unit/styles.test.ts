@@ -110,10 +110,14 @@ describe("styles.css theme awareness", () => {
 				selector: rule.selector,
 				count: 2,
 			});
-			expect({ selector: rule.selector, fallbackFirst: !backgrounds[0].includes("color-mix") }).toEqual(
-				{ selector: rule.selector, fallbackFirst: true },
-			);
-			expect({ selector: rule.selector, mixSecond: backgrounds[1].includes("color-mix") }).toEqual({
+			expect({
+				selector: rule.selector,
+				fallbackFirst: !backgrounds[0].includes("color-mix"),
+			}).toEqual({ selector: rule.selector, fallbackFirst: true });
+			expect({
+				selector: rule.selector,
+				mixSecond: backgrounds[1].includes("color-mix"),
+			}).toEqual({
 				selector: rule.selector,
 				mixSecond: true,
 			});

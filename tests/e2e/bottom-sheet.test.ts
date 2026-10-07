@@ -14,7 +14,10 @@ interface EditorViewLike {
 }
 
 const NOTE = "note.md";
-const LINES = Array.from({ length: 80 }, (_, i) => `Line ${i + 1} of a note long enough to scroll.`);
+const LINES = Array.from(
+	{ length: 80 },
+	(_, i) => `Line ${i + 1} of a note long enough to scroll.`,
+);
 const COMMENTED = 60;
 
 type Rect = { left: number; right: number; top: number; bottom: number };
@@ -34,7 +37,16 @@ describe("the bottom sheet", () => {
 	/* eslint-enable @typescript-eslint/no-explicit-any */
 
 	/** Activate a line with no selection, then measure the widget and the line. */
-	async function openOn(line: number, selector: string): Promise<{ widget: Rect | null; line: Rect | null; innerWidth: number; innerHeight: number; placement: string | null }> {
+	async function openOn(
+		line: number,
+		selector: string,
+	): Promise<{
+		widget: Rect | null;
+		line: Rect | null;
+		innerWidth: number;
+		innerHeight: number;
+		placement: string | null;
+	}> {
 		return page.evaluate(
 			async ([at, sel]: [number, string]) => {
 				const plugin = window.app.plugins.plugins["margin-comments"];
@@ -44,14 +56,21 @@ describe("the bottom sheet", () => {
 				plugin.routing.open(cm, at);
 				await new Promise((r) => setTimeout(r, 900));
 				const el = document.querySelector(sel) as HTMLElement | null;
-				const rect = (r: DOMRect) => ({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+				const rect = (r: DOMRect) => ({
+					left: r.left,
+					right: r.right,
+					top: r.top,
+					bottom: r.bottom,
+				});
 				const coords = cm.coordsAtPos(cm.state.doc.line(at).from);
 				return {
 					widget: el ? rect(el.getBoundingClientRect()) : null,
-					line: coords ? { left: 0, right: 0, top: coords.top, bottom: coords.bottom } : null,
+					line: coords
+						? { left: 0, right: 0, top: coords.top, bottom: coords.bottom }
+						: null,
 					innerWidth: window.innerWidth,
 					innerHeight: window.innerHeight,
-					placement: el ? el.dataset.placement ?? null : null,
+					placement: el ? (el.dataset.placement ?? null) : null,
 				};
 			},
 			[line, selector],
@@ -87,7 +106,13 @@ describe("the bottom sheet", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const from = cm.state.doc.line(commented).from;
-			await plugin.routing.createComment(cm, leaf.view.file.path, from, from + 4, "A comment far down the note.");
+			await plugin.routing.createComment(
+				cm,
+				leaf.view.file.path,
+				from,
+				from + 4,
+				"A comment far down the note.",
+			);
 			plugin.sheet = true;
 		}, COMMENTED);
 		await page.waitForTimeout(800);
@@ -126,7 +151,13 @@ describe("the bottom sheet", () => {
 	it("stays clear of Obsidian's mobile navigation bar (#132)", async () => {
 		await page.evaluate(() => {
 			const bar = document.body.createDiv({ cls: "mobile-navbar qa-fake" });
-			Object.assign(bar.style, { position: "fixed", left: "0", right: "0", bottom: "20px", height: "52px" });
+			Object.assign(bar.style, {
+				position: "fixed",
+				left: "0",
+				right: "0",
+				bottom: "20px",
+				height: "52px",
+			});
 		});
 		const m = await openOn(COMMENTED - 5, ".inline-comment-composer");
 		const barTop = m.innerHeight - 20 - 52;
@@ -140,13 +171,20 @@ describe("the bottom sheet", () => {
 			const real = window.visualViewport;
 			Object.defineProperty(window, "visualViewport", {
 				configurable: true,
-				value: { width: window.innerWidth, height: keyboardTop, addEventListener: () => {}, removeEventListener: () => {} },
+				value: {
+					width: window.innerWidth,
+					height: keyboardTop,
+					addEventListener: () => {},
+					removeEventListener: () => {},
+				},
 			});
 			const plugin = window.app.plugins.plugins["margin-comments"];
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			plugin.routing.open((leaf.view.editor as unknown as { cm: unknown }).cm, 10);
 			await new Promise((r) => setTimeout(r, 600));
-			const bottom = (document.querySelector(".inline-comment-composer") as HTMLElement).getBoundingClientRect().bottom;
+			const bottom = (
+				document.querySelector(".inline-comment-composer") as HTMLElement
+			).getBoundingClientRect().bottom;
 			plugin.routing.close();
 			Object.defineProperty(window, "visualViewport", { configurable: true, value: real });
 			return { bottom, keyboardTop, innerHeight: window.innerHeight };
@@ -161,7 +199,9 @@ describe("the bottom sheet", () => {
 		await openOn(COMMENTED - 5, ".inline-comment-composer");
 		const m = await page.evaluate(async () => {
 			const bottom = () =>
-				(document.querySelector(".inline-comment-composer") as HTMLElement).getBoundingClientRect().bottom;
+				(
+					document.querySelector(".inline-comment-composer") as HTMLElement
+				).getBoundingClientRect().bottom;
 			const before = bottom();
 			document.documentElement.style.setProperty("--keyboard-height", "300px");
 			await new Promise((r) => setTimeout(r, 300));
@@ -187,16 +227,25 @@ describe("the bottom sheet", () => {
 	it("drops the navigation bar's reservation once the bar slides away (#160)", async () => {
 		await page.evaluate(() => {
 			const bar = document.body.createDiv({ cls: "mobile-navbar qa-fake" });
-			Object.assign(bar.style, { position: "fixed", left: "0", right: "0", bottom: "20px", height: "52px" });
+			Object.assign(bar.style, {
+				position: "fixed",
+				left: "0",
+				right: "0",
+				bottom: "20px",
+				height: "52px",
+			});
 		});
 		await openOn(COMMENTED - 5, ".inline-comment-composer");
 		const m = await page.evaluate(async () => {
 			const bottom = () =>
-				(document.querySelector(".inline-comment-composer") as HTMLElement).getBoundingClientRect().bottom;
+				(
+					document.querySelector(".inline-comment-composer") as HTMLElement
+				).getBoundingClientRect().bottom;
 			const withBar = bottom();
 			// As Obsidian hides it: a body class, and the bar moved just below the
 			// screen, 2px past the edge as measured on a Pixel 8.
-			(document.querySelector(".mobile-navbar.qa-fake") as HTMLElement).style.bottom = "-54px";
+			(document.querySelector(".mobile-navbar.qa-fake") as HTMLElement).style.bottom =
+				"-54px";
 			document.body.addClass("is-hidden-nav");
 			await new Promise((r) => setTimeout(r, 300));
 			return { withBar, hidden: bottom(), innerHeight: window.innerHeight };
@@ -213,11 +262,23 @@ describe("the bottom sheet", () => {
 			const natural = composer.scrollHeight;
 			// Leave just more room than the composer needs, as a phone in landscape
 			// does above its keyboard: half of it is then too little.
-			document.documentElement.style.setProperty("--keyboard-height", `${window.innerHeight - (natural + 6)}px`);
+			document.documentElement.style.setProperty(
+				"--keyboard-height",
+				`${window.innerHeight - (natural + 6)}px`,
+			);
 			await new Promise((r) => setTimeout(r, 300));
 			const box = composer.getBoundingClientRect();
-			const field = (composer.querySelector("textarea") as HTMLElement).getBoundingClientRect();
-			return { natural, height: box.height, top: box.top, bottom: box.bottom, fieldTop: field.top, fieldBottom: field.bottom };
+			const field = (
+				composer.querySelector("textarea") as HTMLElement
+			).getBoundingClientRect();
+			return {
+				natural,
+				height: box.height,
+				top: box.top,
+				bottom: box.bottom,
+				fieldTop: field.top,
+				fieldBottom: field.bottom,
+			};
 		});
 		expect(m.natural).toBeGreaterThan(0);
 		expect(Math.abs(m.height - m.natural)).toBeLessThanOrEqual(1);

@@ -42,7 +42,10 @@ const BODIES: [string, string][] = [
 	["html-embed", '<embed src="https://evil.example/embed.html">'],
 	["html-input-image", '<input type="image" src="https://evil.example/input.png">'],
 	["html-track", '<video controls><track src="https://evil.example/track.vtt"></video>'],
-	["table-background", '<table background="https://evil.example/tablebg.png"><tr><td>x</td></tr></table>'],
+	[
+		"table-background",
+		'<table background="https://evil.example/tablebg.png"><tr><td>x</td></tr></table>',
+	],
 	["meta-refresh", '<meta http-equiv="refresh" content="0;url=https://evil.example/meta">'],
 ];
 
@@ -103,7 +106,9 @@ describe("a comment body that tries to phone home", () => {
 		await page.evaluate(async () => {
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
-		await page.waitForSelector(".inline-comment-panel .inline-comment-card", { timeout: 10000 });
+		await page.waitForSelector(".inline-comment-panel .inline-comment-card", {
+			timeout: 10000,
+		});
 		await page.waitForTimeout(4000);
 	}, 240000);
 

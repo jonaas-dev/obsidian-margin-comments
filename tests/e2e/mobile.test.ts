@@ -38,10 +38,14 @@ describe("touch devices", () => {
 	const markedLines = (): Promise<number[]> =>
 		page.evaluate(() => {
 			const lines = Array.from(document.querySelectorAll(".cm-line")) as HTMLElement[];
-			const markers = Array.from(document.querySelectorAll(".inline-comment-marker")) as HTMLElement[];
+			const markers = Array.from(
+				document.querySelectorAll(".inline-comment-marker"),
+			) as HTMLElement[];
 			return markers
 				.map((marker) => {
-					const centre = marker.getBoundingClientRect().top + marker.getBoundingClientRect().height / 2;
+					const centre =
+						marker.getBoundingClientRect().top +
+						marker.getBoundingClientRect().height / 2;
 					const index = lines.findIndex((line) => {
 						const rect = line.getBoundingClientRect();
 						return centre >= rect.top - 2 && centre <= rect.bottom + 2;
@@ -149,7 +153,8 @@ describe("touch devices", () => {
 			return {
 				actions: getComputedStyle(card.querySelector(".inline-comment-actions")!).opacity,
 				reply: getComputedStyle(card.querySelector(".inline-comment-replybox")!).display,
-				toggle: getComputedStyle(card.querySelector(".inline-comment-reply-toggle")!).display,
+				toggle: getComputedStyle(card.querySelector(".inline-comment-reply-toggle")!)
+					.display,
 			};
 		});
 		expect(visible).toEqual({ actions: "1", reply: "none", toggle: "flex" });
@@ -161,7 +166,11 @@ describe("touch devices", () => {
 			const text = quote.querySelector(".inline-comment-quote-text")!;
 			const q = quote.getBoundingClientRect();
 			const t = text.getBoundingClientRect();
-			return { height: Math.round(q.height), above: Math.round(t.top - q.top), below: Math.round(q.bottom - t.bottom) };
+			return {
+				height: Math.round(q.height),
+				above: Math.round(t.top - q.top),
+				below: Math.round(q.bottom - t.bottom),
+			};
 		});
 		expect(gaps.height).toBeGreaterThanOrEqual(44);
 		expect(Math.abs(gaps.above - gaps.below)).toBeLessThanOrEqual(2);
@@ -176,7 +185,8 @@ describe("touch devices", () => {
 			const input = card.querySelector(".inline-comment-replybox-input");
 			return {
 				box: getComputedStyle(card.querySelector(".inline-comment-replybox")!).display,
-				toggle: getComputedStyle(card.querySelector(".inline-comment-reply-toggle")!).display,
+				toggle: getComputedStyle(card.querySelector(".inline-comment-reply-toggle")!)
+					.display,
 				focused: document.activeElement === input,
 			};
 		});
@@ -190,7 +200,9 @@ describe("touch devices", () => {
 			// evaluates the harness moves focus to <body>, and an empty field that
 			// loses focus folds again.
 			(card.querySelector(".inline-comment-reply-toggle") as HTMLElement).click();
-			const field = card.querySelector(".inline-comment-replybox-input")!.getBoundingClientRect();
+			const field = card
+				.querySelector(".inline-comment-replybox-input")!
+				.getBoundingClientRect();
 			const send = card.querySelector(".inline-comment-send")!.getBoundingClientRect();
 			return { field: Math.round(field.height), send: Math.round(send.height) };
 		});
@@ -202,7 +214,9 @@ describe("touch devices", () => {
 		const states = await page.evaluate(() => {
 			const card = document.querySelector(".inline-comment-panel .inline-comment-card")!;
 			const box = card.querySelector(".inline-comment-replybox")!;
-			const input = card.querySelector(".inline-comment-replybox-input") as HTMLTextAreaElement;
+			const input = card.querySelector(
+				".inline-comment-replybox-input",
+			) as HTMLTextAreaElement;
 			// Through the button, as a reader gets there: a folded field is
 			// display: none and cannot take focus at all.
 			(card.querySelector(".inline-comment-reply-toggle") as HTMLElement).click();
@@ -215,7 +229,8 @@ describe("touch devices", () => {
 			return {
 				withDraft,
 				empty: getComputedStyle(box).display,
-				toggle: getComputedStyle(card.querySelector(".inline-comment-reply-toggle")!).display,
+				toggle: getComputedStyle(card.querySelector(".inline-comment-reply-toggle")!)
+					.display,
 			};
 		});
 		expect(states).toEqual({ withDraft: "flex", empty: "none", toggle: "flex" });
@@ -251,7 +266,11 @@ describe("touch devices", () => {
 			const rect = composer.getBoundingClientRect();
 			plugin.routing.close();
 			Object.defineProperty(window, "visualViewport", { configurable: true, value: real });
-			return { bottom: Math.round(rect.bottom), keyboardTop, windowHeight: window.innerHeight };
+			return {
+				bottom: Math.round(rect.bottom),
+				keyboardTop,
+				windowHeight: window.innerHeight,
+			};
 		});
 
 		expect(placement.bottom).toBeLessThanOrEqual(placement.keyboardTop);

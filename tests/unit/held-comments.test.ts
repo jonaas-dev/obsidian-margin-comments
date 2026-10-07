@@ -198,7 +198,10 @@ describe("pairing a create and a delete that are really a move", () => {
 		// The case timing cannot rule out: a file saved and a different one deleted
 		// within the same 100 ms. Measured on #289 at 109 ms apart, against 103 ms
 		// for a real rename.
-		const { storage, notes } = await vaultWith({ "notes/unrelated.md": "nothing alike here" }, NOTE);
+		const { storage, notes } = await vaultWith(
+			{ "notes/unrelated.md": "nothing alike here" },
+			NOTE,
+		);
 
 		await notes.followCreate(file("notes/unrelated.md"));
 		await notes.followDelete(file(NOTE));

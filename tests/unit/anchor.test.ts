@@ -74,7 +74,11 @@ describe("matchByHash", () => {
 
 	it("anchors to the occurrence nearest the line hint when text repeats", () => {
 		const repeated = ["target text", "filler", "filler", "target text", "filler"].join("\n");
-		const anchor = createAnchor(repeated, repeated.lastIndexOf("target text"), repeated.lastIndexOf("target text") + 11);
+		const anchor = createAnchor(
+			repeated,
+			repeated.lastIndexOf("target text"),
+			repeated.lastIndexOf("target text") + 11,
+		);
 		const match = matchByHash(repeated, anchor);
 		expect(match!.from).toBe(repeated.lastIndexOf("target text"));
 	});
@@ -108,7 +112,9 @@ describe("matchByHash", () => {
 	it("still follows text inserted above both occurrences", () => {
 		// The case the line hint always handled, kept: both moved by the same
 		// amount, so their order is intact and either rule agrees.
-		const original = ["Intro.", "One, see below.", "Two.", "Other, see below.", "End."].join("\n");
+		const original = ["Intro.", "One, see below.", "Two.", "Other, see below.", "End."].join(
+			"\n",
+		);
 		const at = original.indexOf("see below");
 		const repeated = createAnchor(original, at, at + "see below".length);
 
@@ -225,12 +231,18 @@ describe("matchByContext", () => {
 describe("matchByFuzzy", () => {
 	const sentence = "the quick brown fox jumps over the lazy dog";
 	const original = `intro line\n${sentence}\noutro line`;
-	const anchor = createAnchor(original, original.indexOf(sentence), original.indexOf(sentence) + sentence.length);
+	const anchor = createAnchor(
+		original,
+		original.indexOf(sentence),
+		original.indexOf(sentence) + sentence.length,
+	);
 
 	it("finds text that picked up a few typos", () => {
 		const edited = original.replace(sentence, "the qiuck brown fox jumps over the lasy dog");
 		const match = matchByFuzzy(edited, anchor, 0.3);
-		expect(edited.slice(match!.from, match!.to)).toBe("the qiuck brown fox jumps over the lasy dog");
+		expect(edited.slice(match!.from, match!.to)).toBe(
+			"the qiuck brown fox jumps over the lasy dog",
+		);
 	});
 
 	it("finds text that lost a word", () => {
@@ -271,14 +283,19 @@ describe("matchByFuzzy", () => {
 	it("searches a short note end to end", () => {
 		// With nothing to bound, the window is the note: a comment near the top of
 		// a ten-line note must still find its text after the note is reshuffled.
-		const shuffled = ["outro line", "unrelated", "the qiuck brown fox jumps over the lasy dog"].join("\n");
+		const shuffled = [
+			"outro line",
+			"unrelated",
+			"the qiuck brown fox jumps over the lasy dog",
+		].join("\n");
 		expect(matchByFuzzy(shuffled, anchor, 0.3)).not.toBeNull();
 	});
 
 	describe("once the note is shorter than the comment's last known line (#262)", () => {
 		const text = "The quick brown fox jumps over the lazy dog near the river bank today";
 		const nearMatch = "The quick brown fox jumped over a lazy dog near the river bank today";
-		const lines = (count: number): string[] => Array.from({ length: count }, (_, i) => `filler ${i}`);
+		const lines = (count: number): string[] =>
+			Array.from({ length: count }, (_, i) => `filler ${i}`);
 		const long = [...lines(899), text, ...lines(100)].join("\n");
 		const at900 = createAnchor(long, long.indexOf(text), long.indexOf(text) + text.length);
 		/** A note of `count` lines holding the near-match on line `line`. */
@@ -300,7 +317,11 @@ describe("matchByFuzzy", () => {
 		it("still searches the part of the window a note has left", () => {
 			// Control: the window runs past the end of a 100-line note, and its lines
 			// that remain are searched.
-			const nearTheEnd = createAnchor(noteWith(100, 1).replace(nearMatch, text), 0, text.length);
+			const nearTheEnd = createAnchor(
+				noteWith(100, 1).replace(nearMatch, text),
+				0,
+				text.length,
+			);
 			const hinted = { ...nearTheEnd, lineHint: 90 };
 			expect(matchByFuzzy(noteWith(100, 95), hinted, 0.3)).not.toBeNull();
 		});
@@ -314,7 +335,9 @@ describe("matchByFuzzy", () => {
 		const paragraph = "lorem ipsum dolor sit amet consectetur ".repeat(100);
 		const note = [
 			paragraph,
-			...Array.from({ length: 20 }, () => "completely unrelated wording throughout ".repeat(100)),
+			...Array.from({ length: 20 }, () =>
+				"completely unrelated wording throughout ".repeat(100),
+			),
 		].join("\n");
 		const anchor = createAnchor(note, 0, paragraph.length);
 
@@ -332,7 +355,11 @@ describe("matchByFuzzy", () => {
 		// not cost a match that a full comparison would have made.
 		const paragraph = "lorem ipsum dolor sit amet consectetur ".repeat(100);
 		const note = `heading line\n${paragraph}\ntrailing line`;
-		const anchor = createAnchor(note, note.indexOf(paragraph), note.indexOf(paragraph) + paragraph.length);
+		const anchor = createAnchor(
+			note,
+			note.indexOf(paragraph),
+			note.indexOf(paragraph) + paragraph.length,
+		);
 		const edited = note.replace("lorem ipsum dolor", "lorem ispum dolor");
 
 		expect(matchByFuzzy(edited, anchor, 0.1)).not.toBeNull();
@@ -346,7 +373,11 @@ describe("matchByFuzzy", () => {
 describe("matchAnchor", () => {
 	const sentence = "the quick brown fox jumps over the lazy dog";
 	const original = `intro line\n${sentence}\noutro line`;
-	const anchor = createAnchor(original, original.indexOf(sentence), original.indexOf(sentence) + sentence.length);
+	const anchor = createAnchor(
+		original,
+		original.indexOf(sentence),
+		original.indexOf(sentence) + sentence.length,
+	);
 
 	it("takes the exact match without running later stages", () => {
 		expect(matchAnchor(original, anchor)!.method).toBe("hash");
@@ -375,7 +406,9 @@ describe("performance", () => {
 	// editor lag. The budget is deliberately loose: it exists to catch an
 	// accidental quadratic, not to police milliseconds on a shared CI runner.
 	const BUDGET_MS = budget(250);
-	const big = Array.from({ length: 10000 }, (_, i) => `line ${i} with some filler prose`).join("\n");
+	const big = Array.from({ length: 10000 }, (_, i) => `line ${i} with some filler prose`).join(
+		"\n",
+	);
 	const at = big.indexOf("line 5000");
 	const anchor = createAnchor(big, at, at + 20);
 
@@ -410,7 +443,9 @@ describe("performance", () => {
 		// on a debounce, while typing.
 		const REANCHOR_BUDGET_MS = budget(2000);
 		const lines = Array.from({ length: 10000 }, (_, i) =>
-			i % 100 === 0 ? `TARGET ${i} original sentence here` : `line ${i} with some filler prose here`,
+			i % 100 === 0
+				? `TARGET ${i} original sentence here`
+				: `line ${i} with some filler prose here`,
 		);
 		const note = lines.join("\n");
 		const anchors = Array.from({ length: 100 }, (_, i) => {
@@ -441,12 +476,16 @@ describe("performance", () => {
 		});
 		// Text and context both rewritten, so nothing short of stage 3 can answer.
 		const edited = note
-			.replace(/the quick brown fox jumps over the lazy dog/g, "the qiuck brown fox jumps over the lasy dog")
+			.replace(
+				/the quick brown fox jumps over the lazy dog/g,
+				"the qiuck brown fox jumps over the lasy dog",
+			)
 			.replace(/filler prose here/g, "different words there");
 
 		const methods: (string | undefined)[] = [];
 		const elapsed = timed(() => {
-			for (const anchor of anchors) methods.push(matchAnchor(edited, anchor, { fuzzy: true })?.method);
+			for (const anchor of anchors)
+				methods.push(matchAnchor(edited, anchor, { fuzzy: true })?.method);
 		});
 
 		// Without this the benchmark would pass on a stage 3 that finds nothing:

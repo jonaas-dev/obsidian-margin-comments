@@ -91,7 +91,6 @@ function describe(tag: string): string {
 	return tag;
 }
 
-
 /**
  * Render a comment body into `target` without letting it fetch anything.
  *

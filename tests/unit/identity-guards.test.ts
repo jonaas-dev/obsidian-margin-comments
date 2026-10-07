@@ -89,7 +89,14 @@ describe("pre-commit hook", () => {
 
 describe("check-identity.py", () => {
 	function check(range: string, mode: string[]): number {
-		return run("python3", ["ops/check-identity.py", "--range", range, "--maintainer", MAINTAINER, ...mode]);
+		return run("python3", [
+			"ops/check-identity.py",
+			"--range",
+			range,
+			"--maintainer",
+			MAINTAINER,
+			...mode,
+		]);
 	}
 
 	/**

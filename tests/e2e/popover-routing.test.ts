@@ -51,13 +51,17 @@ describe("routing a marker activation", () => {
 
 	const popoverQuotes = (): Promise<string[]> =>
 		page.evaluate(() =>
-			Array.from(document.querySelectorAll(".inline-comment-popover .inline-comment-quote-text")).map(
-				(q) => q.textContent,
-			),
+			Array.from(
+				document.querySelectorAll(".inline-comment-popover .inline-comment-quote-text"),
+			).map((q) => q.textContent),
 		);
 
 	const selectedCards = (): Promise<number> =>
-		page.evaluate(() => document.querySelectorAll(".inline-comment-panel .inline-comment-card.is-selected").length);
+		page.evaluate(
+			() =>
+				document.querySelectorAll(".inline-comment-panel .inline-comment-card.is-selected")
+					.length,
+		);
 
 	async function closeAll(): Promise<void> {
 		await page.evaluate(() => {
@@ -99,7 +103,13 @@ describe("routing a marker activation", () => {
 			// Created out of document order, so document order has to be imposed.
 			for (const word of ["gamma", "beta", "epsilon"]) {
 				const at = doc.indexOf(word);
-				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + word.length, `On ${word}.`);
+				await plugin.routing.createComment(
+					cm,
+					leaf.view.file.path,
+					at,
+					at + word.length,
+					`On ${word}.`,
+				);
 			}
 		});
 		await page.waitForTimeout(1200);
@@ -171,7 +181,9 @@ describe("routing a marker activation", () => {
 			// restart does.
 			await ws.changeLayout(ws.getLayout());
 			await new Promise((r) => setTimeout(r, 1200));
-			const deferred = ws.getLeavesOfType("margin-comments-panel").map((l: { isDeferred: boolean }) => l.isDeferred);
+			const deferred = ws
+				.getLeavesOfType("margin-comments-panel")
+				.map((l: { isDeferred: boolean }) => l.isDeferred);
 
 			const plugin = window.app.plugins.plugins["margin-comments"];
 			const leaf = ws.getLeavesOfType("markdown")[0];
@@ -179,7 +191,13 @@ describe("routing a marker activation", () => {
 			const at = cm.state.doc.toString().indexOf("delta");
 			let outcome = "resolved";
 			try {
-				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 5, "Written while deferred.");
+				await plugin.routing.createComment(
+					cm,
+					leaf.view.file.path,
+					at,
+					at + 5,
+					"Written while deferred.",
+				);
 			} catch (error) {
 				outcome = String(error);
 			}

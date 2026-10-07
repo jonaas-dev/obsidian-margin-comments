@@ -20,7 +20,13 @@ const RENAMED = "renamed.md";
 const ALPHA_BODY = ["alpha one", "alpha two"].join("\n");
 const BETA_BODY = ["beta one", "beta two"].join("\n");
 
-function comment(id: string, filePath: string, doc: string, text: string, resolved = false): Comment {
+function comment(
+	id: string,
+	filePath: string,
+	doc: string,
+	text: string,
+	resolved = false,
+): Comment {
 	const from = doc.indexOf(text);
 	const now = 1_700_000_000_000;
 	return {
@@ -88,7 +94,7 @@ describe("all-notes view", () => {
 			// this call — a debounced refresh, a render still resolving — lands
 			// afterwards and is counted against whatever the test does next. That
 			// is the flake in #94: two sidecars, sometimes, arriving late.
-			for (let quiet = 0; quiet < 3; ) {
+			for (let quiet = 0; quiet < 3;) {
 				const before = window.__reads;
 				await new Promise((r) => setTimeout(r, 150));
 				quiet = window.__reads === before ? quiet + 1 : 0;

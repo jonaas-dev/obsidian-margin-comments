@@ -12,7 +12,10 @@ interface EditorViewLike {
 }
 
 const NOTE = "note.md";
-const LINES = Array.from({ length: 60 }, (_, i) => `Line ${i + 1} of a note long enough to scroll.`);
+const LINES = Array.from(
+	{ length: 60 },
+	(_, i) => `Line ${i + 1} of a note long enough to scroll.`,
+);
 const TARGET_LINE = 48;
 
 /**
@@ -55,7 +58,9 @@ describe("focus after navigating from the panel", () => {
 			ws.setActiveLeaf(leaf, { focus: false });
 			await new Promise((r) => setTimeout(r, 600));
 			(document.activeElement as HTMLElement | null)?.blur();
-			(document.querySelector(".inline-comment-panel .inline-comment-quote") as HTMLElement).click();
+			(
+				document.querySelector(".inline-comment-panel .inline-comment-quote") as HTMLElement
+			).click();
 			return {
 				focusInEditor: document.activeElement?.closest(".cm-editor") != null,
 				cursorLine: view.editor.getCursor().line + 1,
@@ -80,10 +85,18 @@ describe("focus after navigating from the panel", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf(`Line ${target} `);
-			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, "Far down the note.");
+			await plugin.routing.createComment(
+				cm,
+				leaf.view.file.path,
+				at,
+				at + 4,
+				"Far down the note.",
+			);
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		}, TARGET_LINE);
-		await page.waitForSelector(".inline-comment-panel .inline-comment-card", { timeout: 10000 });
+		await page.waitForSelector(".inline-comment-panel .inline-comment-card", {
+			timeout: 10000,
+		});
 		await page.waitForTimeout(600);
 	}, 240000);
 

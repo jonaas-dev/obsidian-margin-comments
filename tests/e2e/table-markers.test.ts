@@ -53,8 +53,14 @@ describe("comments inside a rendered table", () => {
 				const bottom = top + block.height;
 				return Array.from(document.querySelectorAll(".inline-comment-marker-active"))
 					.map((m) => ({ m, r: m.getBoundingClientRect() }))
-					.filter(({ r }) => r.top + r.height / 2 >= top && r.top + r.height / 2 <= bottom)
-					.map(({ m, r }) => ({ title: m.getAttribute("title") ?? "", x: r.left + r.width / 2, y: r.top + r.height / 2 }));
+					.filter(
+						({ r }) => r.top + r.height / 2 >= top && r.top + r.height / 2 <= bottom,
+					)
+					.map(({ m, r }) => ({
+						title: m.getAttribute("title") ?? "",
+						x: r.left + r.width / 2,
+						y: r.top + r.height / 2,
+					}));
 			},
 			[HEADER_ROW],
 		);
@@ -65,7 +71,13 @@ describe("comments inside a rendered table", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf(needle);
-			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + needle.length, `On ${needle}.`);
+			await plugin.routing.createComment(
+				cm,
+				leaf.view.file.path,
+				at,
+				at + needle.length,
+				`On ${needle}.`,
+			);
 			// Caret back below the table, so live preview renders it as a widget.
 			cm.dispatch({ selection: { anchor: cm.state.doc.toString().length } });
 		}, word);
@@ -98,7 +110,10 @@ describe("comments inside a rendered table", () => {
 			([header, last]: [number, number]) => {
 				const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 				const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
-				return cm.lineBlockAt(cm.state.doc.line(last).from).from === cm.lineBlockAt(cm.state.doc.line(header).from).from;
+				return (
+					cm.lineBlockAt(cm.state.doc.line(last).from).from ===
+					cm.lineBlockAt(cm.state.doc.line(header).from).from
+				);
 			},
 			[HEADER_ROW, LAST_ROW],
 		);
@@ -123,7 +138,9 @@ describe("comments inside a rendered table", () => {
 		await page.mouse.click(marker.x, marker.y);
 		await page.waitForTimeout(900);
 		const quotes = await page.evaluate(() =>
-			Array.from(document.querySelectorAll(".inline-comment-popover .inline-comment-quote-text")).map((q) => q.textContent),
+			Array.from(
+				document.querySelectorAll(".inline-comment-popover .inline-comment-quote-text"),
+			).map((q) => q.textContent),
 		);
 		expect(quotes).toEqual(["cell one", "cell four"]);
 	});

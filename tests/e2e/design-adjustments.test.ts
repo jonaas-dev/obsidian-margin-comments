@@ -12,7 +12,15 @@ interface EditorViewLike {
 }
 
 const NOTE = "note.md";
-const BODY = ["alpha beta gamma", "", "```js", "const answer = 42;", "```", "", "delta epsilon"].join("\n");
+const BODY = [
+	"alpha beta gamma",
+	"",
+	"```js",
+	"const answer = 42;",
+	"```",
+	"",
+	"delta epsilon",
+].join("\n");
 
 /**
  * Decisions from the Android design review that are about layout and colour.
@@ -56,17 +64,31 @@ describe("layout and colour adjustments", () => {
 			const doc = cm.state.doc.toString();
 			const on = async (needle: string) => {
 				const at = doc.indexOf(needle);
-				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + needle.length, `On ${needle}.`);
+				await plugin.routing.createComment(
+					cm,
+					leaf.view.file.path,
+					at,
+					at + needle.length,
+					`On ${needle}.`,
+				);
 			};
 			await on("beta");
 			await on("gamma");
 			await on("answer = 42");
 			// from === to asks for a whole-line comment, which is what tints a line.
 			const delta = cm.state.doc.line(7).from;
-			await plugin.routing.createComment(cm, leaf.view.file.path, delta, delta, "On the whole line.");
+			await plugin.routing.createComment(
+				cm,
+				leaf.view.file.path,
+				delta,
+				delta,
+				"On the whole line.",
+			);
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
-		await page.waitForSelector(".inline-comment-panel .inline-comment-card", { timeout: 10000 });
+		await page.waitForSelector(".inline-comment-panel .inline-comment-card", {
+			timeout: 10000,
+		});
 		// The pointer away from the gutter, so hover markers do not join the count.
 		await page.mouse.move(900, 500);
 		await page.waitForTimeout(800);
@@ -83,9 +105,16 @@ describe("layout and colour adjustments", () => {
 			const measure = async (width: string) => {
 				panel.style.width = width;
 				await new Promise((r) => setTimeout(r, 300));
-				const filters = panel.querySelector(".inline-comment-filters")!.getBoundingClientRect();
-				const sort = panel.querySelector(".inline-comment-sortbar")!.getBoundingClientRect();
-				return { sameRow: Math.abs(sort.top - filters.top) <= 4, sortBelow: sort.top >= filters.bottom - 1 };
+				const filters = panel
+					.querySelector(".inline-comment-filters")!
+					.getBoundingClientRect();
+				const sort = panel
+					.querySelector(".inline-comment-sortbar")!
+					.getBoundingClientRect();
+				return {
+					sameRow: Math.abs(sort.top - filters.top) <= 4,
+					sortBelow: sort.top >= filters.bottom - 1,
+				};
 			};
 			const wide = await measure("460px");
 			const narrow = await measure("300px");
@@ -102,8 +131,12 @@ describe("layout and colour adjustments", () => {
 			const block = async (height: string) => {
 				panel.style.height = height;
 				await new Promise((r) => setTimeout(r, 300));
-				const top = panel.querySelector(".inline-comment-panel-header")!.getBoundingClientRect().top;
-				const bottom = panel.querySelector(".inline-comment-sortbar")!.getBoundingClientRect().bottom;
+				const top = panel
+					.querySelector(".inline-comment-panel-header")!
+					.getBoundingClientRect().top;
+				const bottom = panel
+					.querySelector(".inline-comment-sortbar")!
+					.getBoundingClientRect().bottom;
 				return bottom - top;
 			};
 			const tall = await block("900px");
@@ -116,9 +149,9 @@ describe("layout and colour adjustments", () => {
 
 	it("paints a highlight inside a code block as one band (#140)", async () => {
 		const radii = await page.evaluate(() =>
-			Array.from(document.querySelectorAll(".HyperMD-codeblock .inline-comment-active-range")).map(
-				(el) => getComputedStyle(el).borderTopLeftRadius,
-			),
+			Array.from(
+				document.querySelectorAll(".HyperMD-codeblock .inline-comment-active-range"),
+			).map((el) => getComputedStyle(el).borderTopLeftRadius),
 		);
 		// Guard: a note whose code line carries no range would pass with nothing to check.
 		expect(radii.length).toBeGreaterThan(1);
@@ -135,7 +168,10 @@ describe("layout and colour adjustments", () => {
 			await new Promise((r) => setTimeout(r, 400));
 			const badge = document.querySelector(".inline-comment-marker-count") as HTMLElement;
 			const marker = badge.closest(".inline-comment-marker") as HTMLElement;
-			const out = { badge: getComputedStyle(badge).backgroundColor, marker: getComputedStyle(marker).color };
+			const out = {
+				badge: getComputedStyle(badge).backgroundColor,
+				marker: getComputedStyle(marker).color,
+			};
 			plugin.settings.highlightColor = before;
 			plugin.applyHighlightColour();
 			await plugin.refresh();
@@ -150,13 +186,16 @@ describe("layout and colour adjustments", () => {
 			document.body.style.setProperty("--font-text-size", "30px");
 			await new Promise((r) => setTimeout(r, 600));
 			const badge = document.querySelector(".inline-comment-marker-count") as HTMLElement;
-			const icon = badge.closest(".inline-comment-marker")!.querySelector(".svg-icon") as SVGElement;
+			const icon = badge
+				.closest(".inline-comment-marker")!
+				.querySelector(".svg-icon") as SVGElement;
 			const b = badge.getBoundingClientRect();
 			const i = icon.getBoundingClientRect();
 			const line = document.querySelector(".cm-line")!.getBoundingClientRect();
 			document.body.style.removeProperty("--font-text-size");
 			return {
-				overlaps: b.left < i.right && b.right > i.left && b.top < i.bottom && b.bottom > i.top,
+				overlaps:
+					b.left < i.right && b.right > i.left && b.top < i.bottom && b.bottom > i.top,
 				// Guard: the line has to be taller than the icon for the old anchoring to drift.
 				lineTaller: line.height > i.height * 1.5,
 			};
@@ -170,7 +209,9 @@ describe("layout and colour adjustments", () => {
 			page.evaluate(async (name: string) => {
 				(window.app as unknown as { changeTheme(n: string): void }).changeTheme(name);
 				await new Promise((r) => setTimeout(r, 700));
-				return getComputedStyle(document.querySelector(".inline-comment-active-line") as HTMLElement).backgroundColor;
+				return getComputedStyle(
+					document.querySelector(".inline-comment-active-line") as HTMLElement,
+				).backgroundColor;
 			}, theme);
 		const dark = alphaOf(await tint("obsidian"));
 		const light = alphaOf(await tint("moonstone"));

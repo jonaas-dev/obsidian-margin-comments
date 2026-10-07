@@ -37,9 +37,15 @@ describe("the quoted text", () => {
 			async ([n, ln, body]: [string | null, number, string]) => {
 				const plugin = window.app.plugins.plugins["margin-comments"];
 				const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
-				const cm = (leaf.view.editor as unknown as {
-					cm: { state: { doc: { toString(): string; line(n: number): { from: number } } } };
-				}).cm;
+				const cm = (
+					leaf.view.editor as unknown as {
+						cm: {
+							state: {
+								doc: { toString(): string; line(n: number): { from: number } };
+							};
+						};
+					}
+				).cm;
 				const doc = cm.state.doc.toString();
 				const from = n === null ? cm.state.doc.line(ln).from : doc.indexOf(n);
 				const to = n === null ? from : from + n.length;
@@ -147,7 +153,11 @@ describe("the quoted text", () => {
 		// and the card still said "Empty line".
 		await page.evaluate(() => {
 			const editor = window.app.workspace.getLeavesOfType("markdown")[0].view.editor!;
-			editor.replaceRange("Ahora la línea tiene texto", { line: 4, ch: 0 }, { line: 4, ch: 0 });
+			editor.replaceRange(
+				"Ahora la línea tiene texto",
+				{ line: 4, ch: 0 },
+				{ line: 4, ch: 0 },
+			);
 		});
 		await page.waitForTimeout(1600);
 
@@ -171,7 +181,11 @@ describe("the quoted text", () => {
 		await page.evaluate(() => {
 			const editor = window.app.workspace.getLeavesOfType("markdown")[0].view.editor!;
 			const line = editor.getLine(5);
-			editor.replaceRange(line.replace("contexto", "contexta"), { line: 5, ch: 0 }, { line: 5, ch: line.length });
+			editor.replaceRange(
+				line.replace("contexto", "contexta"),
+				{ line: 5, ch: 0 },
+				{ line: 5, ch: line.length },
+			);
 		});
 		await page.waitForTimeout(1800);
 
@@ -193,7 +207,11 @@ describe("the quoted text", () => {
 		await page.evaluate(() => {
 			const editor = window.app.workspace.getLeavesOfType("markdown")[0].view.editor!;
 			const line = editor.getLine(2);
-			editor.replaceRange("Nada de esto se parece a lo que había antes aquí.", { line: 2, ch: 0 }, { line: 2, ch: line.length });
+			editor.replaceRange(
+				"Nada de esto se parece a lo que había antes aquí.",
+				{ line: 2, ch: 0 },
+				{ line: 2, ch: line.length },
+			);
 		});
 		await page.waitForTimeout(1800);
 

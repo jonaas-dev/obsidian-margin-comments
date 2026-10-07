@@ -61,9 +61,9 @@ describe("editing a comment in place", () => {
 	/** The card's children, in order, by their first class. */
 	const cardShape = (): Promise<string[]> =>
 		page.evaluate(() =>
-			Array.from((document.querySelector(".inline-comment-card") as HTMLElement).children).map(
-				(el) => el.className.split(" ")[0],
-			),
+			Array.from(
+				(document.querySelector(".inline-comment-card") as HTMLElement).children,
+			).map((el) => el.className.split(" ")[0]),
 		);
 
 	beforeAll(async () => {
@@ -84,7 +84,13 @@ describe("editing a comment in place", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf("beta");
-			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, "The root comment.");
+			await plugin.routing.createComment(
+				cm,
+				leaf.view.file.path,
+				at,
+				at + 4,
+				"The root comment.",
+			);
 		});
 		await page.waitForTimeout(1200);
 		await page.evaluate(async () => {
@@ -132,7 +138,7 @@ describe("editing a comment in place", () => {
 	it("still saves the edit from there", async () => {
 		// The move must not orphan the buttons from the textarea they belong to.
 		const input = page.locator(".inline-comment-editor-input").first();
-        await input.click();
+		await input.click();
 		await input.fill("The root comment, edited in place.");
 		await page.locator('[aria-label="Save changes"]').first().click();
 		await page.waitForTimeout(1400);
@@ -212,7 +218,8 @@ describe("editing a comment in place", () => {
 			const editor = document.querySelector(".inline-comment-editor") as HTMLElement;
 			return {
 				insideAReply: editor.closest(".inline-comment-reply") !== null,
-				directChildOfCard: editor.parentElement?.classList.contains("inline-comment-card") ?? false,
+				directChildOfCard:
+					editor.parentElement?.classList.contains("inline-comment-card") ?? false,
 			};
 		});
 		expect(where).toEqual({ insideAReply: true, directChildOfCard: false });
@@ -222,7 +229,10 @@ describe("editing a comment in place", () => {
 		// Two text fields in one card: the edit box and, under it, the reply box.
 		const replyDisplay = (): Promise<string> =>
 			page.evaluate(
-				() => getComputedStyle(document.querySelector(".inline-comment-card .inline-comment-replybox")!).display,
+				() =>
+					getComputedStyle(
+						document.querySelector(".inline-comment-card .inline-comment-replybox")!,
+					).display,
 			);
 		await openEditor();
 		await page.locator(".inline-comment-card").first().hover();
@@ -234,16 +244,21 @@ describe("editing a comment in place", () => {
 		await page.locator(".inline-comment-card").first().hover();
 		await page.waitForTimeout(300);
 		// Hovered both times, so "none" can only come from the edit.
-		expect({ whileEditing, afterwards: await replyDisplay() }).toEqual({ whileEditing: "none", afterwards: "flex" });
+		expect({ whileEditing, afterwards: await replyDisplay() }).toEqual({
+			whileEditing: "none",
+			afterwards: "flex",
+		});
 	});
 
 	it("ends an edit with worded buttons that keep their names (#138)", async () => {
 		await openEditor();
 		const buttons = await page.evaluate(() =>
-			Array.from(document.querySelectorAll(".inline-comment-editor-actions button")).map((b) => ({
-				text: b.textContent?.trim(),
-				label: b.getAttribute("aria-label"),
-			})),
+			Array.from(document.querySelectorAll(".inline-comment-editor-actions button")).map(
+				(b) => ({
+					text: b.textContent?.trim(),
+					label: b.getAttribute("aria-label"),
+				}),
+			),
 		);
 		expect(buttons).toEqual([
 			{ text: "Cancel", label: "Cancel edit" },

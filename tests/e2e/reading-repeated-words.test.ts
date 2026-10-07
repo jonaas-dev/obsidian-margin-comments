@@ -51,11 +51,22 @@ describe("marking repeated words in reading mode", () => {
 				["Numbered two", "On the second item."],
 			]) {
 				const at = doc.indexOf(item);
-				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + "Numbered".length, content);
+				await plugin.routing.createComment(
+					cm,
+					leaf.view.file.path,
+					at,
+					at + "Numbered".length,
+					content,
+				);
 			}
-			await leaf.setViewState({ type: "markdown", state: { file: leaf.view.file.path, mode: "preview" } });
+			await leaf.setViewState({
+				type: "markdown",
+				state: { file: leaf.view.file.path, mode: "preview" },
+			});
 		});
-		await page.waitForSelector(".markdown-reading-view .inline-comment-reading-mark", { timeout: 10000 });
+		await page.waitForSelector(".markdown-reading-view .inline-comment-reading-mark", {
+			timeout: 10000,
+		});
 		await page.waitForTimeout(800);
 	}, 240000);
 
@@ -67,12 +78,13 @@ describe("marking repeated words in reading mode", () => {
 	it("marks each appearance where its comment is anchored (#175)", async () => {
 		const items = await page.evaluate(async () => {
 			const plugin = window.app.plugins.plugins["margin-comments"];
-			const comments: { id: string; content: string }[] = await plugin.storage.getCommentsForFile("note.md");
+			const comments: { id: string; content: string }[] =
+				await plugin.storage.getCommentsForFile("note.md");
 			const contentOf = new Map(comments.map((c) => [c.id, c.content]));
 			return Array.from(document.querySelectorAll(".markdown-reading-view li")).map((li) => ({
 				item: (li.textContent ?? "").trim(),
-				marked: Array.from(li.querySelectorAll(".inline-comment-reading-mark")).map((mark) =>
-					contentOf.get((mark as HTMLElement).dataset.threadId ?? ""),
+				marked: Array.from(li.querySelectorAll(".inline-comment-reading-mark")).map(
+					(mark) => contentOf.get((mark as HTMLElement).dataset.threadId ?? ""),
 				),
 			}));
 		});

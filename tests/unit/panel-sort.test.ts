@@ -120,19 +120,25 @@ describe("lastActivity", () => {
 	});
 
 	it("takes the maximum across the thread, replies included", () => {
-		expect(lastActivity(thread("a", { position: 0, updatedAt: 700, replies: [200, 950] }))).toBe(
-			950,
-		);
+		expect(
+			lastActivity(thread("a", { position: 0, updatedAt: 700, replies: [200, 950] })),
+		).toBe(950);
 	});
 
 	it("ignores replies older than the root", () => {
-		expect(lastActivity(thread("a", { position: 0, updatedAt: 700, replies: [200] }))).toBe(700);
+		expect(lastActivity(thread("a", { position: 0, updatedAt: 700, replies: [200] }))).toBe(
+			700,
+		);
 	});
 });
 
 describe("sortLabel", () => {
 	it("labels every order", () => {
-		expect(SORT_ORDERS.map(sortLabel)).toEqual(["Document order", "Date created", "Last activity"]);
+		expect(SORT_ORDERS.map(sortLabel)).toEqual([
+			"Document order",
+			"Date created",
+			"Last activity",
+		]);
 	});
 });
 

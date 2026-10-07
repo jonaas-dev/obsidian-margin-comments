@@ -90,9 +90,7 @@ describe("a note renamed outside Obsidian", () => {
 		while (Date.now() < deadline && !existsSync(sidecar(vault.path, RENAMED))) {
 			await page.waitForTimeout(500);
 		}
-		events.push(
-			...(await page.evaluate(() => (window as unknown as { __ev: string[] }).__ev)),
-		);
+		events.push(...(await page.evaluate(() => (window as unknown as { __ev: string[] }).__ev)));
 
 		expect({ renamedSidecar: existsSync(sidecar(vault.path, RENAMED)), events }).toEqual({
 			renamedSidecar: true,

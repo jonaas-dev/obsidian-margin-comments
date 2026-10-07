@@ -15,7 +15,11 @@ const summary = (filePath: string, threads: number, open: number): CommentSummar
 });
 
 describe("buildSections", () => {
-	const summaries = [summary("zeta.md", 1, 1), summary("alpha.md", 2, 0), summary("gone.md", 3, 3)];
+	const summaries = [
+		summary("zeta.md", 1, 1),
+		summary("alpha.md", 2, 0),
+		summary("gone.md", 3, 3),
+	];
 	const exists = (path: string) => path !== "gone.md";
 
 	it("sorts by path so the list is scannable", () => {
@@ -34,7 +38,10 @@ describe("buildSections", () => {
 	});
 
 	it("puts missing notes last, whatever their path", () => {
-		const sections = buildSections([summary("aaa.md", 1, 1), summary("zzz.md", 1, 1)], () => false);
+		const sections = buildSections(
+			[summary("aaa.md", 1, 1), summary("zzz.md", 1, 1)],
+			() => false,
+		);
 		expect(sections.every((s) => s.missing)).toBe(true);
 	});
 

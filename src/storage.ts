@@ -400,7 +400,9 @@ export class CommentStorage {
 
 		const invalid = sidecar.comments.filter((c) => !isCommentOf(filePath, c));
 		const path = this.sidecarPath(filePath);
-		console.warn(`margin-comments: setting aside ${invalid.length} invalid comments from ${basename(path)}`);
+		console.warn(
+			`margin-comments: setting aside ${invalid.length} invalid comments from ${basename(path)}`,
+		);
 		const keptAt = normalizePath(`${path}.invalid-${Date.now()}`);
 		await this.adapter.write(keptAt, JSON.stringify({ filePath, comments: invalid }, null, 2));
 		await this.writeComments(filePath, valid);
@@ -561,7 +563,9 @@ export class CommentStorage {
 	 * the newer set.
 	 */
 	async holdComments(filePath: string): Promise<Comment[]> {
-		const taken = await this.mutate(filePath, (existing) => (existing.length === 0 ? null : []));
+		const taken = await this.mutate(filePath, (existing) =>
+			existing.length === 0 ? null : [],
+		);
 		if (taken.length === 0) return [];
 
 		const path = this.heldPath(filePath);
@@ -590,7 +594,9 @@ export class CommentStorage {
 		if (!(await this.adapter.exists(path))) return [];
 		const sidecar = parseSidecar(await this.adapter.read(path).catch(() => ""));
 		if (!sidecar || !isText(sidecar.filePath)) return [];
-		return sidecar.comments.filter((c): c is Comment => isCommentOf(sidecar.filePath as string, c));
+		return sidecar.comments.filter((c): c is Comment =>
+			isCommentOf(sidecar.filePath as string, c),
+		);
 	}
 
 	async takeComments(filePath: string): Promise<Comment[]> {
@@ -761,7 +767,9 @@ export class CommentStorage {
 			}
 			index[filePath] = {
 				hash: hashString(filePath),
-				...summarise(sidecar.comments.filter((c): c is Comment => isCommentOf(filePath, c))),
+				...summarise(
+					sidecar.comments.filter((c): c is Comment => isCommentOf(filePath, c)),
+				),
 			};
 		}
 	}

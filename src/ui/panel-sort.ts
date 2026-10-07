@@ -5,7 +5,10 @@ export const SORT_ORDERS: readonly SortOrder[] = ["position", "date", "lastActiv
 
 /** Most recent timestamp anywhere in the thread, replies included. */
 export function lastActivity(thread: Thread): number {
-	return thread.replies.reduce((latest, reply) => Math.max(latest, reply.updatedAt), thread.root.updatedAt);
+	return thread.replies.reduce(
+		(latest, reply) => Math.max(latest, reply.updatedAt),
+		thread.root.updatedAt,
+	);
 }
 
 /**

@@ -560,7 +560,12 @@ function startEditing(
 
 	const buttons = editor.createDiv({ cls: "inline-comment-editor-actions" });
 	textButton(buttons, { text: "Cancel", label: "Cancel edit", onClick: finish });
-	textButton(buttons, { text: "Save", label: "Save changes", onClick: save, extraClass: "mod-cta" });
+	textButton(buttons, {
+		text: "Save",
+		label: "Save changes",
+		onClick: save,
+		extraClass: "mod-cta",
+	});
 
 	editor.addEventListener("click", (event) => event.stopPropagation());
 	submitOnEnter(textarea, save, finish);

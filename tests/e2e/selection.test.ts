@@ -55,11 +55,19 @@ describe("the selected card", () => {
 		await page.evaluate(async () => {
 			const plugin = window.app.plugins.plugins["margin-comments"];
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
-			const cm = (leaf.view.editor as unknown as { cm: { state: { doc: { toString(): string } } } }).cm;
+			const cm = (
+				leaf.view.editor as unknown as { cm: { state: { doc: { toString(): string } } } }
+			).cm;
 			const doc = cm.state.doc.toString();
 			for (const word of ["alpha", "beta", "gamma"]) {
 				const at = doc.indexOf(word);
-				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + word.length, `On ${word}.`);
+				await plugin.routing.createComment(
+					cm,
+					leaf.view.file.path,
+					at,
+					at + word.length,
+					`On ${word}.`,
+				);
 			}
 		});
 		await page.waitForTimeout(1500);

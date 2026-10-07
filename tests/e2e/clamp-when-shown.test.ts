@@ -13,9 +13,10 @@ interface EditorViewLike {
 
 const NOTE = "note.md";
 const BODY = ["alpha beta gamma", "delta epsilon zeta"].join("\n");
-const LONG = Array.from({ length: 30 }, (_, i) => `Paragraph ${i + 1} of a comment long enough to be clipped.`).join(
-	"\n\n",
-);
+const LONG = Array.from(
+	{ length: 30 },
+	(_, i) => `Paragraph ${i + 1} of a comment long enough to be clipped.`,
+).join("\n\n");
 
 /**
  * A card's body is measured for clipping once its Markdown has rendered. A card
@@ -51,7 +52,9 @@ describe("clipping a long body painted while the panel was hidden", () => {
 			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, long);
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		}, LONG);
-		await page.waitForSelector(".inline-comment-panel .inline-comment-body", { timeout: 10000 });
+		await page.waitForSelector(".inline-comment-panel .inline-comment-body", {
+			timeout: 10000,
+		});
 		await page.waitForTimeout(800);
 	}, 240000);
 
@@ -66,15 +69,23 @@ describe("clipping a long body painted while the panel was hidden", () => {
 			const plugin = window.app.plugins.plugins["margin-comments"];
 			ws.rightSplit.collapse();
 			await new Promise((r) => setTimeout(r, 600));
-			const hiddenAtPaint = !(document.querySelector(".inline-comment-panel") as HTMLElement).isShown();
+			const hiddenAtPaint = !(
+				document.querySelector(".inline-comment-panel") as HTMLElement
+			).isShown();
 			await plugin.refresh();
 			await new Promise((r) => setTimeout(r, 500));
 			ws.rightSplit.expand();
 			await new Promise((r) => setTimeout(r, 1000));
 			return {
 				hiddenAtPaint,
-				clipped: document.querySelector(".inline-comment-panel .inline-comment-body.is-clipped") !== null,
-				control: document.querySelector(".inline-comment-panel .inline-comment-showmore.is-available") !== null,
+				clipped:
+					document.querySelector(
+						".inline-comment-panel .inline-comment-body.is-clipped",
+					) !== null,
+				control:
+					document.querySelector(
+						".inline-comment-panel .inline-comment-showmore.is-available",
+					) !== null,
 			};
 		});
 		// Guard: a panel painted on screen measures its bodies the ordinary way.

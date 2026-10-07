@@ -3,9 +3,11 @@ import { displayQuote } from "../../src/ui/quote-text";
 
 describe("displayQuote", () => {
 	it("quotes the example from #128 without its asterisks", () => {
-		expect(displayQuote("A second paragraph with **bold words** in it, and then some plain text after them.")).toBe(
-			"A second paragraph with bold words in it, and then some plain text after them.",
-		);
+		expect(
+			displayQuote(
+				"A second paragraph with **bold words** in it, and then some plain text after them.",
+			),
+		).toBe("A second paragraph with bold words in it, and then some plain text after them.");
 	});
 
 	it("takes out strong, emphasis, strikethrough and highlight markers", () => {
@@ -15,11 +17,15 @@ describe("displayQuote", () => {
 	});
 
 	it("keeps a wikilink's alias, or its target when there is none", () => {
-		expect(displayQuote("see [[Target note|the target]] and [[Other note]]")).toBe("see the target and Other note");
+		expect(displayQuote("see [[Target note|the target]] and [[Other note]]")).toBe(
+			"see the target and Other note",
+		);
 	});
 
 	it("keeps an embed's name and a Markdown link's text", () => {
-		expect(displayQuote("![[diagram.png]] and [the docs](https://example.com)")).toBe("diagram.png and the docs");
+		expect(displayQuote("![[diagram.png]] and [the docs](https://example.com)")).toBe(
+			"diagram.png and the docs",
+		);
 	});
 
 	it("keeps the content of a code span verbatim, asterisks included", () => {

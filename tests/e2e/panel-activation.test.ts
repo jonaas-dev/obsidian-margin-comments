@@ -50,11 +50,19 @@ describe("activating the panel's own leaf", () => {
 			const doc = cm.state.doc.toString();
 			for (const word of ["beta", "epsilon"]) {
 				const at = doc.indexOf(word);
-				await plugin.routing.createComment(cm, leaf.view.file.path, at, at + word.length, `On ${word}.`);
+				await plugin.routing.createComment(
+					cm,
+					leaf.view.file.path,
+					at,
+					at + word.length,
+					`On ${word}.`,
+				);
 			}
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
-		await page.waitForSelector(".inline-comment-panel .inline-comment-card", { timeout: 10000 });
+		await page.waitForSelector(".inline-comment-panel .inline-comment-card", {
+			timeout: 10000,
+		});
 		await page.waitForTimeout(600);
 	}, 240000);
 

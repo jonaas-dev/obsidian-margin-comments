@@ -93,7 +93,11 @@ export const SHEET_MIN_CAP = 200;
 export function sheetPosition(metrics: SheetMetrics): SheetPosition {
 	// Either source can be the one reporting the keyboard: a browser shrinks the
 	// visual viewport, Obsidian's Android app publishes a variable instead (#159).
-	const keyboard = Math.max(0, metrics.innerHeight - metrics.visibleHeight, metrics.keyboardHeight);
+	const keyboard = Math.max(
+		0,
+		metrics.innerHeight - metrics.visibleHeight,
+		metrics.keyboardHeight,
+	);
 	const bottom = Math.max(keyboard, metrics.reservedBottom, 0);
 	const available = Math.max(0, metrics.innerHeight - bottom);
 	// Half the space keeps the commented line in view, until half is too little to
@@ -101,7 +105,10 @@ export function sheetPosition(metrics: SheetMetrics): SheetPosition {
 	// 144 it needs (#166). Seeing the field wins over seeing the line then, but
 	// never past the space there is.
 	const floor = Math.min(metrics.contentHeight, SHEET_MIN_CAP);
-	const maxHeight = Math.min(available, Math.max(Math.round(available * SHEET_MAX_FRACTION), floor));
+	const maxHeight = Math.min(
+		available,
+		Math.max(Math.round(available * SHEET_MAX_FRACTION), floor),
+	);
 	return { bottom, maxHeight };
 }
 

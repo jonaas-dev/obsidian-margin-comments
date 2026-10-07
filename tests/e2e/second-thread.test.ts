@@ -39,7 +39,9 @@ describe("asking for a comment", () => {
 		const dir = `${vault.path}/.margin-comments`;
 		const file = readdirSync(dir).find((f) => f !== "_index.json");
 		if (!file) return [];
-		const sidecar = JSON.parse(readFileSync(`${dir}/${file}`, "utf8")) as { comments: Comment[] };
+		const sidecar = JSON.parse(readFileSync(`${dir}/${file}`, "utf8")) as {
+			comments: Comment[];
+		};
 		return sidecar.comments.map((c) =>
 			c.anchor.isLineComment ? `LINE:${c.anchor.selectedText}` : c.anchor.selectedText,
 		);

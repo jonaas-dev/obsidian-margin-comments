@@ -9,9 +9,9 @@ const pkg = JSON.parse(readFileSync("package.json", "utf8"));
 
 /** The `src` of the badge whose `alt` matches, decoded so it reads as the label does. */
 function badge(alt: RegExp): { alt: string; src: string } {
-	const match = [...readme.matchAll(/<img alt="([^"]+)" src="(https:\/\/img\.shields\.io\/[^"]+)">/g)].find(
-		([, text]) => alt.test(text),
-	);
+	const match = [
+		...readme.matchAll(/<img alt="([^"]+)" src="(https:\/\/img\.shields\.io\/[^"]+)">/g),
+	].find(([, text]) => alt.test(text));
 	if (!match) throw new Error(`no badge with alt matching ${alt}`);
 	return { alt: match[1], src: decodeURIComponent(match[2]) };
 }

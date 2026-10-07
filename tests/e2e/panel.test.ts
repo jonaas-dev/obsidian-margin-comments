@@ -101,7 +101,9 @@ describe("comment panel", () => {
 
 		expect(sidecar.comments).toHaveLength(2);
 		const root = sidecar.comments.find((c: { parentId: string | null }) => c.parentId === null);
-		const reply = sidecar.comments.find((c: { parentId: string | null }) => c.parentId !== null);
+		const reply = sidecar.comments.find(
+			(c: { parentId: string | null }) => c.parentId !== null,
+		);
 		expect(reply.parentId).toBe(root.id);
 		expect(reply.content).toBe("a reply from the test");
 		// The reply carries the root's anchor rather than one of its own.
@@ -130,7 +132,6 @@ describe("comment panel", () => {
 			return leaf.view.editor.getCursor().line;
 		});
 		expect(cursorLine).toBe(0);
-
 	});
 
 	it("shows the reply nested under its root with a count", async () => {
@@ -167,7 +168,9 @@ describe("comment panel", () => {
 		await page.locator('[aria-label="Resolve"], [aria-label="Reopen"]').first().click();
 		await page.waitForTimeout(1500);
 
-		expect(readSidecar().comments.find((c: Comment) => c.parentId === null)!.resolved).toBe(true);
+		expect(readSidecar().comments.find((c: Comment) => c.parentId === null)!.resolved).toBe(
+			true,
+		);
 		expect(await page.locator(".inline-comment-active-line").count()).toBe(0);
 	});
 
@@ -176,7 +179,9 @@ describe("comment panel", () => {
 		await page.locator('[aria-label="Resolve"], [aria-label="Reopen"]').first().click();
 		await page.waitForTimeout(1500);
 
-		expect(readSidecar().comments.find((c: Comment) => c.parentId === null)!.resolved).toBe(false);
+		expect(readSidecar().comments.find((c: Comment) => c.parentId === null)!.resolved).toBe(
+			false,
+		);
 		expect(await page.locator(".inline-comment-active-line").count()).toBe(1);
 	});
 
@@ -253,7 +258,9 @@ describe("comment panel", () => {
 		await page.mouse.click(gutters.x + gutters.width / 2, line.y + line.height / 2);
 		await page.waitForSelector(".inline-comment-popover", { timeout: 5000 });
 
-		expect(await page.locator(".inline-comment-popover .inline-comment-body").count()).toBeGreaterThan(0);
+		expect(
+			await page.locator(".inline-comment-popover .inline-comment-body").count(),
+		).toBeGreaterThan(0);
 		// Beside the line, not over it.
 		const box = await page.locator(".inline-comment-popover").boundingBox();
 		expect(box.x).toBeGreaterThan(gutters.x);
@@ -269,7 +276,9 @@ describe("comment panel", () => {
 		// The popover tests above close the panel; the delete actions live in it.
 		await page.evaluate(async () => {
 			if (window.app.workspace.getLeavesOfType("margin-comments-panel").length === 0) {
-				await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
+				await window.app.commands.executeCommandById(
+					"margin-comments:toggle-comments-panel",
+				);
 			}
 		});
 		await page.waitForSelector(".inline-comment-panel", { timeout: 10000 });
@@ -303,5 +312,4 @@ describe("comment panel", () => {
 		expect(await page.locator(".inline-comment-active-line").count()).toBe(0);
 		expect(await page.locator(".inline-comment-empty").count()).toBe(1);
 	});
-
 });

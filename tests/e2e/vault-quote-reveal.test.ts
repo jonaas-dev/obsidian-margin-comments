@@ -36,7 +36,9 @@ describe("the quote of a card in the all-notes view", () => {
 		page.evaluate(async (p: string) => {
 			const file = window.app.vault.getAbstractFileByPath(p);
 			await window.app.workspace.getLeaf(false).openFile(file, { state: { mode: "source" } });
-			window.app.workspace.getLeavesOfType("markdown")[0].view.editor.setCursor({ line: 0, ch: 0 });
+			window.app.workspace
+				.getLeavesOfType("markdown")[0]
+				.view.editor.setCursor({ line: 0, ch: 0 });
 		}, path);
 
 	beforeAll(async () => {
@@ -55,14 +57,22 @@ describe("the quote of a card in the all-notes view", () => {
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			// The trailing period, so line 3 does not match the start of line 30.
 			const at = cm.state.doc.toString().indexOf(`Other line ${target}.`);
-			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 5, "On the other note.");
+			await plugin.routing.createComment(
+				cm,
+				leaf.view.file.path,
+				at,
+				at + 5,
+				"On the other note.",
+			);
 		}, TARGET_LINE);
 
 		await openNote(ACTIVE);
 		await page.evaluate(() =>
 			window.app.commands.executeCommandById("margin-comments:toggle-comments-panel"),
 		);
-		await page.waitForSelector(".inline-comment-panel .inline-comment-scope", { timeout: 10000 });
+		await page.waitForSelector(".inline-comment-panel .inline-comment-scope", {
+			timeout: 10000,
+		});
 		await page.selectOption(".inline-comment-scope", "vault");
 		await page.waitForSelector(".inline-comment-section-head", { timeout: 10000 });
 		await page.locator(".inline-comment-section-head").first().click();
@@ -80,20 +90,25 @@ describe("the quote of a card in the all-notes view", () => {
 	it("opens the card's note at the thread's line (#155)", async () => {
 		const before = await page.evaluate(() => ({
 			active: window.app.workspace.getActiveFile()?.path,
-			sections: Array.from(document.querySelectorAll(".inline-comment-section-path-text")).map(
-				(el) => el.textContent,
-			),
+			sections: Array.from(
+				document.querySelectorAll(".inline-comment-section-path-text"),
+			).map((el) => el.textContent),
 		}));
 		// Guard: the card must belong to a note that is not the active one, or a
 		// reveal against the active note would be indistinguishable from the fix.
 		expect(before).toEqual({ active: ACTIVE, sections: [OTHER] });
 
-		await page.locator(".inline-comment-section-body button.inline-comment-quote").first().click();
+		await page
+			.locator(".inline-comment-section-body button.inline-comment-quote")
+			.first()
+			.click();
 		await page.waitForTimeout(1200);
 
 		const after = await page.evaluate(() => ({
 			active: window.app.workspace.getActiveFile()?.path,
-			line: window.app.workspace.getLeavesOfType("markdown")[0].view.editor.getCursor().line + 1,
+			line:
+				window.app.workspace.getLeavesOfType("markdown")[0].view.editor.getCursor().line +
+				1,
 		}));
 		expect(after).toEqual({ active: OTHER, line: TARGET_LINE });
 	});

@@ -54,7 +54,8 @@ describe("a comment on an empty line", () => {
 		// orphaned the comment even when it had been anchored to begin with.
 		const doc = "A long enough first paragraph here.\n\nAnother long enough paragraph here.";
 		const anchor = anchorAt(doc, 36);
-		const edited = "A long enough first paragraph here, edited.\n\nAnother long enough paragraph here.";
+		const edited =
+			"A long enough first paragraph here, edited.\n\nAnother long enough paragraph here.";
 		expect(relocate(edited, anchor)).toEqual({ from: 44, to: 44, method: expect.any(String) });
 	});
 
@@ -62,7 +63,11 @@ describe("a comment on an empty line", () => {
 		const doc = "A long enough first paragraph here.\n\nAnother long enough paragraph here.";
 		const anchor = anchorAt(doc, 36);
 		const inserted = `A new first line.\n${doc}`;
-		expect(relocate(inserted, anchor)).toEqual({ from: 54, to: 54, method: expect.any(String) });
+		expect(relocate(inserted, anchor)).toEqual({
+			from: 54,
+			to: 54,
+			method: expect.any(String),
+		});
 	});
 
 	it("is reported lost when the neighbourhood is gone", () => {

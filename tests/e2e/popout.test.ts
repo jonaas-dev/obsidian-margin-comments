@@ -43,7 +43,10 @@ describe("a note in a popout window", () => {
 		for (let i = 0; i < 40 && main.context().pages().length === before; i++) {
 			await main.waitForTimeout(250);
 		}
-		popout = main.context().pages().find((p: any) => p !== main && !p.url().startsWith("devtools://"));
+		popout = main
+			.context()
+			.pages()
+			.find((p: any) => p !== main && !p.url().startsWith("devtools://"));
 		await popout.waitForSelector(".cm-editor", { timeout: 15000 });
 	}, 180000);
 
@@ -58,7 +61,8 @@ describe("a note in a popout window", () => {
 		return { x: gutters.x + gutters.width / 2, y: line.y + line.height / 2 };
 	}
 
-	const count = async (page: any, selector: string): Promise<number> => page.locator(selector).count();
+	const count = async (page: any, selector: string): Promise<number> =>
+		page.locator(selector).count();
 
 	it("opens the composer in the popout, where the gutter was clicked", async () => {
 		const point = await gutterPoint(1);
@@ -106,7 +110,9 @@ describe("a note in a popout window", () => {
 			const state = leaf.getViewState();
 			await leaf.setViewState({ ...state, state: { ...state.state, mode: "preview" } });
 		});
-		const mark = popout.locator(".inline-comment-reading-block, .inline-comment-reading-mark").first();
+		const mark = popout
+			.locator(".inline-comment-reading-block, .inline-comment-reading-mark")
+			.first();
 		await mark.waitFor({ timeout: 10000 });
 
 		await mark.click();

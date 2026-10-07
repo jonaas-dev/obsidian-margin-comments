@@ -96,7 +96,9 @@ describe("a popout that was open before the plugin loaded", () => {
 		await main.evaluate(async () => {
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
-		await main.waitForSelector(".inline-comment-panel .inline-comment-card", { timeout: 10000 });
+		await main.waitForSelector(".inline-comment-panel .inline-comment-card", {
+			timeout: 10000,
+		});
 
 		const selected = await main.evaluate(async (note: string) => {
 			const plugin = window.app.plugins.plugins["margin-comments"];
@@ -108,7 +110,10 @@ describe("a popout that was open before the plugin loaded", () => {
 			return document.querySelectorAll(".inline-comment-card.is-selected").length;
 		}, NOTE);
 
-		await popout.locator(".markdown-reading-view").first().click({ position: { x: 5, y: 5 } });
+		await popout
+			.locator(".markdown-reading-view")
+			.first()
+			.click({ position: { x: 5, y: 5 } });
 		// Polled until the selection clears rather than read once after a delay.
 		await main.waitForFunction(
 			() => document.querySelectorAll(".inline-comment-card.is-selected").length === 0,

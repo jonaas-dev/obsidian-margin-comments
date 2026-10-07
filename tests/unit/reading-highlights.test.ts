@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-	highlightsInBlock,
-	locateAcrossSegments,
-} from "../../src/reading/reading-highlights";
+import { highlightsInBlock, locateAcrossSegments } from "../../src/reading/reading-highlights";
 import type { Thread } from "../../src/threads";
 import type { Comment } from "../../src/types";
 
@@ -30,7 +27,13 @@ function comment(id: string, overrides: Partial<Comment> = {}): Comment {
 	};
 }
 
-function thread(id: string, line: number | null, position: number, end: number, over: Partial<Thread> = {}): Thread {
+function thread(
+	id: string,
+	line: number | null,
+	position: number,
+	end: number,
+	over: Partial<Thread> = {},
+): Thread {
 	return {
 		root: comment(id),
 		replies: [],
@@ -78,7 +81,9 @@ describe("highlightsInBlock", () => {
 		// marks the block rather than guessing at a range.
 		const line = thread("line", 1, 0, 10);
 		line.root.anchor.isLineComment = true;
-		expect(highlightsInBlock(doc, [line], 0, 0)).toEqual([{ id: "line", text: "", occurrence: 0 }]);
+		expect(highlightsInBlock(doc, [line], 0, 0)).toEqual([
+			{ id: "line", text: "", occurrence: 0 },
+		]);
 	});
 
 	it("orders by position, so nested marks are applied outermost first", () => {

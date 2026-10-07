@@ -46,7 +46,13 @@ describe("the panel's proportions", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf("beta");
-			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, "A comment body.");
+			await plugin.routing.createComment(
+				cm,
+				leaf.view.file.path,
+				at,
+				at + 4,
+				"A comment body.",
+			);
 		});
 		await page.waitForTimeout(1200);
 		await page.evaluate(async () => {
@@ -74,7 +80,10 @@ describe("the panel's proportions", () => {
 					fs: parseFloat(getComputedStyle(el).fontSize),
 				};
 			};
-			return { field: box(".inline-comment-replybox-input"), send: box(".inline-comment-send") };
+			return {
+				field: box(".inline-comment-replybox-input"),
+				send: box(".inline-comment-send"),
+			};
 		});
 
 		// Measured before: field 20px at 10.4px, button 25px. The same 1.9em in
@@ -85,11 +94,13 @@ describe("the panel's proportions", () => {
 	it("does not make the reply field the smallest text in the card (#101)", async () => {
 		const sizes = await page.evaluate(() => ({
 			field: parseFloat(
-				getComputedStyle(document.querySelector(".inline-comment-replybox-input") as HTMLElement)
-					.fontSize,
+				getComputedStyle(
+					document.querySelector(".inline-comment-replybox-input") as HTMLElement,
+				).fontSize,
 			),
 			body: parseFloat(
-				getComputedStyle(document.querySelector(".inline-comment-body") as HTMLElement).fontSize,
+				getComputedStyle(document.querySelector(".inline-comment-body") as HTMLElement)
+					.fontSize,
 			),
 		}));
 		expect(sizes.field).toBeGreaterThanOrEqual(sizes.body);
@@ -105,7 +116,9 @@ describe("the panel's proportions", () => {
 				const el = document.querySelector(sel) as HTMLElement;
 				const cs = getComputedStyle(el);
 				const longest = Math.max(
-                    ...Array.from(el.querySelectorAll("option")).map((o) => (o.textContent ?? "").length),
+					...Array.from(el.querySelectorAll("option")).map(
+						(o) => (o.textContent ?? "").length,
+					),
 				);
 				return {
 					paddingRight: parseFloat(cs.paddingRight),
@@ -114,7 +127,10 @@ describe("the panel's proportions", () => {
 					longest,
 				};
 			};
-			return { scope: measure(".inline-comment-scope"), sort: measure(".inline-comment-sort") };
+			return {
+				scope: measure(".inline-comment-scope"),
+				sort: measure(".inline-comment-sort"),
+			};
 		});
 
 		// Obsidian's .dropdown reserves the right side; ours used to set both to
@@ -133,10 +149,14 @@ describe("the panel's proportions", () => {
 			const ctx = canvas.getContext("2d")!;
 			ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
 			const widest = Math.max(
-				...Array.from(el.querySelectorAll("option")).map((o) => ctx.measureText(o.textContent ?? "").width),
+				...Array.from(el.querySelectorAll("option")).map(
+					(o) => ctx.measureText(o.textContent ?? "").width,
+				),
 			);
 			const inner =
-				el.getBoundingClientRect().width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+				el.getBoundingClientRect().width -
+				parseFloat(cs.paddingLeft) -
+				parseFloat(cs.paddingRight);
 			return { widest: Math.round(widest), inner: Math.round(inner) };
 		});
 		expect(fits.inner).toBeGreaterThanOrEqual(fits.widest);

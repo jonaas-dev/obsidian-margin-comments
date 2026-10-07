@@ -12,7 +12,10 @@ interface EditorViewLike {
 }
 
 const NOTE = "note.md";
-const LINES = Array.from({ length: 60 }, (_, i) => `Line ${i + 1} of a note long enough to scroll.`);
+const LINES = Array.from(
+	{ length: 60 },
+	(_, i) => `Line ${i + 1} of a note long enough to scroll.`,
+);
 const TARGET_LINE = 48;
 
 /**
@@ -53,7 +56,9 @@ describe("navigating from the panel", () => {
 	const state = (): Promise<{ collapsed: boolean; cursorLine: number }> =>
 		page.evaluate(() => ({
 			collapsed: window.app.workspace.rightSplit.collapsed,
-			cursorLine: window.app.workspace.getLeavesOfType("markdown")[0].view.editor.getCursor().line + 1,
+			cursorLine:
+				window.app.workspace.getLeavesOfType("markdown")[0].view.editor.getCursor().line +
+				1,
 		}));
 
 	beforeAll(async () => {
@@ -74,10 +79,18 @@ describe("navigating from the panel", () => {
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 			const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 			const at = cm.state.doc.toString().indexOf(`Line ${target} `);
-			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, "Far down the note.");
+			await plugin.routing.createComment(
+				cm,
+				leaf.view.file.path,
+				at,
+				at + 4,
+				"Far down the note.",
+			);
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		}, TARGET_LINE);
-		await page.waitForSelector(".inline-comment-panel .inline-comment-card", { timeout: 10000 });
+		await page.waitForSelector(".inline-comment-panel .inline-comment-card", {
+			timeout: 10000,
+		});
 		await page.waitForTimeout(600);
 	}, 240000);
 
@@ -99,7 +112,9 @@ describe("navigating from the panel", () => {
 		await page.selectOption(".inline-comment-scope", "vault");
 		await page.waitForSelector(".inline-comment-section-head", { timeout: 10000 });
 		await page.locator(".inline-comment-section-head").first().click();
-		await page.waitForSelector(".inline-comment-section-body .inline-comment-card", { timeout: 10000 });
+		await page.waitForSelector(".inline-comment-section-body .inline-comment-card", {
+			timeout: 10000,
+		});
 		await page.locator(".inline-comment-section-body .inline-comment-body").first().click();
 		await page.waitForTimeout(1200);
 		expect(await state()).toEqual({ collapsed: true, cursorLine: TARGET_LINE });

@@ -20,7 +20,13 @@ export interface ThreadRoutingHost {
 	/** Whether the composer and the popover open as a bottom sheet. */
 	sheet(): boolean;
 	/** `owner` is the document of the window the reader acted in. */
-	openPopover(threads: Thread[], filePath: string, rect: AnchorRect, doc: string, owner: Document): void;
+	openPopover(
+		threads: Thread[],
+		filePath: string,
+		rect: AnchorRect,
+		doc: string,
+		owner: Document,
+	): void;
 	refresh(): Promise<void>;
 }
 
@@ -80,7 +86,10 @@ export class ThreadRouting {
 		// again (#113). A hole in #75, which made the selection decide but kept
 		// handing over every thread.
 		const anchored = threads
-			.filter((thread) => !thread.root.resolved && thread.position !== null && thread.end !== null)
+			.filter(
+				(thread) =>
+					!thread.root.resolved && thread.position !== null && thread.end !== null,
+			)
 			.map((thread) => ({ id: thread.root.id, from: thread.position!, to: thread.end! }));
 		const selection = view.state.selection.main;
 

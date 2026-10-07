@@ -42,15 +42,25 @@ describe("Markdown in the quoted text", () => {
 		await page.evaluate(async () => {
 			const plugin = window.app.plugins.plugins["margin-comments"];
 			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
-			const cm = (leaf.view.editor as unknown as {
-				cm: { state: { doc: { line(n: number): { from: number } } } };
-			}).cm;
+			const cm = (
+				leaf.view.editor as unknown as {
+					cm: { state: { doc: { line(n: number): { from: number } } } };
+				}
+			).cm;
 			// from === to: a whole-line comment, which quotes the line as written.
 			const from = cm.state.doc.line(3).from;
-			await plugin.routing.createComment(cm, leaf.view.file.path, from, from, "On the formatted line.");
+			await plugin.routing.createComment(
+				cm,
+				leaf.view.file.path,
+				from,
+				from,
+				"On the formatted line.",
+			);
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
-		await page.waitForSelector(".inline-comment-panel .inline-comment-quote", { timeout: 10000 });
+		await page.waitForSelector(".inline-comment-panel .inline-comment-quote", {
+			timeout: 10000,
+		});
 		await page.waitForTimeout(600);
 	}, 240000);
 
@@ -61,14 +71,18 @@ describe("Markdown in the quoted text", () => {
 
 	it("shows the words without their syntax (#128)", async () => {
 		const text = await page.evaluate(
-			() => document.querySelector(".inline-comment-panel .inline-comment-quote-text")?.textContent,
+			() =>
+				document.querySelector(".inline-comment-panel .inline-comment-quote-text")
+					?.textContent,
 		);
 		expect(text).toBe(SHOWN);
 	});
 
 	it("names it the same way for the tooltip and a screen reader", async () => {
 		const attrs = await page.evaluate(() => {
-			const quote = document.querySelector(".inline-comment-panel .inline-comment-quote") as HTMLElement;
+			const quote = document.querySelector(
+				".inline-comment-panel .inline-comment-quote",
+			) as HTMLElement;
 			return { title: quote.getAttribute("title"), label: quote.getAttribute("aria-label") };
 		});
 		expect(attrs.title).toBe(SHOWN);

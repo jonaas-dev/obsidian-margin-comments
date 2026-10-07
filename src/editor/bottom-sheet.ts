@@ -28,7 +28,9 @@ export function reservedBottom(doc: Document = document, win: Window = window): 
  * behind the keyboard (#159).
  */
 export function keyboardHeight(doc: Document = document, win: Window = window): number {
-	const value = Number.parseFloat(win.getComputedStyle(doc.documentElement).getPropertyValue("--keyboard-height"));
+	const value = Number.parseFloat(
+		win.getComputedStyle(doc.documentElement).getPropertyValue("--keyboard-height"),
+	);
 	return Number.isFinite(value) && value > 0 ? value : 0;
 }
 

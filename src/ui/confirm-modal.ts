@@ -38,9 +38,7 @@ export class ConfirmModal extends Modal {
 		const destructive = this.options.destructive ?? true;
 
 		new Setting(this.contentEl)
-			.addButton((button) =>
-				button.setButtonText("Cancel").onClick(() => this.close()),
-			)
+			.addButton((button) => button.setButtonText("Cancel").onClick(() => this.close()))
 			.addButton((button) => {
 				button.setButtonText(label).onClick(async () => {
 					this.close();

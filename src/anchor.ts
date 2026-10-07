@@ -141,7 +141,8 @@ export function matchByHash(doc: string, anchor: TextAnchor): AnchorMatch | null
  */
 function suffixMatchAt(doc: string, end: number, context: string): number {
 	let n = 0;
-	while (n < end && n < context.length && doc[end - 1 - n] === context[context.length - 1 - n]) n++;
+	while (n < end && n < context.length && doc[end - 1 - n] === context[context.length - 1 - n])
+		n++;
 	return n;
 }
 
@@ -304,7 +305,8 @@ export function matchEmptyLine(doc: string, anchor: TextAnchor): AnchorMatch | n
 		const afterScore =
 			contextAfter === "" ? 1 : prefixMatchAt(doc, at, contextAfter) / contextAfter.length;
 
-		if (!vouchesFor(contextBefore, beforeScore) && !vouchesFor(contextAfter, afterScore)) continue;
+		if (!vouchesFor(contextBefore, beforeScore) && !vouchesFor(contextAfter, afterScore))
+			continue;
 
 		const score = beforeScore + afterScore;
 		const distance = Math.abs(lineNumberAt(doc, at) - anchor.lineHint);
@@ -370,7 +372,11 @@ function windowAround(doc: string, lineHint: number, radius: number): { from: nu
  * A near-match far from where the comment lived is somebody else's text, which
  * is why the window is a correctness bound and not only a performance one.
  */
-export function matchByFuzzy(doc: string, anchor: TextAnchor, threshold: number): AnchorMatch | null {
+export function matchByFuzzy(
+	doc: string,
+	anchor: TextAnchor,
+	threshold: number,
+): AnchorMatch | null {
 	const text = anchor.selectedText;
 	if (text === "") return null;
 
@@ -498,4 +504,3 @@ function renormalisations(anchor: TextAnchor): TextAnchor[] {
 	}
 	return forms;
 }
-

@@ -28,7 +28,11 @@ export function navigableLines(threads: readonly NavigableThread[]): number[] {
  * a dead end, and pressing the key again does nothing, which reads as the
  * command being broken rather than as the end of the note.
  */
-export function findAdjacentLine(lines: number[], from: number, direction: Direction): number | null {
+export function findAdjacentLine(
+	lines: number[],
+	from: number,
+	direction: Direction,
+): number | null {
 	if (lines.length === 0) return null;
 
 	const sorted = [...new Set(lines)].sort((a, b) => a - b);

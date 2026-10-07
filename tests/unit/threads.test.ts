@@ -55,7 +55,11 @@ describe("buildThreads", () => {
 	});
 
 	it("orders threads by position in the document", () => {
-		const threads = buildThreads(doc, [make("g", "gamma"), make("a", "alpha"), make("b", "beta")]);
+		const threads = buildThreads(doc, [
+			make("g", "gamma"),
+			make("a", "alpha"),
+			make("b", "beta"),
+		]);
 		expect(threads.map((t) => t.root.id)).toEqual(["a", "b", "g"]);
 	});
 

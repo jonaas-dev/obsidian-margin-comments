@@ -50,7 +50,9 @@ describe("hover styling", () => {
 			await plugin.routing.createComment(cm, leaf.view.file.path, at, at + 4, "On beta.");
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
-		await page.waitForSelector(".inline-comment-panel .inline-comment-card", { timeout: 10000 });
+		await page.waitForSelector(".inline-comment-panel .inline-comment-card", {
+			timeout: 10000,
+		});
 		await page.waitForTimeout(600);
 	}, 240000);
 
@@ -70,7 +72,10 @@ describe("hover styling", () => {
 							found.push({ selector, gated });
 						}
 					} else if (rule instanceof CSSMediaRule) {
-						walk(rule.cssRules, gated || /\(\s*hover\s*:\s*hover\s*\)/.test(rule.conditionText));
+						walk(
+							rule.cssRules,
+							gated || /\(\s*hover\s*:\s*hover\s*\)/.test(rule.conditionText),
+						);
 					} else if ("cssRules" in rule) {
 						walk((rule as CSSGroupingRule).cssRules, gated);
 					}
@@ -85,7 +90,10 @@ describe("hover styling", () => {
 				}
 				walk(rules, false);
 			}
-			return { total: found.length, ungated: found.filter((r) => !r.gated).map((r) => r.selector) };
+			return {
+				total: found.length,
+				ungated: found.filter((r) => !r.gated).map((r) => r.selector),
+			};
 		});
 		// Guard: the plugin's stylesheet was found, with hover rules in it to check.
 		expect(result.total).toBeGreaterThanOrEqual(10);
@@ -100,7 +108,9 @@ describe("hover styling", () => {
 		const idle = await card.evaluate((el: HTMLElement) => getComputedStyle(el).backgroundColor);
 		await card.hover();
 		await page.waitForTimeout(250);
-		const hovered = await card.evaluate((el: HTMLElement) => getComputedStyle(el).backgroundColor);
+		const hovered = await card.evaluate(
+			(el: HTMLElement) => getComputedStyle(el).backgroundColor,
+		);
 		expect(hovered).not.toBe(idle);
 	});
 });

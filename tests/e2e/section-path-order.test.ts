@@ -32,7 +32,10 @@ function comment(filePath: string): Comment {
 }
 
 function sidecar(filePath: string): [string, string] {
-	return [`.margin-comments/${hashString(filePath)}.json`, JSON.stringify({ filePath, comments: [comment(filePath)] })];
+	return [
+		`.margin-comments/${hashString(filePath)}.json`,
+		JSON.stringify({ filePath, comments: [comment(filePath)] }),
+	];
 }
 
 interface Glyphs {
@@ -60,9 +63,9 @@ describe("note paths in the all-notes view", () => {
 	const glyphs = (path: string, indexes: number[]): Promise<Glyphs> =>
 		page.evaluate(
 			([wanted, at]: [string, number[]]) => {
-				const box = Array.from(document.querySelectorAll(".inline-comment-section-path")).find(
-					(el) => el.textContent === wanted,
-				) as HTMLElement;
+				const box = Array.from(
+					document.querySelectorAll(".inline-comment-section-path"),
+				).find((el) => el.textContent === wanted) as HTMLElement;
 				const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
 				const node = walker.nextNode() as Text;
 				const left = at.map((i) => {
@@ -72,14 +75,21 @@ describe("note paths in the all-notes view", () => {
 					return range.getBoundingClientRect().left;
 				});
 				const rect = box.getBoundingClientRect();
-				return { left, box: { left: rect.left, right: rect.right }, overflows: box.scrollWidth > box.clientWidth };
+				return {
+					left,
+					box: { left: rect.left, right: rect.right },
+					overflows: box.scrollWidth > box.clientWidth,
+				};
 			},
 			[path, indexes],
 		);
 
 	beforeAll(async () => {
 		const index = Object.fromEntries(
-			[NUMBERED, BRACKETED, DEEP].map((p) => [p, { hash: hashString(p), threads: 1, open: 1 }]),
+			[NUMBERED, BRACKETED, DEEP].map((p) => [
+				p,
+				{ hash: hashString(p), threads: 1, open: 1 },
+			]),
 		);
 		vault = createTempVault({
 			[NUMBERED]: BODY,

@@ -136,14 +136,26 @@ describe("commands", () => {
 	/** Resolve or reopen the threads whose body is in `bodies`, through the store. */
 	async function setResolved(bodies: string[], resolved: boolean): Promise<void> {
 		await page.evaluate(
-			async ({ note, bodies, resolved }: { note: string; bodies: string[]; resolved: boolean }) => {
+			async ({
+				note,
+				bodies,
+				resolved,
+			}: {
+				note: string;
+				bodies: string[];
+				resolved: boolean;
+			}) => {
 				const plugin = window.app.plugins.plugins["margin-comments"];
 				for (const comment of await plugin.storage.getCommentsForFile(note)) {
 					if (bodies.includes(comment.content)) {
-						await plugin.storage.updateComment(comment.filePath, comment.id, (stored: object) => ({
-							...stored,
-							resolved,
-						}));
+						await plugin.storage.updateComment(
+							comment.filePath,
+							comment.id,
+							(stored: object) => ({
+								...stored,
+								resolved,
+							}),
+						);
 					}
 				}
 				await plugin.refresh();
@@ -184,7 +196,9 @@ describe("commands", () => {
 		await setCursorLine(0);
 		await run("next-comment");
 
-		expect(await page.locator(".notice").last().innerText()).toContain("No open comments in this note");
+		expect(await page.locator(".notice").last().innerText()).toContain(
+			"No open comments in this note",
+		);
 		expect(await cursorLine()).toBe(0);
 	});
 
@@ -243,7 +257,8 @@ describe("commands", () => {
 		expect(
 			await page.evaluate(
 				() =>
-					typeof window.app.commands.commands["margin-comments:toggle-comments-panel"].callback,
+					typeof window.app.commands.commands["margin-comments:toggle-comments-panel"]
+						.callback,
 			),
 		).toBe("function");
 	});

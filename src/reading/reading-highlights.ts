@@ -66,7 +66,8 @@ export function highlightsInBlock(
 			return {
 				id: thread.root.id,
 				text,
-				occurrence: text === "" ? 0 : appearances(doc.slice(blockStart, thread.position!), text),
+				occurrence:
+					text === "" ? 0 : appearances(doc.slice(blockStart, thread.position!), text),
 			};
 		});
 }
@@ -91,7 +92,8 @@ function appearances(text: string, needle: string): number {
 	const wanted = normalise([needle]).text;
 	const haystack = normalise([text]).text;
 	let count = 0;
-	for (let at = haystack.indexOf(wanted); at !== -1; at = haystack.indexOf(wanted, at + 1)) count++;
+	for (let at = haystack.indexOf(wanted); at !== -1; at = haystack.indexOf(wanted, at + 1))
+		count++;
 	return count;
 }
 
@@ -157,7 +159,11 @@ function normalise(segments: string[]): {
  * the renderer consumed — `**bold**` arrives as `bold` — and the caller marks
  * the whole block instead.
  */
-export function locateAcrossSegments(segments: string[], needle: string, occurrence = 0): TextSlice[] | null {
+export function locateAcrossSegments(
+	segments: string[],
+	needle: string,
+	occurrence = 0,
+): TextSlice[] | null {
 	const wanted = normalise([needle]).text;
 	if (wanted === "") return null;
 

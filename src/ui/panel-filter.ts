@@ -3,7 +3,6 @@ import { THREAD_FILTERS, type ThreadFilter } from "../types";
 
 export type { ThreadFilter };
 
-
 /**
  * Narrow the panel to one bucket.
  *

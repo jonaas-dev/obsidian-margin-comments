@@ -64,7 +64,8 @@ export function threadIdsAt(target: Element): string[] {
 	const ids: string[] = [];
 	for (let el: Element | null = target; el !== null; el = el.parentElement) {
 		if (!(el instanceof HTMLElement)) continue;
-		if (el.classList.contains(READING_MARK_CLASS) && el.dataset.threadId) ids.push(el.dataset.threadId);
+		if (el.classList.contains(READING_MARK_CLASS) && el.dataset.threadId)
+			ids.push(el.dataset.threadId);
 		if (el.classList.contains(READING_BLOCK_CLASS) && el.dataset.threadIds) {
 			ids.push(...el.dataset.threadIds.split(" "));
 		}

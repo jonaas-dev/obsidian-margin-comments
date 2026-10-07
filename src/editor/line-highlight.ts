@@ -54,7 +54,9 @@ const highlightField = StateField.define<DecorationSet>({
 				// across the whole set, not within each kind.
 				const all = [
 					...effect.value.lines.map((line) => lineDecoration.range(line.from)),
-					...effect.value.ranges.map((range) => markDecoration.range(range.from, range.to)),
+					...effect.value.ranges.map((range) =>
+						markDecoration.range(range.from, range.to),
+					),
 				].sort((a, b) => a.from - b.from || a.to - b.to);
 				return Decoration.set(all, true);
 			}

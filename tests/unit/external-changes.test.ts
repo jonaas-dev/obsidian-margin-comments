@@ -113,7 +113,10 @@ describe("changes that reach the storage folder from outside", () => {
 		await deliver(adapter, sidecarFor(OTHER), {
 			version: FORMAT_VERSION,
 			filePath: OTHER,
-			comments: [comment("external-1", OTHER), comment("external-2", OTHER, { resolved: true })],
+			comments: [
+				comment("external-1", OTHER),
+				comment("external-2", OTHER, { resolved: true }),
+			],
 		});
 
 		const summaries = await new CommentStorage(adapter).getCommentSummaries();

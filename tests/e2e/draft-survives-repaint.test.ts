@@ -57,7 +57,9 @@ describe("a half-written reply", () => {
 		await page.evaluate(async () => {
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
-		await page.waitForSelector(".inline-comment-panel .inline-comment-card", { timeout: 10000 });
+		await page.waitForSelector(".inline-comment-panel .inline-comment-card", {
+			timeout: 10000,
+		});
 	}, 240000);
 
 	afterAll(async () => {

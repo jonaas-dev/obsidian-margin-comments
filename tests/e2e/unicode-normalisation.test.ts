@@ -60,7 +60,13 @@ describe("a note rewritten in the other Unicode normal form", () => {
 				const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
 				const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
 				const at = cm.state.doc.toString().indexOf(word);
-				await plugin.routing.createComment(cm, note, at, at + word.length, "sobre la palabra acentuada");
+				await plugin.routing.createComment(
+					cm,
+					note,
+					at,
+					at + word.length,
+					"sobre la palabra acentuada",
+				);
 			},
 			[NOTE, WORD],
 		);
@@ -68,7 +74,9 @@ describe("a note rewritten in the other Unicode normal form", () => {
 		await page.evaluate(async () => {
 			await window.app.commands.executeCommandById("margin-comments:toggle-comments-panel");
 		});
-		await page.waitForSelector(".inline-comment-panel .inline-comment-card", { timeout: 10000 });
+		await page.waitForSelector(".inline-comment-panel .inline-comment-card", {
+			timeout: 10000,
+		});
 	}, 240000);
 
 	afterAll(async () => {
