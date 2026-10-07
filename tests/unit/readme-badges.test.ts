@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 // The README badges are static images, so they repeat facts that live elsewhere and
 // nothing else would notice when those facts change (#255).
@@ -61,5 +61,29 @@ describe("README badges", () => {
 		const license = badge(/ license$/);
 		expect(license.alt).toBe(`${pkg.license} license`);
 		expect(license.src).toContain(`/badge/license-${pkg.license}-`);
+	});
+});
+
+describe("README images", () => {
+	// The community directory renders this README on the plugin's listing page and
+	// rewrites relative image paths to raw.githubusercontent.com — but only in
+	// `src`. A relative `srcset` is left alone, then resolves against
+	// community.obsidian.md, where it is a 404. The icon was broken there for
+	// every visitor in dark mode while light mode looked fine, because <picture>
+	// prefers the <source> that matches (#339).
+	it("has no relative srcset, which the directory does not rewrite", () => {
+		const relative = [...readme.matchAll(/srcset="([^"]+)"/g)]
+			.map((match) => match[1].trim())
+			.filter((url) => !/^https?:\/\//.test(url));
+		expect(relative).toEqual([]);
+	});
+
+	it("points every relative image at a file that exists", () => {
+		// A typo here renders a broken image on GitHub and on the listing page
+		// alike, and nothing else in the suite looks at the images folder.
+		const missing = [...readme.matchAll(/(?:src|srcset)="(images\/[^"]+)"/g)]
+			.map((match) => match[1])
+			.filter((path) => !existsSync(path));
+		expect(missing).toEqual([]);
 	});
 });

@@ -1,6 +1,22 @@
+<!--
+  The dark icon's URL is absolute on purpose, and must stay that way.
+
+  The community directory renders this README on the plugin's listing page and
+  rewrites relative image paths to raw.githubusercontent.com — but only in `src`,
+  not in `srcset`. A relative `srcset` is left alone and then resolves against
+  community.obsidian.md, where it is a 404, so the icon broke for every visitor
+  in dark mode while light mode looked fine.
+
+  HEAD rather than a branch name, so this keeps working if the default branch is
+  ever renamed. GitHub renders an absolute raw URL here exactly as it renders a
+  relative one.
+-->
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="images/icon-dark.svg">
+    <source
+      media="(prefers-color-scheme: dark)"
+      srcset="https://raw.githubusercontent.com/jonaas-dev/obsidian-margin-comments/HEAD/images/icon-dark.svg"
+    >
     <img src="images/icon-light.svg" width="96" height="96" alt="Margin Comments icon">
   </picture>
 </p>
