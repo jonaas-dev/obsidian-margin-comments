@@ -19,7 +19,7 @@ First public release.
 - Commands to add a comment, jump between comments, resolve every thread in a note and toggle the panel. None has a default hotkey.
 - Mobile and touch support: markers without hover, thumb-sized controls, and a composer that stays above the on-screen keyboard.
 - Keyboard and screen reader access to every control, with colours and type taken from the theme.
-- Comments that follow their note through renames and moves, and come back when a deleted note is restored while Obsidian is still open.
+- Comments that follow their note through renames and moves, including a rename made outside Obsidian, and come back whenever a deleted note does — they are held on disk, so a restart does not lose them.
 - Damaged storage is never overwritten: an unreadable sidecar or an invalid comment is set aside in a kept file, and a notice says where.
 
 [1.0.0]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.0.0
