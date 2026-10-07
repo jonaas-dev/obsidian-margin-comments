@@ -1,0 +1,23 @@
+name: Question
+description: How something works, or whether it is supposed to work that way.
+labels: [question]
+body:
+  - type: textarea
+    id: question
+    attributes:
+      label: What would you like to know
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: What you have tried
+      description: Optional. What you looked at, and what you expected to find.
+
+  - type: input
+    id: obsidian
+    attributes:
+      label: Obsidian version
+      description: Optional, and worth filling in if the question is about behaviour you are seeing.
+      placeholder: "1.13.7"

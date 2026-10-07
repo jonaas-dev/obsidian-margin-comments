@@ -83,6 +83,18 @@ needs a full Obsidian restart.
 | `npm run test:watch` | Vitest in watch mode |
 | `npm run sonar` | Unit coverage, then a SonarQube analysis (optional, see below) |
 
+### Templates and conduct
+
+Issues and pull requests open with a template. The bug one asks for the Obsidian
+version, the platform, and **whether the note was changed outside Obsidian** — that
+last question decides most reports about a comment that moved, because the plugin
+anchors to the text and a change it never saw is the first thing to rule out.
+
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) applies to everything here.
+
+`.editorconfig` mirrors `.prettierrc` for editors that do not read it. It is a
+convenience, not the rule: `npm run format:check` is what CI enforces.
+
 ### One-time setup
 
 ```sh

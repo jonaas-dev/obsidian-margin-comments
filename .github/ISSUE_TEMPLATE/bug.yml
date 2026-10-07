@@ -1,0 +1,83 @@
+name: Bug report
+description: Something the plugin does that it should not, or does not do that it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The hardest bugs in this plugin are about a comment that moved, disappeared or
+        attached to the wrong words. Those depend almost entirely on what happened to
+        the note, so the questions below are worth more than they look.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: From a fresh note if you can. "I cannot reproduce it on demand" is a useful answer — say what you were doing when it happened.
+      placeholder: |
+        1. Comment on a phrase in a note
+        2. …
+    validations:
+      required: true
+
+  - type: dropdown
+    id: edited-outside
+    attributes:
+      label: Was the note changed outside Obsidian?
+      description: Sync clients, another editor, a terminal, a second device. The plugin anchors comments to the text, so a change it did not see is the first thing to rule out.
+      options:
+        - "No, only inside Obsidian"
+        - "Yes — a sync client (iCloud, Dropbox, Syncthing, Git…)"
+        - "Yes — another editor or a terminal"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: input
+    id: obsidian
+    attributes:
+      label: Obsidian version
+      description: Settings → About. The plugin needs 1.13.4 or newer.
+      placeholder: "1.13.7"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [macOS, Windows, Linux, iOS / iPadOS, Android]
+    validations:
+      required: true
+
+  - type: input
+    id: plugin
+    attributes:
+      label: Plugin version
+      description: Settings → Community plugins → Margin Comments.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Anything in the console
+      description: On desktop, Ctrl/Cmd+Shift+I → Console. Lines starting `margin-comments:` are this plugin saying something went wrong.
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I checked that it still happens with other plugins disabled.
+        - label: I searched the existing issues.

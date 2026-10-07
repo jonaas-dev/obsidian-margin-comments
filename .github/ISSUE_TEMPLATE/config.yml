@@ -1,0 +1,13 @@
+# No blank issues: the three templates ask for the things that decide whether a
+# report about a moved comment can be acted on at all. A question has its own
+# route, because Discussions is off and sending people nowhere funnels them into
+# the bug template instead.
+blank_issues_enabled: false
+contact_links:
+  # /security/policy and not the advisory form: private vulnerability reporting
+  # is not switched on yet (#202), and a contact link that 404s is worse than one
+  # more click. GitHub serves SECURITY.md at that path for as long as the file
+  # exists, so it survives the file moving.
+  - name: Security problem
+    url: https://github.com/jonaas-dev/obsidian-margin-comments/security/policy
+    about: Report it privately. Comment bodies are untrusted input — the policy explains the trust model and how to reach us.
