@@ -96,7 +96,7 @@ Open **Settings → Margin Comments**.
 | Follow the theme accent | on | Takes the highlight colour from your theme. |
 | Highlight colour | none | Appears when **Follow the theme accent** is off. The colour used in every theme. |
 | Fuzzy matching tolerance | 0.3 | How far edited text may drift before a comment stops finding it. |
-| When a note is deleted | Delete its comments | Deleted comments come back if the note is restored before Obsidian closes. Kept comments stay readable in the all-notes view. |
+| When a note is deleted | Delete its comments | Deleted comments are held on disk and come back whenever the note does, including after a restart or a rename made outside Obsidian. Kept comments stay readable in the all-notes view. |
 | Side | Right | Which sidebar the panel opens in. |
 | Sort order | Document order | Document order, date created, or last activity. |
 

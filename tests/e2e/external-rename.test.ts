@@ -120,12 +120,15 @@ describe("a note renamed outside Obsidian", () => {
 		await page.waitForTimeout(1500);
 
 		unlinkSync(join(vault.path, second));
-		await page.waitForFunction(
-			() => document.querySelectorAll(".notice").length >= 0,
-			undefined,
-			{ timeout: 5000 },
-		);
-		await page.waitForTimeout(3000);
+
+		// Polled on disk, like the test above. The wait this replaced asked for
+		// `.notice` count >= 0, which is true before anything happens at all —
+		// the three seconds after it were doing the work, and the condition read
+		// like a guarantee it never made (audit, 2026-10-07).
+		const deadline = Date.now() + 30000;
+		while (Date.now() < deadline && !existsSync(held(vault.path, second))) {
+			await page.waitForTimeout(500);
+		}
 
 		expect(existsSync(held(vault.path, second))).toBe(true);
 	});
