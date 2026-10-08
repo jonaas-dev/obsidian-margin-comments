@@ -30,6 +30,7 @@
 
 <p align="center">
   <a href="https://github.com/jonaas-dev/obsidian-margin-comments/releases/latest"><img alt="latest release" src="https://img.shields.io/github/v/release/jonaas-dev/obsidian-margin-comments?sort=semver&label=release"></a>
+  <a href="https://community.obsidian.md/plugins/margin-comments"><img alt="downloads" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fobsidianmd%2Fobsidian-releases%2Fmaster%2Fcommunity-plugin-stats.json&query=%24%5B%22margin-comments%22%5D.downloads&label=downloads&color=blue"></a>
   <a href="https://github.com/jonaas-dev/obsidian-margin-comments/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/jonaas-dev/obsidian-margin-comments/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Obsidian 1.13.4 or later" src="https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fjonaas-dev%2Fobsidian-margin-comments%2Fmain%2Fmanifest.json&query=%24.minAppVersion&label=Obsidian&prefix=%E2%89%A5%20&color=7C3AED&logo=obsidian&logoColor=white">
   <img alt="Desktop and mobile" src="https://img.shields.io/badge/platforms-desktop%20%7C%20mobile-informational">

@@ -48,6 +48,17 @@ describe("README badges", () => {
 		expect(obsidian.alt).toBe(`Obsidian ${manifest.minAppVersion} or later`);
 	});
 
+	it("counts downloads under the id the directory knows the plugin by", () => {
+		// The stats file is keyed by manifest id, and shields draws a bad key as
+		// "invalid" with a 200, so a wrong one would ship a broken badge that no
+		// link checker notices (#341).
+		const downloads = badge(/^downloads$/);
+		expect(downloads.src).toContain(
+			"/obsidianmd/obsidian-releases/master/community-plugin-stats.json",
+		);
+		expect(downloads.src).toContain(`query=$["${manifest.id}"].downloads`);
+	});
+
 	it("names the platforms isDesktopOnly allows", () => {
 		const platforms = badge(/^Desktop/);
 		const [alt, label] = manifest.isDesktopOnly
