@@ -338,8 +338,12 @@ function wordStarts(doc: string, from: number, to: number): number[] {
 
 /** Character range covering `lineHint` ± `radius` lines. */
 function windowAround(doc: string, lineHint: number, radius: number): { from: number; to: number } {
-	const first = Math.max(1, lineHint - radius);
-	const last = lineHint + radius;
+	// A sidecar's hint is only known to be finite (#345). The loop below counts
+	// whole lines from 1, so a fractional bound or one before line 1 is never
+	// reached and the window silently ran to the end of the note.
+	const hint = Math.max(1, Math.round(lineHint));
+	const first = Math.max(1, hint - radius);
+	const last = hint + radius;
 
 	let line = 1;
 	let from = first === 1 ? 0 : -1;
