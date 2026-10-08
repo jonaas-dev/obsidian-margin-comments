@@ -39,8 +39,8 @@ export default [
 			// so an `import "node:fs"` in src/ passed both lint and typecheck when
 			// the audit of 2026-10-07 tried it. manifest.json says
 			// isDesktopOnly: false, esbuild marks the builtins external rather than
-			// failing, and tsconfig's types: ["node"] makes them typecheck — so the
-			// first sign would have been a crash on a phone nobody runs in CI.
+			// failing, and they typechecked — so the first sign would have been a
+			// crash on a phone nobody runs in CI.
 			"obsidianmd/no-nodejs-modules": "error",
 		},
 	},

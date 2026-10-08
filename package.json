@@ -5,8 +5,8 @@
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
-		"build": "tsc --noEmit && node esbuild.config.mjs production",
-		"typecheck": "tsc --noEmit",
+		"build": "npm run typecheck && node esbuild.config.mjs production",
+		"typecheck": "tsc --noEmit && tsc --noEmit -p tests",
 		"lint": "eslint src tests --max-warnings 0",
 		"format:check": "prettier --check \"{src,tests}/**/*.ts\"",
 		"format": "prettier --write \"{src,tests}/**/*.ts\"",

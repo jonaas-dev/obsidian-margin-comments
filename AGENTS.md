@@ -499,7 +499,7 @@ Panel state that has to survive a restart — filter, sort order, scope — live
 | `npm run test:coverage` | unit tests with coverage and its thresholds (`vitest.coverage.config.ts`), timing budgets lifted; writes `coverage/` |
 | `npm run test:e2e` | vitest against a real Obsidian; needs the app installed |
 | `npm run lint` | eslint over src and tests |
-| `npx tsc --noEmit` | type check |
+| `npm run typecheck` | type check: `src/` without Node's types, then `tests/` with them |
 
 ## Destructive git operations
 

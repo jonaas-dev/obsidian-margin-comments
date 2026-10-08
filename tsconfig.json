@@ -14,8 +14,10 @@
     "importHelpers": true,
     "isolatedModules": true,
     "skipLibCheck": true,
-    "lib": ["DOM", "ES2018"],
-    "types": ["node"]
+    // ES2019.Object for Object.fromEntries, which every Obsidian at minAppVersion
+    // ships; it typechecked only because @types/node declared it (#346).
+    "lib": ["DOM", "ES2018", "ES2019.Object"],
+    "types": []
   },
-  "include": ["src/**/*.ts", "tests/**/*.ts"]
+  "include": ["src/**/*.ts"]
 }

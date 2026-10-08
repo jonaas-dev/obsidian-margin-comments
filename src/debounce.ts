@@ -28,9 +28,6 @@ export interface Timers {
  * a test hands over a stub (#336).
  */
 export function debounce(work: () => void, delayMs: number, timers: Timers): Debounced {
-	// `number` rather than ReturnType<typeof setTimeout>: tsconfig pulls in
-	// @types/node, so that alias resolves to Node's `Timeout` while a window's
-	// setTimeout returns a number.
 	let timer: number | null = null;
 
 	const trigger = (): void => {
