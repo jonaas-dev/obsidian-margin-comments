@@ -20,19 +20,20 @@ jobs:
       id-token: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Run analysis
-        uses: ossf/scorecard-action@v2.4.4
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
         with:
           results_file: results.sarif
           results_format: sarif
           publish_results: ${{ !github.event.repository.private }}
+          repo_token: ${{ secrets.SCORECARD_READ_TOKEN }}
 
       - name: Upload SARIF to code scanning
         if: ${{ !github.event.repository.private }}
-        uses: github/codeql-action/upload-sarif@v3.27.5
+        uses: github/codeql-action/upload-sarif@f09c1c0a94de965c15400f5634aa42fac8fb8f88 # v3.27.5
         with:
           sarif_file: results.sarif
