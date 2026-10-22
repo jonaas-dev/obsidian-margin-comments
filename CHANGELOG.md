@@ -4,6 +4,23 @@ All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Release tags carry no `v` prefix.
 
+## [1.0.2] - 2026-10-22
+
+### Fixed
+
+- Submitting or dismissing a comment no longer scrolls the note back to the top (#367).
+- A comment whose stored line hint is out of range no longer searches the whole note for
+  its text.
+
+### Changed
+
+- Comment cards read the addresses in a comment body more strictly. A link that stands in
+  for content a card does not show only points to a web address, and every attribute that
+  takes an address is checked, whatever element carries it (#368, #369, #371).
+- Comment cards no longer apply inline styles from a comment body. Text styled inline in a
+  comment shows unstyled (#370).
+- Content added to a comment body after it has rendered no longer reaches the card (#372).
+
 ## [1.0.1] - 2026-10-07
 
 Everything the community directory's automated review of 1.0.0 raised. No user-visible
@@ -42,5 +59,6 @@ First public release.
 - Comments that follow their note through renames and moves, including a rename made outside Obsidian, and come back whenever a deleted note does — they are held on disk, so a restart does not lose them.
 - Damaged storage is never overwritten: an unreadable sidecar or an invalid comment is set aside in a kept file, and a notice says where.
 
+[1.0.2]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.0.2
 [1.0.1]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.0.1
 [1.0.0]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.0.0
