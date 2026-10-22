@@ -137,7 +137,7 @@ export async function renderCommentBody(
 	// loads an image, and the renderer's promise waits for the ones it rendered: #263
 	// measured 9 of 20 renders never resolving, every one of them a body with an
 	// image in it. The markup is in place well before that, and the images size
-	// themselves once the nodes are adopted into the live card, where they do load.
+	// themselves once the nodes are copied into the live card, where they do load.
 	const rendering = MarkdownRenderer.render(
 		app,
 		sanitizeCommentBody(body),
@@ -151,10 +151,43 @@ export async function renderCommentBody(
 	neutraliseRemoteLoads(holder, target.ownerDocument.baseURI);
 
 	target.empty();
-	// Adopted one at a time: appending a node from another document moves it, and
-	// the loop has to read the list before it is emptied by the move.
+	// Copied, not moved: the renderer keeps references to the nodes it built and
+	// may write to them after the pass above (#372). Those writes land in the inert
+	// document, where nothing loads, instead of in the card.
 	for (const node of Array.from(holder.childNodes)) {
-		target.appendChild(target.ownerDocument.adoptNode(node));
+		target.appendChild(target.ownerDocument.importNode(node, true));
+	}
+	rewire(target, component);
+}
+
+/**
+ * Give back the behaviour the renderer attached to the nodes it built.
+ *
+ * A copy carries no listeners, and these two were measured gone without this:
+ * the code block's copy button copied nothing, and a folded callout would not
+ * open. A folded callout's content also arrives visible, because what hid it was
+ * a style, and styles are dropped above.
+ */
+function rewire(target: HTMLElement, component: Component): void {
+	for (const button of Array.from(target.querySelectorAll<HTMLElement>(".copy-code-button"))) {
+		const code = button.closest("pre")?.querySelector("code");
+		component.registerDomEvent(button, "click", (event) => {
+			event.stopPropagation();
+			void navigator.clipboard.writeText(code?.textContent ?? "");
+		});
+	}
+	for (const callout of Array.from(
+		target.querySelectorAll<HTMLElement>(".callout.is-collapsible"),
+	)) {
+		const title = callout.querySelector<HTMLElement>(".callout-title");
+		const content = callout.querySelector<HTMLElement>(".callout-content");
+		content?.toggle(!callout.hasClass("is-collapsed"));
+		if (!title) continue;
+		component.registerDomEvent(title, "click", (event) => {
+			event.stopPropagation();
+			callout.toggleClass("is-collapsed", !callout.hasClass("is-collapsed"));
+			content?.toggle(!callout.hasClass("is-collapsed"));
+		});
 	}
 }
 
