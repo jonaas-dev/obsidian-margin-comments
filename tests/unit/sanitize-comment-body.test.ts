@@ -1,14 +1,19 @@
 import { describe, it, expect } from "vitest";
 import {
+	CSS_VALUE_ATTRIBUTES,
 	DROPPED,
 	LOADERS,
-	LOADING_ATTRIBUTES,
+	URL_ATTRIBUTES,
 	isRemote,
+	keepsCssValue,
 	linkTarget,
 	remoteUrlIn,
-	remoteUrlInCss,
 	sanitizeCommentBody,
 } from "../../src/ui/sanitize-comment-body";
+
+/** What document.baseURI is in Obsidian on desktop, and in the Android app. */
+const DESKTOP = "app://obsidian.md/index.html";
+const PHONE = "http://localhost/";
 
 /**
  * #263 replaced a set of regexes over the Markdown source with a pass over the
@@ -23,63 +28,81 @@ import {
  */
 describe("isRemote", () => {
 	it("calls http and https remote", () => {
-		expect(isRemote("https://evil.example/a.png")).toBe(true);
-		expect(isRemote("http://evil.example/a.png")).toBe(true);
-	});
-
-	it("calls a protocol-relative URL remote", () => {
-		// Inherits the page's scheme and leaves the machine just the same.
-		expect(isRemote("//evil.example/a.png")).toBe(true);
+		expect(isRemote("https://evil.example/a.png", DESKTOP)).toBe(true);
+		expect(isRemote("http://evil.example/a.png", DESKTOP)).toBe(true);
 	});
 
 	it("calls any other scheme remote", () => {
-		// Not an allow-list of the ones we thought of: anything with a scheme that
-		// is not Obsidian's own is treated as leaving the vault.
-		expect(isRemote("ftp://evil.example/a.png")).toBe(true);
-		expect(isRemote("data:image/png;base64,AAAA")).toBe(true);
-		expect(isRemote("blob:https://evil.example/x")).toBe(true);
+		expect(isRemote("ftp://evil.example/a.png", DESKTOP)).toBe(true);
+		expect(isRemote("data:image/png;base64,AAAA", DESKTOP)).toBe(true);
+		expect(isRemote("blob:https://evil.example/x", DESKTOP)).toBe(true);
 	});
 
 	it("leaves a path inside the vault alone", () => {
-		expect(isRemote("local.png")).toBe(false);
-		expect(isRemote("folder/local.png")).toBe(false);
-		expect(isRemote("/folder/local.png")).toBe(false);
-		expect(isRemote("./local.png")).toBe(false);
+		for (const base of [DESKTOP, PHONE]) {
+			expect(isRemote("local.png", base)).toBe(false);
+			expect(isRemote("folder/local.png", base)).toBe(false);
+			expect(isRemote("/folder/local.png", base)).toBe(false);
+			expect(isRemote("./local.png", base)).toBe(false);
+			expect(isRemote("", base)).toBe(false);
+		}
 	});
 
 	it("leaves app:// alone, which is how Obsidian serves its own files", () => {
-		expect(isRemote("app://local/path/to/image.png")).toBe(false);
-		expect(isRemote("APP://local/path/to/image.png")).toBe(false);
+		expect(isRemote("app://local/path/to/image.png", DESKTOP)).toBe(false);
+		expect(isRemote("APP://local/path/to/image.png", DESKTOP)).toBe(false);
 	});
 
-	it("is not fooled by surrounding space", () => {
-		expect(isRemote("  https://evil.example/a.png  ")).toBe(true);
-		expect(isRemote("   ")).toBe(false);
+	it("leaves alone the origin a phone serves the vault from, and only that", () => {
+		expect(isRemote("http://localhost/_capacitor_file_/vault/a.png", PHONE)).toBe(false);
+		expect(isRemote("http://localhost:8080/a.png", PHONE)).toBe(true);
+		expect(isRemote("https://localhost/a.png", PHONE)).toBe(true);
+	});
+
+	it("decides on the URL as resolved, not as written", () => {
+		// Protocol-relative is app:// on desktop and the web on a phone.
+		expect(isRemote("//evil.example/a.png", DESKTOP)).toBe(false);
+		expect(isRemote("//evil.example/a.png", PHONE)).toBe(true);
+		expect(isRemote("  https://evil.example/a.png  ", DESKTOP)).toBe(true);
+	});
+
+	it("calls remote what does not resolve", () => {
+		expect(isRemote("http://[", DESKTOP)).toBe(true);
 	});
 });
 
 describe("remoteUrlIn", () => {
 	it("finds the URL in a plain attribute", () => {
-		expect(remoteUrlIn("src", "https://evil.example/a.png")).toBe("https://evil.example/a.png");
+		expect(remoteUrlIn("src", "https://evil.example/a.png", DESKTOP)).toBe(
+			"https://evil.example/a.png",
+		);
 	});
 
 	it("takes a srcset apart rather than testing it whole", () => {
-		// A srcset is candidates separated by commas, each a URL and a descriptor.
-		// Tested whole it matches nothing, which is how it reached the network.
-		expect(remoteUrlIn("srcset", "https://evil.example/a.png 1x")).toBe(
+		expect(remoteUrlIn("srcset", "https://evil.example/a.png 1x", DESKTOP)).toBe(
+			"https://evil.example/a.png",
+		);
+		expect(remoteUrlIn("imagesrcset", "https://evil.example/a.png 1x", DESKTOP)).toBe(
 			"https://evil.example/a.png",
 		);
 	});
 
 	it("finds a remote candidate that is not the first", () => {
-		expect(remoteUrlIn("srcset", "local.png 1x, https://evil.example/b.png 2x")).toBe(
+		expect(remoteUrlIn("srcset", "local.png 1x, https://evil.example/b.png 2x", DESKTOP)).toBe(
+			"https://evil.example/b.png",
+		);
+	});
+
+	it("finds a remote candidate however the list is spaced", () => {
+		expect(remoteUrlIn("srcset", "local.png,https://evil.example/b.png", DESKTOP)).toBe(
 			"https://evil.example/b.png",
 		);
 	});
 
 	it("says nothing when every candidate is inside the vault", () => {
-		expect(remoteUrlIn("srcset", "local.png 1x, folder/other.png 2x")).toBeNull();
-		expect(remoteUrlIn("src", "local.png")).toBeNull();
+		expect(remoteUrlIn("srcset", "local.png 1x, folder/other.png 2x", DESKTOP)).toBeNull();
+		expect(remoteUrlIn("srcset", "local.png 1x, folder/other.png 2x", PHONE)).toBeNull();
+		expect(remoteUrlIn("src", "local.png", DESKTOP)).toBeNull();
 	});
 });
 
@@ -153,40 +176,11 @@ describe("sanitizeCommentBody", () => {
 	});
 });
 
-// Three of these left the machine when the audit of 2026-10-07 measured them, and
-// none of the three went through an attribute LOADERS named at the time. The E2E
-// suite asserts on the network; these pin the decisions underneath it.
 describe("the routes around the loader table", () => {
-	describe("remoteUrlInCss", () => {
-		it.each([
-			["double quotes", 'background-image:url("https://evil.example/a.png")'],
-			["single quotes", "background:url('https://evil.example/a.png')"],
-			["no quotes", "background:url(https://evil.example/a.png)"],
-			["padded", "background:url(  https://evil.example/a.png  )"],
-			["protocol-relative", "background:url(//evil.example/a.png)"],
-			["uppercase URL(", "background:URL(https://evil.example/a.png)"],
-			["second of two", "background:url(local.png),url(https://evil.example/a.png)"],
-		])("finds the remote url with %s", (_name, css) => {
-			expect(remoteUrlInCss(css)).toContain("evil.example");
-		});
-
-		it.each([
-			["nothing to fetch", "color: red"],
-			["a vault-relative image", "background:url(pictures/local.png)"],
-			["the app's own scheme", "background:url(app://local/x.png)"],
-			["an empty url", "background:url()"],
-		])("leaves alone a style with %s", (_name, css) => {
-			expect(remoteUrlInCss(css)).toBeNull();
-		});
-	});
-
 	it("looks at the SVG elements that fetch through href rather than src", () => {
 		// <svg><image href="https://…"> was measured issuing the request.
 		expect(LOADERS.image).toContain("href");
 		expect(LOADERS.use).toContain("href");
-		expect(remoteUrlIn("href", "https://evil.example/a.svg")).toBe(
-			"https://evil.example/a.svg",
-		);
 	});
 
 	it("drops the loaders that would leave foreign markup behind", () => {
@@ -195,42 +189,52 @@ describe("the routes around the loader table", () => {
 		expect([...DROPPED].sort()).toEqual(["image", "link", "source", "use"]);
 	});
 
-	it("knows background fetches from any element at all", () => {
-		// <table background="https://…"> was measured issuing the request. There is
-		// no tag to look up, which is why it needs its own list.
-		expect([...LOADING_ATTRIBUTES]).toEqual(["background"]);
+	it("checks every attribute any loader fetches from, on any element", () => {
+		// The attribute pass runs on every element, so a loader attribute missing
+		// from it would only be caught on the elements the table names (#371).
+		const urls: readonly string[] = URL_ATTRIBUTES;
+		for (const attributes of Object.values(LOADERS)) {
+			for (const attribute of attributes) {
+				if (attribute !== "srcdoc") expect(urls).toContain(attribute);
+			}
+		}
+		expect(urls).toContain("background");
+	});
+
+	it("reads the SVG attributes that take a CSS value", () => {
+		expect([...CSS_VALUE_ATTRIBUTES]).toEqual(
+			expect.arrayContaining(["fill", "stroke", "filter", "mask", "clip-path"]),
+		);
 	});
 });
 
-describe("remoteUrlInCss under hostile input", () => {
-	// The regex this replaced was measured quadratic on 2026-10-07. Comment bodies
-	// are untrusted by this project's own trust model, so this was reachable from
-	// a sidecar in a shared vault.
-	//
-	// The first case is the one with teeth: against the old implementation it took
-	// **9,481 ms**, so it fails the budget below by two orders of magnitude. The
-	// other three were measured passing on the old one too — they are neighbouring
-	// shapes kept as guards, not evidence, and saying so here stops a later reader
-	// taking four green ticks for four proofs.
+describe("keepsCssValue", () => {
 	it.each([
-		["url( repeated, never closed", "url(".repeat(50_000)],
-		["one url( over a long tail", `url(${"a".repeat(200_000)}`],
-		["many url( before one close", `${"url(".repeat(50_000)})`],
-		["quotes never closed", `url("${"a".repeat(200_000)}`],
-	])("stays fast on %s", (_name, css) => {
+		["a colour", "red"],
+		["a hex colour", "#ff0000"],
+		["none", "none"],
+		["a reference inside the SVG", "url(#gradient)"],
+		["a quoted reference inside the SVG", "url('#gradient')"],
+		["a padded reference inside the SVG", "  url( #g )  "],
+	])("keeps %s", (_name, value) => {
+		expect(keepsCssValue(value)).toBe(true);
+	});
+
+	it.each([
+		["a reference elsewhere", "url(https://example.com/a.svg#g)"],
+		["a relative reference", "url(other.svg#g)"],
+		["a reference with a fallback", "url(#g) red"],
+		["a function", "rgb(0, 0, 0)"],
+		["an escape", "\\75rl(x)"],
+		["a quote", '"x"'],
+	])("drops %s", (_name, value) => {
+		expect(keepsCssValue(value)).toBe(false);
+	});
+
+	it("stays fast on a long value", () => {
 		const started = Date.now();
-		remoteUrlInCss(css);
-		// Two orders of magnitude under what the regex took on a quarter of this.
+		keepsCssValue(`url(${" ".repeat(200_000)}#${"a".repeat(200_000)}`);
+		keepsCssValue(" ".repeat(200_000) + "x");
 		expect(Date.now() - started).toBeLessThan(100);
-	});
-
-	it("still reads a url after one it rejected", () => {
-		expect(remoteUrlInCss("background:url(local.png),url(https://evil.example/a.png)")).toBe(
-			"https://evil.example/a.png",
-		);
-	});
-
-	it("leaves an unterminated url( alone", () => {
-		expect(remoteUrlInCss("background:url(https://evil.example/a.png")).toBeNull();
 	});
 });

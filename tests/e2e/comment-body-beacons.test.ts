@@ -26,6 +26,7 @@ const BODIES: [string, string][] = [
 	["html-audio", '<audio src="https://evil.example/audio.mp3" autoplay></audio>'],
 	["md-plain", "![a](https://evil.example/plain.png)"],
 	["code-fence", "`![](https://evil.example/incode.png)`"],
+	["styled-text", '<span style="color:red">styled</span>'],
 	// Forms that fetch without any of the attributes LOADERS names, added while
 	// auditing 2026-10-07: CSS, SVG and <link> reach the network by other routes.
 	["css-inline", '<div style="background-image:url(https://evil.example/inline.png)">x</div>'],
@@ -135,6 +136,18 @@ describe("a comment body that tries to phone home", () => {
 				.filter((href: string) => href.includes("evil.example")),
 		);
 		expect(links.length).toBeGreaterThan(0);
+	});
+
+	it("keeps no styling in any body", async () => {
+		// Dropped whatever it says (#370), so a body that styles text is the case
+		// to look at, not only one whose style fetches.
+		const styled = await page.evaluate(
+			() =>
+				document.querySelectorAll(
+					".inline-comment-body [style], .inline-comment-body style",
+				).length,
+		);
+		expect(styled).toBe(0);
 	});
 
 	it("still renders ordinary Markdown", async () => {

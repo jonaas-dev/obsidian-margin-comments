@@ -1,12 +1,12 @@
 import { MarkdownRenderer, type App, type Component } from "obsidian";
 import {
+	CSS_VALUE_ATTRIBUTES,
 	DROPPED,
 	LOADERS,
-	LOADING_ATTRIBUTES,
-	isRemote,
+	URL_ATTRIBUTES,
+	keepsCssValue,
 	linkTarget,
 	remoteUrlIn,
-	remoteUrlInCss,
 	sanitizeCommentBody,
 } from "./sanitize-comment-body";
 
@@ -26,11 +26,11 @@ import {
  * content outright would hide that a comment had an image in it at all.
  *
  */
-function firstRemote(el: Element, attributes: readonly string[]): string | null {
+function firstRemote(el: Element, attributes: readonly string[], base: string): string | null {
 	for (const attribute of attributes) {
 		const value = el.getAttribute(attribute);
 		if (value === null) continue;
-		const url = remoteUrlIn(attribute, value);
+		const url = remoteUrlIn(attribute, value, base);
 		if (url !== null) return url;
 	}
 	return null;
@@ -39,7 +39,7 @@ function firstRemote(el: Element, attributes: readonly string[]): string | null 
 function neutraliseRemoteLoads(root: HTMLElement, base: string): void {
 	for (const [tag, attributes] of Object.entries(LOADERS)) {
 		for (const el of Array.from(root.querySelectorAll(tag))) {
-			const target = firstRemote(el, attributes);
+			const target = firstRemote(el, attributes, base);
 			if (target === null) continue;
 
 			if (DROPPED.has(tag)) {
@@ -68,35 +68,38 @@ function neutraliseRemoteLoads(root: HTMLElement, base: string): void {
 			el.replaceWith(link);
 		}
 	}
-	neutraliseLoadingAttributes(root);
+	neutraliseAttributes(root, base);
 }
 
 /**
- * Take the fetch off elements that are ordinary content carrying a loading
- * attribute, and drop stylesheets that fetch.
+ * Take the fetch off everything left: attributes on ordinary content, and styling.
  *
- * These route around the table above entirely: a `style` attribute with
- * `url(…)`, or the deprecated `background` attribute, fetches from any element
- * at all, so there is no tag to look up. The attribute goes rather than the
- * element — a styled paragraph is still a paragraph, and removing it would take
- * the comment's text with it.
+ * Attribute by attribute rather than tag by tag, because the table above is a
+ * list of elements and the attributes route around it (#371). The attribute goes
+ * rather than the element — a styled paragraph is still a paragraph, and removing
+ * it would take the comment's text with it.
+ *
+ * Styling goes whole, attribute and `<style>` alike, whatever it says (#370):
+ * CSS has more ways to fetch than any reading of it here would keep up with, and
+ * a comment loses nothing it needs without it.
  */
-function neutraliseLoadingAttributes(root: HTMLElement): void {
+function neutraliseAttributes(root: HTMLElement, base: string): void {
 	for (const el of Array.from(root.querySelectorAll("*"))) {
-		for (const attribute of LOADING_ATTRIBUTES) {
+		el.removeAttribute("style");
+		const link = el.localName === "a";
+		for (const attribute of URL_ATTRIBUTES) {
+			if (link && (attribute === "href" || attribute === "xlink:href")) continue;
 			const value = el.getAttribute(attribute);
-			if (value !== null && isRemote(value)) el.removeAttribute(attribute);
+			if (value !== null && remoteUrlIn(attribute, value, base) !== null) {
+				el.removeAttribute(attribute);
+			}
 		}
-		const style = el.getAttribute("style");
-		if (style !== null && remoteUrlInCss(style) !== null) el.removeAttribute("style");
+		for (const attribute of CSS_VALUE_ATTRIBUTES) {
+			const value = el.getAttribute(attribute);
+			if (value !== null && !keepsCssValue(value)) el.removeAttribute(attribute);
+		}
 	}
-	// A <style> block is not content, so it goes whole. This one was not measured
-	// reaching the network on 2026-10-07 — Obsidian appears to drop it first — and
-	// is here because it is the same hole as the attribute above, one renderer
-	// change away from being open.
-	for (const el of Array.from(root.querySelectorAll("style"))) {
-		if (remoteUrlInCss(el.textContent ?? "") !== null) el.remove();
-	}
+	for (const el of Array.from(root.querySelectorAll("style"))) el.remove();
 }
 
 function describe(tag: string): string {

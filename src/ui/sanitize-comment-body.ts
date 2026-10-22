@@ -47,81 +47,89 @@ export const LOADERS: Record<string, readonly string[]> = {
 export const DROPPED = new Set(["source", "image", "use", "link"]);
 
 /**
- * Attributes that make any element fetch, whatever the element is.
+ * Every attribute that takes a URL, on whatever element carries it.
  *
- * `background` is HTML 3.2 and long deprecated, which is exactly why it was missed:
- * `<table background="https://…">` was measured issuing the request on 2026-10-07.
+ * A list of what can fetch rather than of where fetching was seen: the element
+ * by element table above kept missing one (#371). The lists come from the HTML,
+ * SVG and obsolete HTML attribute indexes. A link's own `href` is the exception,
+ * handled where it is checked, because following a link is the reader's choice.
  */
-export const LOADING_ATTRIBUTES = ["background"] as const;
+export const URL_ATTRIBUTES = [
+	"href",
+	"xlink:href",
+	"src",
+	"srcset",
+	"imagesrcset",
+	"lowsrc",
+	"dynsrc",
+	"data",
+	"poster",
+	"background",
+	"action",
+	"formaction",
+	"ping",
+	"cite",
+	"longdesc",
+	"manifest",
+	"codebase",
+	"archive",
+	"classid",
+	"profile",
+	"icon",
+] as const;
 
-/** Where the `url(` token starting at or after `from` ends, or -1. */
-function afterUrlToken(css: string, from: number): number {
-	// Scanned rather than matched. The regex this replaces was measured
-	// quadratic: `url(` repeated 32,000 times took 3.9 s, and a comment body is
-	// untrusted by this project's own trust model, so a megabyte of it would
-	// freeze Obsidian for minutes. Every index here only moves forward.
-	for (let i = from; i + 3 < css.length; i++) {
-		const u = css[i];
-		if (u !== "u" && u !== "U") continue;
-		const r = css[i + 1];
-		const l = css[i + 2];
-		if ((r === "r" || r === "R") && (l === "l" || l === "L") && css[i + 3] === "(") {
-			return i + 4;
-		}
-	}
-	return -1;
-}
+/**
+ * SVG attributes whose value is read as CSS, so a reference in them can fetch
+ * without any attribute above being involved.
+ */
+export const CSS_VALUE_ATTRIBUTES = [
+	"fill",
+	"stroke",
+	"filter",
+	"mask",
+	"clip-path",
+	"marker-start",
+	"marker-mid",
+	"marker-end",
+	"cursor",
+] as const;
 
-/** `"x"` and `'x'` give up their quotes; anything else is returned as it came. */
-function unquote(value: string): string {
-	const quote = value[0];
-	if (quote !== '"' && quote !== "'") return value;
-	return value.length > 1 && value.endsWith(quote) ? value.slice(1, -1) : value;
+/**
+ * Whether a CSS-valued attribute can stay as written.
+ *
+ * Only plain values and a reference to something in the same SVG: those are what
+ * SVG in a comment needs, and anything with a function, a quote or an escape in
+ * it is CSS this does not try to read (#371). A colour given as `rgb(…)` is lost
+ * with it, which is the price of not parsing CSS.
+ */
+export function keepsCssValue(value: string): boolean {
+	if (/^\s*url\(\s*(["']?)#[\w.:-]*\1\s*\)\s*$/i.test(value)) return true;
+	return !/[()\\"']/.test(value);
 }
 
 /**
- * The first remote URL a stylesheet or a `style` attribute fetches, or null.
+ * Whether a URL leaves the vault, decided on the URL the page would resolve.
  *
- * CSS reaches the network without any of the attributes LOADERS names:
- * `<div style="background-image:url(https://…)">` was measured fetching on
- * 2026-10-07. The element is ordinary content, so the fix is to drop the styling
- * rather than the element.
- *
- * Linear by construction: `from` only ever jumps past a closing parenthesis that
- * `indexOf` already reached, so no character is examined twice.
- */
-export function remoteUrlInCss(css: string): string | null {
-	let from = 0;
-	while (from < css.length) {
-		const open = afterUrlToken(css, from);
-		if (open === -1) return null;
-		const close = css.indexOf(")", open);
-		if (close === -1) return null;
-		const url = unquote(css.slice(open, close).trim());
-		if (isRemote(url)) return url;
-		from = close + 1;
-	}
-	return null;
-}
-
-/**
- * Whether a URL leaves the vault.
- *
- * Anything with a scheme other than the app's own, and anything protocol-
- * relative, is remote. A plain relative path resolves inside the vault and does
- * not phone home, which is why local images keep working.
+ * `base` is the URI of the document the content ends up in. The URL is resolved
+ * against it first, because the string as written is not what gets fetched
+ * (#369). What stays inside is the app's own `app://` on desktop, and the origin
+ * the app is served from on a phone, where vault files come from that origin
+ * rather than from `app://`. A URL that does not resolve counts as remote.
  *
  * Exported because this is where the decisions live that are worth pinning one
  * by one; the DOM surgery around it is covered end to end by the E2E suite.
  */
-export function isRemote(url: string): boolean {
-	const value = url.trim();
-	if (value === "") return false;
-	if (value.startsWith("//")) return true;
-	const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value);
-	if (scheme === null) return false;
-	// app:// is how Obsidian serves a file out of the vault itself.
-	return scheme[1].toLowerCase() !== "app";
+export function isRemote(url: string, base: string): boolean {
+	let resolved: URL;
+	let home: URL;
+	try {
+		resolved = new URL(url, base);
+		home = new URL(base);
+	} catch {
+		return true;
+	}
+	if (resolved.protocol === "app:") return false;
+	return resolved.protocol !== home.protocol || resolved.host !== home.host;
 }
 
 /**
@@ -144,14 +152,17 @@ export function linkTarget(url: string, base: string): string | null {
 /**
  * The remote URL in one attribute's value, or null when there is none.
  *
- * `srcset` is a comma-separated list of candidates, each of them a URL followed
- * by a descriptor, so it needs taking apart rather than testing whole — which is
- * one of the forms #263 measured leaving the machine.
+ * A `srcset` is a list of candidates, each a URL and a descriptor, so it is
+ * taken apart rather than tested whole — one of the forms #263 measured leaving
+ * the machine. Every token is tested: a descriptor resolves inside the vault, so
+ * testing it costs nothing, and no reading of the list can skip a URL.
  */
-export function remoteUrlIn(attribute: string, value: string): string | null {
+export function remoteUrlIn(attribute: string, value: string, base: string): string | null {
 	const urls =
-		attribute === "srcset" ? value.split(",").map((c) => c.trim().split(/\s+/)[0]) : [value];
-	for (const url of urls) if (isRemote(url)) return url;
+		attribute === "srcset" || attribute === "imagesrcset"
+			? value.split(/[\s,]+/).filter((token) => token !== "")
+			: [value];
+	for (const url of urls) if (isRemote(url, base)) return url;
 	return null;
 }
 
