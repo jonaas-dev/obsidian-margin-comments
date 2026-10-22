@@ -125,6 +125,23 @@ export function isRemote(url: string): boolean {
 }
 
 /**
+ * What a card may link to in place of content it does not show, or null.
+ *
+ * Only web addresses, resolved against `base` the way the link will be followed:
+ * a reader is offered somewhere to go, and nothing else belongs in that place
+ * (#368). The URL comes back resolved, so the link holds what was checked.
+ */
+export function linkTarget(url: string, base: string): string | null {
+	let parsed: URL;
+	try {
+		parsed = new URL(url.trim(), base);
+	} catch {
+		return null;
+	}
+	return parsed.protocol === "http:" || parsed.protocol === "https:" ? parsed.href : null;
+}
+
+/**
  * The remote URL in one attribute's value, or null when there is none.
  *
  * `srcset` is a comma-separated list of candidates, each of them a URL followed

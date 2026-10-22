@@ -4,6 +4,7 @@ import {
 	LOADERS,
 	LOADING_ATTRIBUTES,
 	isRemote,
+	linkTarget,
 	remoteUrlIn,
 	remoteUrlInCss,
 	sanitizeCommentBody,
@@ -35,7 +36,7 @@ function firstRemote(el: Element, attributes: readonly string[]): string | null 
 	return null;
 }
 
-function neutraliseRemoteLoads(root: HTMLElement): void {
+function neutraliseRemoteLoads(root: HTMLElement, base: string): void {
 	for (const [tag, attributes] of Object.entries(LOADERS)) {
 		for (const el of Array.from(root.querySelectorAll(tag))) {
 			const target = firstRemote(el, attributes);
@@ -46,6 +47,14 @@ function neutraliseRemoteLoads(root: HTMLElement): void {
 				continue;
 			}
 
+			const alt = el.getAttribute("alt")?.trim();
+			const href = linkTarget(target, base);
+			if (href === null) {
+				if (alt) el.replaceWith(alt);
+				else el.remove();
+				continue;
+			}
+
 			// createEl, not `el.ownerDocument.createElement`: the rule's suggested
 			// `ownerDocument.win.createEl` cannot work here, because this document is
 			// deliberately one with no browsing context and its `win` is null — which
@@ -53,10 +62,9 @@ function neutraliseRemoteLoads(root: HTMLElement): void {
 			// global document and `replaceWith` adopts it, which is a no-op away from
 			// where it ends up: every node here is adopted into the card below (#336).
 			const link = createEl("a");
-			link.setAttribute("href", target);
+			link.setAttribute("href", href);
 			link.setAttribute("rel", "noopener noreferrer");
-			const alt = el.getAttribute("alt")?.trim();
-			link.textContent = alt && alt !== "" ? alt : describe(tag);
+			link.textContent = alt || describe(tag);
 			el.replaceWith(link);
 		}
 	}
@@ -135,7 +143,9 @@ export async function renderCommentBody(
 		component,
 	);
 	await Promise.race([rendering, settle(target)]);
-	neutraliseRemoteLoads(holder);
+	// The live document's base, not the inert one's about:blank: the link is
+	// followed from the card.
+	neutraliseRemoteLoads(holder, target.ownerDocument.baseURI);
 
 	target.empty();
 	// Adopted one at a time: appending a node from another document moves it, and

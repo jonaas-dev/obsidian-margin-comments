@@ -4,6 +4,7 @@ import {
 	LOADERS,
 	LOADING_ATTRIBUTES,
 	isRemote,
+	linkTarget,
 	remoteUrlIn,
 	remoteUrlInCss,
 	sanitizeCommentBody,
@@ -79,6 +80,45 @@ describe("remoteUrlIn", () => {
 	it("says nothing when every candidate is inside the vault", () => {
 		expect(remoteUrlIn("srcset", "local.png 1x, folder/other.png 2x")).toBeNull();
 		expect(remoteUrlIn("src", "local.png")).toBeNull();
+	});
+});
+
+describe("linkTarget", () => {
+	const BASE = "app://obsidian.md/index.html";
+
+	it("offers a web address as a link", () => {
+		expect(linkTarget("https://example.com/a.png", BASE)).toBe("https://example.com/a.png");
+		expect(linkTarget("http://example.com/a.png", BASE)).toBe("http://example.com/a.png");
+		expect(linkTarget("  HTTPS://Example.com/a.png ", BASE)).toBe("https://example.com/a.png");
+	});
+
+	it("offers nothing else", () => {
+		for (const url of [
+			"javascript:void(0)",
+			"JaVaScRiPt:void(0)",
+			"java\tscript:void(0)",
+			"data:text/html,x",
+			"vbscript:x",
+			"file:///etc/hosts",
+			"app://obsidian.md/x",
+			"blob:https://example.com/x",
+			"ftp://example.com/x",
+		]) {
+			expect(linkTarget(url, BASE), url).toBeNull();
+		}
+	});
+
+	it("reads a URL against the base it will be followed from", () => {
+		// Protocol-relative is web on a phone, served over http(s), and not on
+		// desktop, served over app://.
+		expect(linkTarget("//example.com/a.png", BASE)).toBeNull();
+		expect(linkTarget("//example.com/a.png", "https://localhost/")).toBe(
+			"https://example.com/a.png",
+		);
+	});
+
+	it("offers nothing for what does not parse", () => {
+		expect(linkTarget("http://[", BASE)).toBeNull();
 	});
 });
 
