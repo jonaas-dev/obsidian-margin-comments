@@ -191,7 +191,12 @@ export class FloatingComposer {
 		// Only when this call actually dismissed something: open() calls close()
 		// first, and returning focus there would fight the focus it is about to
 		// claim. isConnected because the element may have gone with a re-render.
-		if (wasOpen && this.returnFocusTo?.isConnected) this.returnFocusTo.focus();
+		// preventScroll because the editor otherwise scrolls to its caret, which is
+		// still at the top for someone who scrolled down and commented from the
+		// gutter (#367).
+		if (wasOpen && this.returnFocusTo?.isConnected) {
+			this.returnFocusTo.focus({ preventScroll: true });
+		}
 		this.returnFocusTo = null;
 	}
 }
