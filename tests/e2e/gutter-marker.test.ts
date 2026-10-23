@@ -35,12 +35,35 @@ describe("the gutter marker", () => {
 	let page: any;
 	/* eslint-enable @typescript-eslint/no-explicit-any */
 
-	/** Hover the gutter beside a line, so the affordance marker appears. */
+	/**
+	 * Hover the gutter beside a line until the affordance marker is under the
+	 * pointer.
+	 *
+	 * Waited on rather than slept after: a full-suite run once read the marker
+	 * missing, and once read it in --text-faint, the colour it has with the
+	 * pointer elsewhere. Neither reproduced alone or under CPU load, so the move
+	 * is retried until the marker itself says it is hovered.
+	 */
 	async function hoverLine(index: number): Promise<void> {
-		const gutters = await page.locator(".cm-gutters").boundingBox();
-		const line = await page.locator(".cm-line").nth(index).boundingBox();
-		await page.mouse.move(gutters.x + gutters.width / 2, line.y + line.height / 2);
-		await page.waitForTimeout(500);
+		for (let attempt = 0; attempt < 5; attempt++) {
+			const gutters = await page.locator(".cm-gutters").boundingBox();
+			const line = await page.locator(".cm-line").nth(index).boundingBox();
+			if (attempt > 0) await page.mouse.move(0, 0);
+			await page.mouse.move(gutters.x + gutters.width / 2, line.y + line.height / 2);
+			const hovered = await page
+				.waitForFunction(
+					() =>
+						document.querySelector(
+							".inline-comment-marker:not(.inline-comment-marker-active):hover",
+						) !== null,
+					null,
+					{ timeout: 2000 },
+				)
+				.then(() => true)
+				.catch(() => false);
+			if (hovered) return;
+		}
+		throw new Error(`no affordance marker came under the pointer beside line ${index}`);
 	}
 
 	/** Every name the accessibility tree exposes that mentions comments. */
@@ -125,6 +148,26 @@ describe("the gutter marker", () => {
 		expect(active!.icon).not.toBe(affordance!.icon);
 	});
 
+	it("keeps the marker under a pointer that leaves and comes straight back", async () => {
+		// Out and back inside the 50 ms debounce. The return matched the line
+		// already shown, so it returned early and left the pending hide to fire:
+		// the marker vanished under the pointer until the mouse moved again.
+		await hoverLine(2);
+		const gutters = await page.locator(".cm-gutters").boundingBox();
+		const line = await page.locator(".cm-line").nth(2).boundingBox();
+		await page.mouse.move(0, 0);
+		await page.mouse.move(gutters.x + gutters.width / 2, line.y + line.height / 2);
+		// Past the debounce, which is the whole point: the hide was pending.
+		await page.waitForTimeout(300);
+		const shown = await page.evaluate(
+			() =>
+				document.querySelector(
+					".inline-comment-marker:not(.inline-comment-marker-active):hover",
+				) !== null,
+		);
+		expect(shown).toBe(true);
+	});
+
 	it("takes its colour from the theme, not from a palette of its own (#85)", async () => {
 		await hoverLine(2);
 		// The same assertion the highlight uses: override the variable with a
@@ -135,18 +178,28 @@ describe("the gutter marker", () => {
 			// The affordance marker only exists while the pointer is on it, so the
 			// colour actually on screen is the hover one.
 			document.body.style.setProperty("--text-muted", "rgb(7, 8, 9)");
-			// Past the colour transition, not just a frame or two: getComputedStyle
-			// during one returns the interpolated value, so a correct colour reads
-			// back as whatever it is halfway to.
-			await new Promise((r) => setTimeout(r, 300));
-			const active = document.querySelector(".inline-comment-marker-active") as HTMLElement;
-			const affordance = Array.from(document.querySelectorAll(".inline-comment-marker")).find(
-				(m) => !m.classList.contains("inline-comment-marker-active"),
-			) as HTMLElement;
-			const out = {
-				active: getComputedStyle(active).color,
-				affordance: affordance ? getComputedStyle(affordance).color : "MISSING",
+			// Read until the colour transition has finished, for up to three seconds:
+			// getComputedStyle during one returns the interpolated value, so a
+			// correct colour reads back as whatever it is halfway to. Polled rather
+			// than slept, and returned either way, so a failure prints what was read.
+			const read = () => {
+				const active = document.querySelector(
+					".inline-comment-marker-active",
+				) as HTMLElement;
+				const affordance = Array.from(
+					document.querySelectorAll(".inline-comment-marker"),
+				).find((m) => !m.classList.contains("inline-comment-marker-active")) as HTMLElement;
+				return {
+					active: getComputedStyle(active).color,
+					affordance: affordance ? getComputedStyle(affordance).color : "MISSING",
+				};
 			};
+			let out = read();
+			for (let i = 0; i < 30; i++) {
+				if (out.active === "rgb(1, 2, 3)" && out.affordance === "rgb(7, 8, 9)") break;
+				await new Promise((r) => setTimeout(r, 100));
+				out = read();
+			}
 			document.body.style.removeProperty("--text-accent");
 			document.body.style.removeProperty("--text-muted");
 			return out;

@@ -169,8 +169,12 @@ class HoverTracker implements PluginValue {
 
 	/** Debounced so the marker does not flicker while the pointer travels. */
 	private schedule(line: number | null): void {
-		if (line === this.current) return;
+		// Cancelled before the comparison: a pointer that leaves and comes back
+		// inside the debounce matches `current` on return, and returning early
+		// left the pending hide to fire under the pointer.
 		if (this.timer !== null) window.clearTimeout(this.timer);
+		this.timer = null;
+		if (line === this.current) return;
 		this.timer = window.setTimeout(() => {
 			this.current = line;
 			this.view.dispatch({ effects: setHoveredLine.of(line) });
