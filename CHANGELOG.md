@@ -4,6 +4,17 @@ All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Release tags carry no `v` prefix.
 
+## [1.0.3] - 2026-10-23
+
+### Fixed
+
+- The gutter marker no longer disappears from under the pointer when the pointer leaves the
+  gutter and comes straight back.
+
+### Changed
+
+- Built against Obsidian 1.14.4's API. The minimum Obsidian version stays 1.13.4.
+
 ## [1.0.2] - 2026-10-22
 
 ### Fixed
@@ -59,6 +70,7 @@ First public release.
 - Comments that follow their note through renames and moves, including a rename made outside Obsidian, and come back whenever a deleted note does — they are held on disk, so a restart does not lose them.
 - Damaged storage is never overwritten: an unreadable sidecar or an invalid comment is set aside in a kept file, and a notice says where.
 
+[1.0.3]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.0.3
 [1.0.2]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.0.2
 [1.0.1]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.0.1
 [1.0.0]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.0.0
