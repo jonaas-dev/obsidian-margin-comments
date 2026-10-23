@@ -344,11 +344,11 @@ relief valve: it would report 0 always and the gate would measure nothing. The `
 
 | Override | Why it cannot be a plain update |
 | --- | --- |
-| `moment: ^2.31.0` | `obsidian@1.13.1` pins `2.29.4` exactly. The npm `obsidian` package is types-only and the real `moment` comes from the app at runtime, so forcing it changes nothing shipped. |
+| `eslint-plugin-obsidianmd > obsidian: $obsidian` | The lint plugin pins its own `obsidian@1.12.3`, whose `@codemirror` peers clash with the ones `obsidian@1.14.4` needs, so `npm ci` failed outright (#377). Pointing it at the project's own `obsidian` also lints against the API the plugin is built with. Drop it once the lint plugin stops pinning an older one. |
 | `minimatch > brace-expansion: ^5.0.12` | Scoped on purpose. Only the `brace-expansion@5` under `minimatch@10` is in the advisory range (`>=4.0.0 <5.0.12`); the `1.1.18` copies elsewhere are not, and a global override would drag them across a major. |
 | `source-map-js: ^1.2.2` | No direct dependent asks for it; the override is the only lever. |
 
-**Review these when `obsidian` or the eslint toolchain is next bumped** (set 2026-10-06, #282):
+**Review these when `obsidian` or the eslint toolchain is next bumped** (set 2026-10-06, #282; reviewed 2026-10-23, when `obsidian` 1.14.4 resolved `moment` 2.31.0 on its own and its override went):
 drop an override as soon as the dependency resolves to a fixed version on its own. Leaving a
 stale override is how a real advisory gets pinned shut.
 
