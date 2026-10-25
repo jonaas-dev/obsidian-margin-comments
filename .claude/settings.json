@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "code-graph@jonaas-dev": true,
+    "code-hygiene@jonaas-dev": true
+  }
+}

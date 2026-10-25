@@ -1,0 +1,35 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "code-review-graph": {
+      "type": "local",
+      "command": [
+        "uvx",
+        "code-review-graph",
+        "serve"
+      ],
+      "enabled": true
+    },
+    "sonarqube": {
+      "type": "local",
+      "command": [
+        "docker",
+        "run",
+        "--init",
+        "-i",
+        "--rm",
+        "-e",
+        "SONARQUBE_URL",
+        "-e",
+        "SONARQUBE_TOKEN",
+        "mcp/sonarqube"
+      ],
+      "enabled": true,
+      "timeout": 30000,
+      "environment": {
+        "SONARQUBE_URL": "http://host.docker.internal:9000",
+        "SONARQUBE_TOKEN": "{file:~/.config/secrets/sonarqube-token}"
+      }
+    }
+  }
+}

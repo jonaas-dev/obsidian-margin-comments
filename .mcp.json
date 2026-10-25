@@ -1,0 +1,31 @@
+{
+  "mcpServers": {
+    "code-review-graph": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "code-review-graph",
+        "serve"
+      ]
+    },
+    "sonarqube": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run",
+        "--init",
+        "-i",
+        "--rm",
+        "-e",
+        "SONARQUBE_URL",
+        "-e",
+        "SONARQUBE_TOKEN",
+        "mcp/sonarqube"
+      ],
+      "env": {
+        "SONARQUBE_URL": "http://host.docker.internal:9000",
+        "SONARQUBE_TOKEN": "${SONARQUBE_TOKEN:-}"
+      }
+    }
+  }
+}

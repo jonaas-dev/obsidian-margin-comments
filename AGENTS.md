@@ -489,6 +489,14 @@ vault view read a sidecar it was not asked to open.
 Panel state that has to survive a restart — filter, sort order, scope — lives in
 `data.json` alongside the settings, validated on load rather than trusted.
 
+## Code knowledge graph
+
+This repo has a `code-review-graph` knowledge graph (MCP configured in `.mcp.json` and
+`.opencode/opencode.json`). Explore with the graph before Grep/Read: `semantic_search_nodes`
+or `query_graph` to find code, `get_impact_radius` for blast radius, `detect_changes` plus
+`get_review_context` to review a diff. Fall back to reading files only when the graph does
+not cover it.
+
 ## Commands
 
 | Command | Purpose |
