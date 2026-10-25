@@ -1,7 +1,7 @@
 {
 	"name": "obsidian-margin-comments",
 	"version": "1.0.3",
-	"description": "Add inline comments to your Obsidian notes with threaded replies, resolve/unresolve, and a sidebar panel.",
+	"description": "Comment on your notes like in Google Docs: select text, reply in threads, resolve, and review every thread in a side panel. Comments live in a hidden folder, never in your Markdown, and follow the text as you edit.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
