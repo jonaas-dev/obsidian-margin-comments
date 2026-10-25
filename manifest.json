@@ -3,7 +3,7 @@
 	"name": "Margin Comments",
 	"version": "1.0.3",
 	"minAppVersion": "1.13.4",
-	"description": "Add inline comments to your notes with threaded replies, resolve/unresolve, and a sidebar panel.",
+	"description": "Comment on your notes like in Google Docs: select text, reply in threads, resolve, and review every thread in a side panel. Comments live in a hidden folder, never in your Markdown, and follow the text as you edit.",
 	"author": "jonaas-dev",
 	"authorUrl": "https://github.com/jonaas-dev",
 	"isDesktopOnly": false
