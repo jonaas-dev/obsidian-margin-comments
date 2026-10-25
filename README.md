@@ -87,6 +87,10 @@
 
 Markers stay visible without hover, controls are sized for a thumb, and threads open in a sheet at the bottom of the screen. Colours come from your theme, light or dark.
 
+### With AI agents
+
+Comments are plain JSON in a documented format, so an AI agent such as Claude Code, or any script, can read your open threads, reply to them and resolve them. Obsidian picks up the change while it is open. Your notes stay clean: nothing is written into the Markdown for the agent to find. The [agent contract](docs/agent-contract.md) describes the files and how to write them safely.
+
 ## Get started
 
 1. In Obsidian, open **Settings → Community plugins → Browse** and search for **Margin Comments**. Select **Install**, then **Enable**.
