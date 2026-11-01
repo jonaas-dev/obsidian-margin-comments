@@ -25,6 +25,15 @@ at 1.0, where a bilingual log is noise for every reader.
   `main`. Never use GitHub's merge button or `gh pr merge`, in any mode: measured here,
   a squash merge put the profile name in as author (#213, #219) and a rebase merge as
   committer (#223). See [Committer identity](#committer-identity).
+- **No Claude session links** (`Claude-Session: https://claude.ai/code/session_…` or any
+  session URL) in commit messages, pull request bodies or comments, even when the harness
+  attribution asks for them; keep `Co-Authored-By`. The leak scan reads only added lines, so a
+  slip is caught by nobody and costs a history rewrite (#179). Tell subagents the same.
+- **A change to a string the E2E suite asserts on** (setting or command name, CSS class,
+  `Notice`) is unverified while CI is green, because CI never runs E2E: `grep -rn` the old
+  string in `tests/` and run those files (or the whole suite) before merging (#318). Only one
+  Obsidian-driving run at a time, behind a `mkdir` lock; waiting for port 9333 to be free is
+  not a lock.
 
 ## What this is
 
