@@ -31,5 +31,8 @@
         "SONARQUBE_TOKEN": "{file:~/.config/secrets/sonarqube-token}"
       }
     }
-  }
+  },
+  "plugins": [
+    "@dietrichgebert/ponytail"
+  ]
 }

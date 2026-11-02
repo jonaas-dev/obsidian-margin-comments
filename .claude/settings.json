@@ -1,6 +1,15 @@
 {
   "enabledPlugins": {
     "code-graph@jonaas-dev": true,
-    "code-hygiene@jonaas-dev": true
+    "code-hygiene@jonaas-dev": true,
+    "ponytail@ponytail": true
+  },
+  "extraKnownMarketplaces": {
+    "ponytail": {
+      "source": {
+        "source": "github",
+        "repo": "DietrichGebert/ponytail"
+      }
+    }
   }
 }
