@@ -99,7 +99,7 @@ Explore with `code-review-graph` (MCP in `.mcp.json` and `.opencode/opencode.jso
 
 `npm run dev` (esbuild watch) · `npm run build` · `npm test` (unit) · `npm run test:coverage` (thresholds in `vitest.coverage.config.ts`) · `npm run test:e2e` (real Obsidian) · `npm run lint` · `npm run typecheck` (`src/` without Node types, then `tests/`)
 
-## Decisiones vigentes
+## Decisions in force
 
 <!-- decisions:start -->
 - [ADR-0001](docs/decisions/0001-configurable-storage-folder.md): The storage folder is configurable and may be visible
