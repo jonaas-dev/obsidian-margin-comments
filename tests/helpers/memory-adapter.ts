@@ -27,8 +27,13 @@ export class MemoryAdapter implements StorageAdapter {
 		}
 	}
 
+	/** A folder holding files exists without a mkdir, as it does on disk. */
 	async exists(path: string): Promise<boolean> {
-		return this.files.has(path) || this.dirs.has(path);
+		return (
+			this.files.has(path) ||
+			this.dirs.has(path) ||
+			[...this.files.keys()].some((p) => p.startsWith(`${path}/`))
+		);
 	}
 
 	async mkdir(path: string): Promise<void> {
@@ -65,7 +70,22 @@ export class MemoryAdapter implements StorageAdapter {
 		const files = [...this.files.keys()].filter(
 			(p) => p.startsWith(prefix) && !p.slice(prefix.length).includes("/"),
 		);
-		return { files, folders: [] };
+		const folders = new Set(
+			[
+				...this.dirs,
+				...[...this.files.keys()].map((p) => p.slice(0, p.lastIndexOf("/"))),
+			].filter((p) => p.startsWith(prefix) && !p.slice(prefix.length).includes("/")),
+		);
+		return { files, folders: [...folders] };
+	}
+
+	/** Refuses a folder that still holds anything unless `recursive`, as the real adapter does. */
+	async rmdir(path: string, recursive: boolean): Promise<void> {
+		const { files, folders } = await this.list(path);
+		if (!recursive && files.length + folders.length > 0) throw new Error(`ENOTEMPTY: ${path}`);
+		for (const p of [...this.files.keys()]) if (p.startsWith(`${path}/`)) this.files.delete(p);
+		for (const p of [...this.dirs])
+			if (p === path || p.startsWith(`${path}/`)) this.dirs.delete(p);
 	}
 
 	/** Test helper: current contents, for asserting on what landed on disk. */

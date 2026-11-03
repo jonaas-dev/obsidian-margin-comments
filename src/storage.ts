@@ -1,6 +1,9 @@
 import { normalizePath } from "obsidian";
 import type { Comment, TextAnchor } from "./types";
 import { hashString, noteName } from "./utils";
+import { mergeComments, StorageMoveError, type MoveResult } from "./storage-move";
+
+export { StorageMoveError, type MoveResult, type MoveRefusal } from "./storage-move";
 
 function basename(path: string): string {
 	const parts = path.split("/");
@@ -20,8 +23,11 @@ export const INDEX_FILE = "_index.json";
  */
 export const HELD_DIR = "held";
 
-/** The two names a set-aside sidecar is given, both stamped with the time. */
-const SET_ASIDE = /\.(invalid|unreadable)-\d+$/;
+/**
+ * The two names a set-aside sidecar is given, both stamped with the time. A move
+ * appends `-<n>` when the target already holds a different file of that name.
+ */
+const SET_ASIDE = /\.(invalid|unreadable)-\d+(-\d+)*$/;
 
 /**
  * The slice of Obsidian's DataAdapter this plugin uses.
@@ -41,6 +47,7 @@ export interface StorageAdapter {
 	remove(path: string): Promise<void>;
 	rename(path: string, newPath: string): Promise<void>;
 	list(path: string): Promise<{ files: string[]; folders: string[] }>;
+	rmdir(path: string, recursive: boolean): Promise<void>;
 }
 
 /**
@@ -255,13 +262,20 @@ export class CommentStorage {
 	/** Sidecars no index entry can be built from, so they are not re-read on every load. */
 	private readonly unindexable = new Set<string>();
 
-	readonly dir: string;
+	/** Pending while moveTo runs, so no queued work starts against the folder being left. */
+	private moving: Promise<void> = Promise.resolve();
+	private folder: string;
 
 	constructor(
 		private readonly adapter: StorageAdapter,
 		private readonly options: StorageOptions = {},
 	) {
-		this.dir = normalizePath(options.dir ?? STORAGE_DIR);
+		this.folder = normalizePath(options.dir ?? STORAGE_DIR);
+	}
+
+	/** The storage folder; changes only through moveTo. */
+	get dir(): string {
+		return this.folder;
 	}
 
 	private sidecarPath(filePath: string): string {
@@ -291,8 +305,11 @@ export class CommentStorage {
 	 * finished — would otherwise each wait forever on the note the other holds.
 	 */
 	private exclusive<T>(filePaths: string[], work: () => Promise<T>): Promise<T> {
-		const paths = [...new Set(filePaths.map((filePath) => this.sidecarPath(filePath)))];
-		return this.holding([...paths].sort(byCodeUnit), work);
+		// Paths are taken after any move, so they name the folder the work will run in.
+		return this.moving.then(() => {
+			const paths = [...new Set(filePaths.map((filePath) => this.sidecarPath(filePath)))];
+			return this.holding([...paths].sort(byCodeUnit), work);
+		});
 	}
 
 	private holding<T>(paths: string[], work: () => Promise<T>): Promise<T> {
@@ -564,38 +581,45 @@ export class CommentStorage {
 	 * Set a note's comments aside, off the note but still on disk.
 	 *
 	 * Written before the sidecar is cleared, so a crash in between leaves two
-	 * copies rather than none — the same order `setAside` uses.
+	 * copies rather than none — the same order `setAside` uses. Both inside the
+	 * note's queue, so moveTo cannot copy the folder between the two and then
+	 * delete the held file it never saw.
 	 *
 	 * Merged rather than replaced when something is already held: a note deleted
 	 * twice in one session came back in between, and the second delete carries
 	 * the newer set.
 	 */
 	async holdComments(filePath: string): Promise<Comment[]> {
-		const taken = await this.mutate(filePath, (existing) =>
-			existing.length === 0 ? null : [],
-		);
-		if (taken.length === 0) return [];
+		return this.exclusive([filePath], async () => {
+			this.cache.delete(filePath);
+			const taken = await this.loadComments(filePath);
+			this.refuseIfNewer(filePath);
+			if (taken.length === 0) return [];
 
-		const path = this.heldPath(filePath);
-		const held = await this.readHeld(path);
-		const known = new Set(held.map((comment) => comment.id));
-		const merged = [...held, ...taken.filter((comment) => !known.has(comment.id))];
+			const path = this.heldPath(filePath);
+			const held = await this.readHeld(path);
+			const known = new Set(held.map((comment) => comment.id));
+			const merged = [...held, ...taken.filter((comment) => !known.has(comment.id))];
 
-		await this.ensureDir();
-		const dir = normalizePath(`${this.dir}/${HELD_DIR}`);
-		if (!(await this.adapter.exists(dir))) await this.adapter.mkdir(dir);
-		const sidecar: Sidecar = { version: FORMAT_VERSION, filePath, comments: merged };
-		await this.adapter.write(path, JSON.stringify(sidecar, null, 2));
-		return taken;
+			await this.ensureDir();
+			const dir = normalizePath(`${this.dir}/${HELD_DIR}`);
+			if (!(await this.adapter.exists(dir))) await this.adapter.mkdir(dir);
+			const sidecar: Sidecar = { version: FORMAT_VERSION, filePath, comments: merged };
+			await this.adapter.write(path, JSON.stringify(sidecar, null, 2));
+			await this.writeComments(filePath, []);
+			return taken;
+		});
 	}
 
 	/** What is held for a note, and stop holding it. Null when nothing is. */
 	async releaseComments(filePath: string): Promise<Comment[] | null> {
-		const path = this.heldPath(filePath);
-		if (!(await this.adapter.exists(path))) return null;
-		const held = await this.readHeld(path);
-		await this.adapter.remove(path);
-		return held.length === 0 ? null : held;
+		return this.exclusive([filePath], async () => {
+			const path = this.heldPath(filePath);
+			if (!(await this.adapter.exists(path))) return null;
+			const held = await this.readHeld(path);
+			await this.adapter.remove(path);
+			return held.length === 0 ? null : held;
+		});
 	}
 
 	private async readHeld(path: string): Promise<Comment[]> {
@@ -802,6 +826,223 @@ export class CommentStorage {
 	}
 
 	/**
+	 * Moves every comment to another storage folder, losing none (ADR 0001, D2/D3).
+	 *
+	 * Waits for every queued change, and holds back new ones until it is done. Each
+	 * file is copied, then every copy is read back and compared, and only then does
+	 * the store switch folder and delete the source. Any failure before the switch
+	 * throws with the folder unchanged and the source untouched; a failure after it
+	 * rejects with `dir` already the target, and the leftover source is finished off
+	 * by a move from it again. Only adapter calls, no folder rename, because mobile
+	 * adapters have none that works across folders.
+	 *
+	 * A target that already holds this plugin's files (Sync delivering another
+	 * device's) is merged per note by comment id. A sidecar either side holds in a
+	 * newer format, or that does not parse, is never rewritten: both copies stay where
+	 * they are, so the source folder survives the move.
+	 */
+	async moveTo(target: string): Promise<MoveResult> {
+		const previous = this.moving;
+		let release = (): void => undefined;
+		this.moving = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		try {
+			await previous;
+			await Promise.all(this.queues.values());
+			return await this.relocate(target);
+		} finally {
+			release();
+		}
+	}
+
+	private async relocate(target: string): Promise<MoveResult> {
+		const from = this.dir;
+		const to = this.checkTarget(target);
+		const existing = await this.contentsOf(to);
+		const foreign = existing.find((relative) => kindOf(relative) === null);
+		if (foreign !== undefined) {
+			throw new StorageMoveError(
+				"foreign-file",
+				`${to} already holds ${foreign}, which is not a comment file.`,
+			);
+		}
+
+		const result: MoveResult = { moved: 0, merged: 0, keptBoth: 0 };
+		const copies: Array<[path: string, text: string]> = [];
+		const copied: string[] = [];
+		for (const relative of await this.contentsOf(from)) {
+			const kind = kindOf(relative);
+			// Left in place: someone else's file, which also keeps the source folder.
+			if (kind === null) continue;
+			if (kind !== "index") {
+				const text = await this.adapter.read(`${from}/${relative}`);
+				const path = `${to}/${relative}`;
+				const outcome =
+					kind === "raw"
+						? await this.copyRaw(path, text, copies)
+						: await this.copySidecar(path, text, copies);
+				result[outcome]++;
+				if (outcome === "keptBoth") continue;
+			}
+			copied.push(relative);
+		}
+
+		for (const [path, text] of copies) {
+			if ((await this.adapter.read(path)) !== text) {
+				throw new StorageMoveError("unverified", `${path} did not read back as written.`);
+			}
+		}
+
+		this.folder = to;
+		this.cache.clear();
+		this.known.clear();
+		this.unindexable.clear();
+		this.readOnly.clear();
+		this.queues.clear();
+		this.index = null;
+		this.indexReadOnly = false;
+		await this.dropIndex();
+
+		for (const relative of copied) await this.adapter.remove(`${from}/${relative}`);
+		await this.removeIfEmpty(`${from}/${HELD_DIR}`);
+		await this.removeIfEmpty(from);
+		return result;
+	}
+
+	/** The normalized target, or a StorageMoveError saying why it cannot be one. */
+	private checkTarget(target: string): string {
+		const to = normalizePath(target);
+		if (/[/\\]/.test(target) || to === "" || to === "." || to === "..") {
+			throw new StorageMoveError(
+				"not-root-folder",
+				`${target} is not a single folder at the vault root.`,
+			);
+		}
+		// Folded, because on a case-insensitive disk "Comments" and "comments" are one
+		// folder, and deleting the source would delete what was just copied.
+		const fold = (name: string) => name.normalize("NFC").toLowerCase();
+		if (fold(to) === fold(this.dir)) {
+			throw new StorageMoveError("same-folder", `Comments are already stored in ${to}.`);
+		}
+		return to;
+	}
+
+	/** Every file under a storage folder, relative to it; a stray subfolder counts as one. */
+	private async contentsOf(folder: string): Promise<string[]> {
+		if (!(await this.adapter.exists(folder))) return [];
+		const { files, folders } = await this.adapter.list(folder);
+		const found = files.map((path) => path.slice(folder.length + 1));
+		for (const sub of folders) {
+			const relative = sub.slice(folder.length + 1);
+			if (relative !== HELD_DIR) {
+				found.push(`${relative}/`);
+				continue;
+			}
+			const held = await this.adapter.list(sub);
+			found.push(...held.files.map((path) => path.slice(folder.length + 1)));
+			found.push(...held.folders.map((path) => `${path.slice(folder.length + 1)}/`));
+		}
+		return found;
+	}
+
+	/** Read without swallowing errors: a target file that cannot be read must not be replaced. */
+	private async readOrNull(path: string): Promise<string | null> {
+		return (await this.adapter.exists(path)) ? this.adapter.read(path) : null;
+	}
+
+	private async writeCopy(
+		path: string,
+		text: string,
+		copies: Array<[string, string]>,
+	): Promise<void> {
+		const parent = path.slice(0, path.lastIndexOf("/"));
+		const root = parent.slice(0, `${parent}/`.indexOf("/"));
+		for (const folder of new Set([root, parent])) {
+			if (!(await this.adapter.exists(folder))) await this.adapter.mkdir(folder);
+		}
+		await this.adapter.write(path, text);
+		copies.push([path, text]);
+	}
+
+	private async copySidecar(
+		path: string,
+		text: string,
+		copies: Array<[string, string]>,
+	): Promise<keyof MoveResult> {
+		const there = await this.readOrNull(path);
+		if (there === null) {
+			await this.writeCopy(path, text, copies);
+			return "moved";
+		}
+		if (there === text) {
+			copies.push([path, text]);
+			return "moved";
+		}
+		const ours = parseSidecar(text);
+		const theirs = parseSidecar(there);
+		const mergeable = (sidecar: RawSidecar | null): sidecar is RawSidecar => {
+			const version = sidecar === null ? null : versionOf(sidecar);
+			return version !== null && version <= FORMAT_VERSION;
+		};
+		if (!mergeable(ours) || !mergeable(theirs) || ours.filePath !== theirs.filePath) {
+			return "keptBoth";
+		}
+		const merged: Sidecar = {
+			version: FORMAT_VERSION,
+			filePath: theirs.filePath as string,
+			comments: mergeComments(theirs.comments, ours.comments) as Comment[],
+		};
+		const mergedText = JSON.stringify(merged, null, 2);
+		if (mergedText === there) copies.push([path, there]);
+		else await this.writeCopy(path, mergedText, copies);
+		return "merged";
+	}
+
+	/** A file copied as it is, beside a different one of the same name rather than over it. */
+	private async copyRaw(
+		path: string,
+		text: string,
+		copies: Array<[string, string]>,
+	): Promise<keyof MoveResult> {
+		for (let n = 0; ; n++) {
+			const candidate = n === 0 ? path : `${path}-${n}`;
+			const there = await this.readOrNull(candidate);
+			if (there === text) {
+				copies.push([candidate, text]);
+				return "moved";
+			}
+			if (there === null) {
+				await this.writeCopy(candidate, text, copies);
+				return "moved";
+			}
+		}
+	}
+
+	/** Removes the index the target held, so it is rebuilt from the merged sidecars. */
+	private async dropIndex(): Promise<void> {
+		const path = this.indexPath();
+		const text = await this.readOrNull(path);
+		if (text === null) return;
+		let version: number | null = null;
+		try {
+			const parsed = JSON.parse(text) as { version?: unknown } | null;
+			version = parsed === null ? null : versionOf(parsed);
+		} catch {
+			// Unparseable: a derived cache, so it is simply dropped.
+		}
+		// A newer plugin's index is left alone; this version rebuilds it in memory anyway.
+		if (version !== null && version > FORMAT_VERSION) return;
+		await this.adapter.remove(path);
+	}
+
+	private async removeIfEmpty(folder: string): Promise<void> {
+		if (!(await this.adapter.exists(folder))) return;
+		const { files, folders } = await this.adapter.list(folder);
+		if (files.length === 0 && folders.length === 0) await this.adapter.rmdir(folder, false);
+	}
+
+	/**
 	 * Told that a file changed on disk, answers whether it was news, and forgets what
 	 * the change made stale.
 	 *
@@ -813,6 +1054,7 @@ export class CommentStorage {
 	 */
 	async changedOnDisk(path: string): Promise<boolean> {
 		const changed = normalizePath(path);
+		await this.moving;
 		const isIndex = changed === this.indexPath();
 		if (!isIndex && !this.isSidecar(changed)) return false;
 
@@ -860,4 +1102,21 @@ export class CommentStorage {
 			await this.writeAtomically(this.indexPath(), text);
 		});
 	}
+}
+
+/**
+ * What a file under a storage folder is, by its path relative to the folder; null for
+ * anything this plugin never writes there.
+ */
+function kindOf(relative: string): "index" | "sidecar" | "held" | "raw" | null {
+	if (relative === INDEX_FILE || relative === `${INDEX_FILE}.tmp`) return "index";
+	if (/^[^/]+\.json$/.test(relative)) return "sidecar";
+	if (
+		relative.startsWith(`${HELD_DIR}/`) &&
+		/^[^/]+\.json$/.test(relative.slice(HELD_DIR.length + 1))
+	) {
+		return "held";
+	}
+	if (/^[^/]+\.json(\.tmp|\.(invalid|unreadable)-\d+)(-\d+)*$/.test(relative)) return "raw";
+	return null;
 }
