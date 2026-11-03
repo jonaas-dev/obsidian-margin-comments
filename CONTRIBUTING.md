@@ -17,7 +17,7 @@ sh ops/install-hooks.sh
 
 `ops/install-hooks.sh` sets `core.hooksPath`. That setting is local to your clone and
 does not travel with the repository, so a fresh clone has no pre-commit protection
-until you run it. See the hooks section of [AGENTS.md](AGENTS.md) for what it blocks.
+until you run it. See [docs/maintenance.md](docs/maintenance.md#pre-commit-hooks) for what it blocks.
 
 **Identity checks only apply to the maintainer.** Unless your clone sets
 `hooks.maintainer` (which only `sh ops/install-hooks.sh --maintainer` does) or your
@@ -197,7 +197,7 @@ before that job is worth believing.
 
 The full list of what this harness will and will not do — the controls Obsidian never
 attaches, the focus it cannot hold, the dropdowns it builds twice — is in the
-"The E2E harness" section of [AGENTS.md](AGENTS.md). Read it before writing a test
+[docs/e2e.md](docs/e2e.md). Read it before writing a test
 that fails for no visible reason.
 
 ## Before opening a pull request
