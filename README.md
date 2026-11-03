@@ -24,7 +24,7 @@
 <h1 align="center">Margin Comments</h1>
 
 <p align="center">
-  Comment on your Obsidian notes the way you would on a shared document.<br>
+  Comment on your Obsidian notes like in Google Docs.<br>
   Threaded replies, resolve and reopen, and a panel for every conversation. Your Markdown stays untouched.
 </p>
 
@@ -44,6 +44,15 @@
 <p align="center">
   <img src="images/demo.gif" width="800" alt="Selecting words in a note, writing a comment, then replying and resolving it from the panel">
 </p>
+
+## Why Margin Comments
+
+- **Nothing in your notes.** Comments live in a hidden folder, not in the Markdown and not in a file next to it, so your notes read and diff exactly as before.
+- **Comments follow the text.** Edit around a comment, rename the note or move its folder, and the comment stays on the words it was about. If they are gone, it is kept as an orphan rather than lost.
+- **Real threads.** Reply, resolve and reopen, and review every thread for one note or the whole vault.
+- **Made for the phone too**, with touch-sized controls and highlights in reading mode.
+
+Use it to review drafts, collect an editor's feedback, keep reading notes, or discuss a vault shared through Git.
 
 ## What it does
 
