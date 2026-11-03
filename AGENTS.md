@@ -6,7 +6,7 @@ measurements behind them live in `docs/`, linked per section.
 ## What this is
 
 An Obsidian plugin that adds inline comments to notes without modifying the Markdown files.
-Comment data lives in JSON sidecars under `.margin-comments/` at the vault root. Layout and data
+Comment data lives in JSON sidecars under the storage folder (default `.margin-comments/`) at the vault root. Layout and data
 model: [docs/architecture.md](docs/architecture.md); external readers/writers:
 [docs/agent-contract.md](docs/agent-contract.md).
 
@@ -27,7 +27,7 @@ model: [docs/architecture.md](docs/architecture.md); external readers/writers:
 ## Hard constraints
 
 - **Never write to the user's `.md` files.** Comments are sidecar-only.
-- **`.margin-comments/` is a dotfolder**, invisible to the Vault API: use `app.vault.adapter` (`read`/`write`/`exists`/`list`/`mkdir`) with `normalizePath()`; `vault.create`, `vault.getAbstractFileByPath` and `vault.on('modify')` will not see it.
+- **Storage lives in the configured folder** (default `.margin-comments`), read and written only through `app.vault.adapter` (`read`/`write`/`exists`/`list`/`mkdir`) with `normalizePath()`; when the folder is visible the Vault API sees it, so rename/delete/create handlers must ignore it ([ADR-0001](docs/decisions/0001-configurable-storage-folder.md)).
 - **Mobile must work** (`isDesktopOnly: false`): no Node built-ins (`crypto`, `fs`, `path`); hashing is a synchronous non-cryptographic function in plain TypeScript.
 - Register every event with `registerEvent()` and every interval with `registerInterval()`; tear everything down in `onunload()`.
 - No `console.log` left in shipped code.
@@ -98,3 +98,9 @@ Explore with `code-review-graph` (MCP in `.mcp.json` and `.opencode/opencode.jso
 ## Commands
 
 `npm run dev` (esbuild watch) · `npm run build` · `npm test` (unit) · `npm run test:coverage` (thresholds in `vitest.coverage.config.ts`) · `npm run test:e2e` (real Obsidian) · `npm run lint` · `npm run typecheck` (`src/` without Node types, then `tests/`)
+
+## Decisiones vigentes
+
+<!-- decisions:start -->
+- [ADR-0001](docs/decisions/0001-configurable-storage-folder.md): The storage folder is configurable and may be visible
+<!-- decisions:end -->
