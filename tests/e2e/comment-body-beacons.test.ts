@@ -10,6 +10,7 @@ import { hashString } from "../../src/utils";
 
 const NOTE = "note.md";
 const STORAGE_DIR = ".margin-comments";
+const E = "https://evil.example";
 
 const BODIES: [string, string][] = [
 	["md-angle", "![a](<https://evil.example/angle.png>)"],
@@ -48,6 +49,61 @@ const BODIES: [string, string][] = [
 		'<table background="https://evil.example/tablebg.png"><tr><td>x</td></tr></table>',
 	],
 	["meta-refresh", '<meta http-equiv="refresh" content="0;url=https://evil.example/meta">'],
+	// URLs the page reads differently from how they are written (#369).
+	["url-tab", '<img src="ht&#9;tps://evil.example/url-tab.png">'],
+	["url-newline", '<img src="ht&#10;tps://evil.example/url-newline.png">'],
+	["url-control", '<img src="&#1;https://evil.example/url-control.png">'],
+	["url-backslash", '<img src="\\\\evil.example/url-backslash.png">'],
+	["srcset-tab", '<img srcset="ht&#9;tps://evil.example/srcset-tab.png 1x">'],
+	[
+		"background-tab",
+		'<table background="ht&#9;tps://evil.example/background-tab.png"><tr><td>x</td></tr></table>',
+	],
+	["object-tab", '<object data="ht&#9;tps://evil.example/object-tab.html"></object>'],
+	// CSS that loads without spelling `url(` (#370).
+	["css-image-set", `<div style='background-image:image-set("${E}/image-set.png" 1x)'>x</div>`],
+	[
+		"css-webkit-image-set",
+		`<div style='background-image:-webkit-image-set("${E}/webkit-image-set.png" 1x)'>x</div>`,
+	],
+	["css-escaped", `<div style="background:\\75rl(${E}/escaped.png)">x</div>`],
+	["css-cursor", `<div style="cursor:url(${E}/cursor.png),auto">x</div>`],
+	// SVG attributes that load (#371).
+	[
+		"svg-feimage",
+		`<svg><filter id="fa"><feImage href="${E}/feimage.png"/></filter><rect width="10" height="10" filter="url(#fa)"/></svg>`,
+	],
+	[
+		"svg-feimage-xlink",
+		`<svg><filter id="fb"><feImage xlink:href="${E}/feimage-xlink.png"/></filter><rect width="10" height="10" filter="url(#fb)"/></svg>`,
+	],
+	["svg-fill", `<svg><rect width="10" height="10" fill="url(${E}/fill.svg#g)"/></svg>`],
+	["svg-filter", `<svg><rect width="10" height="10" filter="url(${E}/filter.svg#f)"/></svg>`],
+	["svg-mask", `<svg><rect width="10" height="10" mask="url(${E}/mask.svg#m)"/></svg>`],
+	["svg-clip", `<svg><rect width="10" height="10" clip-path="url(${E}/clip.svg#c)"/></svg>`],
+	["svg-marker", `<svg><path d="M0 0L10 10" marker-end="url(${E}/marker.svg#m)"/></svg>`],
+	[
+		"svg-pattern",
+		`<svg><pattern id="pp" href="${E}/pattern.svg#p"/><rect width="10" height="10" fill="url(#pp)"/></svg>`,
+	],
+	[
+		"svg-set",
+		`<svg><image width="10" height="10"><set attributeName="href" to="${E}/set.png"/></image></svg>`,
+	],
+	[
+		"svg-foreign-img",
+		`<svg><foreignObject width="10" height="10"><img src="${E}/foreign.png"></foreignObject></svg>`,
+	],
+	["base-href", `<base href="${E}/base/"><img src="rel.png">`],
+	["link-imagesrcset", `<link rel="preload" as="image" imagesrcset="${E}/imagesrcset.png 1x">`],
+	// What a card may offer as a link in place of what it does not show (#368).
+	["link-srcset-script", '<img srcset="x, javascript:void(window.__mcRan=1) 2x" alt="L-SRCSET">'],
+	["link-data", '<img src="data:text/html,<script>parent.__mcRan=1</script>" alt="L-DATA">'],
+	["link-web", '<img src="https://evil.example/web.png" alt="L-HTTPS">'],
+	// Code blocks rendered by a processor that writes after the card is built (#372).
+	["late-attr-first", "```late-block\nattr-first\n```"],
+	["late-append-first", "```late-block\nappend-first\n```"],
+	["late-sync", "```late-block\nsync\n```"],
 ];
 
 function comment(id: string, content: string) {
@@ -94,10 +150,36 @@ describe("a comment body that tries to phone home", () => {
 		session = await launchObsidian(vault.path);
 		page = session.page;
 		page.on("request", (req: { url(): string }) => {
-			if (req.url().includes("evil.example")) asked.push(req.url());
+			// app:// is the app's own files: on desktop a scheme-less `\\host` resolves there.
+			if (req.url().includes("evil.example") && !req.url().startsWith("app:"))
+				asked.push(req.url());
 		});
 		await waitForWorkspace(page);
 		await enablePlugin(page, "margin-comments");
+		// Stands in for another plugin's code-block processor that writes late.
+		await page.evaluate(() => {
+			const plugin = window.app.plugins.plugins["margin-comments"];
+			plugin.registerMarkdownCodeBlockProcessor(
+				"late-block",
+				(source: string, el: HTMLElement) => {
+					const kind = source.trim();
+					if (kind === "sync") {
+						el.createEl("img", { attr: { src: "https://evil.example/late-sync.png" } });
+						return;
+					}
+					setTimeout(() => {
+						if (kind === "attr-first")
+							el.createEl("img", {
+								attr: { src: "https://evil.example/late-attr-first.png" },
+							});
+						if (kind === "append-first") {
+							const img = el.createEl("img");
+							img.src = "https://evil.example/late-append-first.png";
+						}
+					}, 200);
+				},
+			);
+		});
 		await page.evaluate(async (note: string) => {
 			const file = window.app.vault.getAbstractFileByPath(note);
 			await window.app.workspace.getLeaf(false).openFile(file, { state: { mode: "source" } });
@@ -148,6 +230,40 @@ describe("a comment body that tries to phone home", () => {
 				).length,
 		);
 		expect(styled).toBe(0);
+	});
+
+	it("offers only web addresses as links", async () => {
+		const hrefs: string[] = await page.evaluate(() =>
+			Array.from(
+				document.querySelectorAll(".inline-comment-panel .inline-comment-body a[href]"),
+			).map((a) => (a as HTMLAnchorElement).href),
+		);
+		expect(hrefs.filter((href) => !/^https?:/i.test(href))).toEqual([]);
+	});
+
+	it("keeps the alt text of what it replaced", async () => {
+		const text: string = await page.evaluate(
+			() => document.querySelector(".inline-comment-panel")?.textContent ?? "",
+		);
+		expect(text).toContain("L-HTTPS");
+		expect(text).toContain("L-SRCSET");
+	});
+
+	it("runs nothing when the reader clicks what is left", async () => {
+		for (const label of ["L-SRCSET", "L-DATA"]) {
+			const link = page
+				.locator(".inline-comment-panel .inline-comment-body", { hasText: label })
+				.first()
+				.locator("a")
+				.first();
+			if ((await link.count()) > 0) await link.click({ timeout: 5000 }).catch(() => {});
+		}
+		await page.waitForTimeout(500);
+		const state = await page.evaluate(() => ({
+			ran: (window as unknown as { __mcRan?: unknown }).__mcRan ?? null,
+			app: typeof window.app,
+		}));
+		expect(state).toEqual({ ran: null, app: "object" });
 	});
 
 	it("still renders ordinary Markdown", async () => {

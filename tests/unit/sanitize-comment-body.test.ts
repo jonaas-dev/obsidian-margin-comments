@@ -66,6 +66,18 @@ describe("isRemote", () => {
 		expect(isRemote("  https://evil.example/a.png  ", DESKTOP)).toBe(true);
 	});
 
+	it("reads a URL the way the page does, whitespace and control characters included", () => {
+		// The URL parser drops tabs and newlines anywhere and C0 characters at the
+		// ends, so each of these is fetched as https.
+		for (const base of [DESKTOP, PHONE]) {
+			expect(isRemote("ht\ttps://evil.example/a.png", base)).toBe(true);
+			expect(isRemote("ht\ntps://evil.example/a.png", base)).toBe(true);
+			expect(isRemote("\u0001https://evil.example/a.png", base)).toBe(true);
+		}
+		// A backslash is a slash under a special scheme: the web on a phone.
+		expect(isRemote("\\\\evil.example/a.png", PHONE)).toBe(true);
+	});
+
 	it("calls remote what does not resolve", () => {
 		expect(isRemote("http://[", DESKTOP)).toBe(true);
 	});
