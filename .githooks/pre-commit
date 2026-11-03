@@ -37,3 +37,15 @@ if [ "$maintainer" = "true" ] || [ "$actual_name" = "$expected_name" ]; then
 fi
 
 python3 "$root/ops/check-secrets.py" || exit 1
+
+# Decision records (ADR). The checker lives in the maintainer's jonas-skills clone,
+# so where it is absent (CI, outside contributors) the step says so and moves on.
+# It only runs when the staged change touches what it reads.
+if git diff --cached --name-only | grep -Eq '^(docs/decisions/|AGENTS\.md$)'; then
+    adr_check="${JONAS_SKILLS:-$HOME/Repos/jonas-skills}/scripts/decisions_check.py"
+    if [ -f "$adr_check" ]; then
+        (cd "$root" && python3 "$adr_check" --dir docs/decisions --agents-md AGENTS.md) || exit 1
+    else
+        echo "pre-commit: ADR check skipped, $adr_check not found" >&2
+    fi
+fi

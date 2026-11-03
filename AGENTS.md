@@ -81,6 +81,10 @@ history and a leak there is permanent:
 3. **Personal data** — home directory paths, personal email addresses, local hostnames.
    The likely source is docs or screenshots written against a real vault.
 
+When the change touches `docs/decisions/` or `AGENTS.md`, it also runs the maintainer's
+decision-record check (`decisions_check.py` from `$JONAS_SKILLS`, default
+`~/Repos/jonas-skills`); where that clone is absent it prints that it skipped and goes on.
+
 Only added lines in the staged diff are scanned, so the hook stays fast. Escape a
 confirmed false positive by appending `# pragma: allowlist secret` or
 `# pragma: allowlist personal` to the line. `--no-verify` exists but defeats the point.
