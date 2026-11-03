@@ -29,6 +29,8 @@ const SET_ASIDE = /\.(invalid|unreadable)-\d+$/;
  * Everything goes through the adapter rather than the Vault API because
  * STORAGE_DIR is a dotfolder, and the Vault API skips those: vault.create,
  * vault.getAbstractFileByPath and the vault change events would all miss it.
+ * A visible storage folder is still reached only through the adapter, so the
+ * Vault API never sees a sidecar written there as a note.
  * Declaring the surface structurally also keeps the store testable.
  */
 export interface StorageAdapter {
@@ -159,6 +161,8 @@ function isCommentOf(filePath: string, value: unknown): value is Comment {
 }
 
 interface StorageOptions {
+	/** Folder holding the sidecars; defaults to STORAGE_DIR. */
+	dir?: string;
 	/** Told once per unreadable sidecar, after its text has been kept at `keptAt`. */
 	onUnreadable?: (filePath: string, keptAt: string) => void;
 	/** Told once per sidecar holding invalid comments, after they were kept at `keptAt`. */
@@ -251,17 +255,21 @@ export class CommentStorage {
 	/** Sidecars no index entry can be built from, so they are not re-read on every load. */
 	private readonly unindexable = new Set<string>();
 
+	readonly dir: string;
+
 	constructor(
 		private readonly adapter: StorageAdapter,
 		private readonly options: StorageOptions = {},
-	) {}
+	) {
+		this.dir = normalizePath(options.dir ?? STORAGE_DIR);
+	}
 
 	private sidecarPath(filePath: string): string {
-		return normalizePath(`${STORAGE_DIR}/${hashString(filePath)}.json`);
+		return normalizePath(`${this.dir}/${hashString(filePath)}.json`);
 	}
 
 	private indexPath(): string {
-		return normalizePath(`${STORAGE_DIR}/${INDEX_FILE}`);
+		return normalizePath(`${this.dir}/${INDEX_FILE}`);
 	}
 
 	/** Runs work after whatever is already queued for this note. */
@@ -549,7 +557,7 @@ export class CommentStorage {
 	 * being the last place they existed.
 	 */
 	private heldPath(filePath: string): string {
-		return normalizePath(`${STORAGE_DIR}/${HELD_DIR}/${hashString(filePath)}.json`);
+		return normalizePath(`${this.dir}/${HELD_DIR}/${hashString(filePath)}.json`);
 	}
 
 	/**
@@ -574,7 +582,7 @@ export class CommentStorage {
 		const merged = [...held, ...taken.filter((comment) => !known.has(comment.id))];
 
 		await this.ensureDir();
-		const dir = normalizePath(`${STORAGE_DIR}/${HELD_DIR}`);
+		const dir = normalizePath(`${this.dir}/${HELD_DIR}`);
 		if (!(await this.adapter.exists(dir))) await this.adapter.mkdir(dir);
 		const sidecar: Sidecar = { version: FORMAT_VERSION, filePath, comments: merged };
 		await this.adapter.write(path, JSON.stringify(sidecar, null, 2));
@@ -647,7 +655,7 @@ export class CommentStorage {
 	}
 
 	private async ensureDir(): Promise<void> {
-		const dir = normalizePath(STORAGE_DIR);
+		const dir = this.dir;
 		if (!(await this.adapter.exists(dir))) await this.adapter.mkdir(dir);
 	}
 
@@ -740,14 +748,14 @@ export class CommentStorage {
 	 * kept and data that was quietly lost.
 	 */
 	async countSetAside(): Promise<{ count: number; folder: string }> {
-		const folder = normalizePath(STORAGE_DIR);
+		const folder = this.dir;
 		if (!(await this.adapter.exists(folder))) return { count: 0, folder };
 		const { files } = await this.adapter.list(folder);
 		return { count: files.filter((path) => SET_ASIDE.test(path)).length, folder };
 	}
 
 	private async addUnlisted(index: Index): Promise<void> {
-		const dir = normalizePath(STORAGE_DIR);
+		const dir = this.dir;
 		if (!(await this.adapter.exists(dir))) return;
 
 		const listed = new Set(Object.keys(index).map((filePath) => this.sidecarPath(filePath)));
@@ -774,9 +782,9 @@ export class CommentStorage {
 		}
 	}
 
-	/** Whether `path` is where a sidecar lives: a `.json` directly in STORAGE_DIR, not the index. */
+	/** Whether `path` is where a sidecar lives: a `.json` directly in the storage folder, not the index. */
 	private isSidecar(path: string): boolean {
-		const prefix = `${normalizePath(STORAGE_DIR)}/`;
+		const prefix = `${this.dir}/`;
 		return (
 			path.startsWith(prefix) &&
 			path.endsWith(".json") &&

@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
 	CommentStorage,
 	STORAGE_DIR,
+	HELD_DIR,
 	INDEX_FILE,
 	FORMAT_VERSION,
 	describeInvalidComments,
@@ -1219,5 +1220,68 @@ describe("countSetAside", () => {
 			count: 0,
 			folder: STORAGE_DIR,
 		});
+	});
+});
+
+describe("a custom storage folder", () => {
+	const DIR = "margin-comments";
+	const NOTE = "notes/meeting.md";
+	const inDir = (name: string) => `${DIR}/${name}`;
+
+	it("exposes the folder, defaulting to STORAGE_DIR", () => {
+		expect(new CommentStorage(new MemoryAdapter(), { dir: DIR }).dir).toBe(DIR);
+		expect(new CommentStorage(new MemoryAdapter()).dir).toBe(STORAGE_DIR);
+	});
+
+	it("writes the sidecar and the index under it, and nothing under the default", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter, { dir: DIR });
+		await storage.saveComment(makeComment());
+		await storage.getCommentSummaries();
+
+		const written = Object.keys(adapter.snapshot());
+		expect(written).toContain(inDir(`${hashString(NOTE)}.json`));
+		expect(written).toContain(inDir(INDEX_FILE));
+		expect(written.some((p) => p.startsWith(`${STORAGE_DIR}/`))).toBe(false);
+	});
+
+	it("holds comments under its held folder", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter, { dir: DIR });
+		await storage.saveComment(makeComment());
+		await storage.holdComments(NOTE);
+
+		const written = Object.keys(adapter.snapshot());
+		expect(written).toContain(inDir(`${HELD_DIR}/${hashString(NOTE)}.json`));
+		expect(written.some((p) => p.startsWith(`${STORAGE_DIR}/`))).toBe(false);
+	});
+
+	it("reports set-aside files in its own folder", async () => {
+		const adapter = new MemoryAdapter({
+			[inDir("aaa.json.invalid-1700000000000")]: "{}",
+			[`${STORAGE_DIR}/bbb.json.invalid-1700000000000`]: "{}",
+		});
+		await adapter.mkdir(DIR);
+		const storage = new CommentStorage(adapter, { dir: DIR });
+		expect(await storage.countSetAside()).toEqual({ count: 1, folder: DIR });
+	});
+
+	it("treats a sidecar under it as news and one under the default folder as not", async () => {
+		const adapter = new MemoryAdapter();
+		const storage = new CommentStorage(adapter, { dir: DIR });
+		await adapter.write(inDir("abc.json"), "{}");
+		await adapter.write(`${STORAGE_DIR}/abc.json`, "{}");
+
+		expect(await storage.changedOnDisk(inDir("abc.json"))).toBe(true);
+		expect(await storage.changedOnDisk(`${STORAGE_DIR}/abc.json`)).toBe(false);
+	});
+
+	it("does not list a sidecar left in the default folder", async () => {
+		const adapter = new MemoryAdapter();
+		await new CommentStorage(adapter).saveComment(makeComment());
+		await adapter.mkdir(DIR);
+
+		const storage = new CommentStorage(adapter, { dir: DIR });
+		expect(await storage.getCommentSummaries()).toEqual([]);
 	});
 });
