@@ -73,6 +73,44 @@ class CorruptingWrite extends MemoryAdapter {
 	}
 }
 
+/** Every call takes a real turn of the event loop, as a disk does, so work can interleave. */
+class SlowAdapter extends MemoryAdapter {
+	/** Called once, on the first write into the target: the move is then mid-copy. */
+	onCopy: () => void = () => undefined;
+	private tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+	async read(path: string): Promise<string> {
+		await this.tick();
+		return super.read(path);
+	}
+	async write(path: string, content: string): Promise<void> {
+		if (path.startsWith(`${TARGET}/`)) {
+			this.onCopy();
+			this.onCopy = () => undefined;
+		}
+		await this.tick();
+		return super.write(path, content);
+	}
+}
+
+/**
+ * Rewrites a source sidecar while the move reads its copies back, the way Sync can
+ * deliver another device's change between the copy and the delete.
+ */
+class SyncDuringMove extends MemoryAdapter {
+	deliveries = 1;
+	private delivered = 0;
+	constructor(private readonly deliver: (n: number) => [path: string, text: string]) {
+		super();
+	}
+	async read(path: string): Promise<string> {
+		if (path.startsWith(`${TARGET}/`) && this.delivered < this.deliveries) {
+			const [at, text] = this.deliver(++this.delivered);
+			await super.write(at, text);
+		}
+		return super.read(path);
+	}
+}
+
 /** Dies after the first source file is removed, like Obsidian closing mid-cleanup. */
 class DyingRemove extends MemoryAdapter {
 	armed = false;
@@ -99,7 +137,12 @@ describe("moving comments to another storage folder", () => {
 		const adapter = new MemoryAdapter();
 		const storage = new CommentStorage(adapter);
 
-		expect(await storage.moveTo(TARGET)).toEqual({ moved: 0, merged: 0, keptBoth: 0 });
+		expect(await storage.moveTo(TARGET)).toEqual({
+			moved: 0,
+			merged: 0,
+			keptBoth: 0,
+			leftInSource: [],
+		});
 
 		expect(storage.dir).toBe(TARGET);
 		expect(adapter.writes).toEqual([]);
@@ -118,7 +161,7 @@ describe("moving comments to another storage folder", () => {
 
 		const result = await storage.moveTo(TARGET);
 
-		expect(result).toEqual({ moved: 4, merged: 0, keptBoth: 0 });
+		expect(result).toEqual({ moved: 4, merged: 0, keptBoth: 0, leftInSource: [] });
 		expect(under(adapter, STORAGE_DIR)).toEqual([]);
 		expect(await adapter.exists(STORAGE_DIR)).toBe(false);
 		const after = adapter.snapshot();
@@ -151,17 +194,28 @@ describe("moving comments to another storage folder", () => {
 	});
 
 	it("finishes queued changes first and holds new ones until it is done", async () => {
-		const adapter = new MemoryAdapter();
+		const adapter = new SlowAdapter();
 		const storage = new CommentStorage(adapter);
 		await storage.saveComment(makeComment("a1"));
 		await storage.saveComment(makeComment("b1", OTHER));
 
+		let during: Promise<void> = Promise.resolve();
+		let copyStartedAt = -1;
+		adapter.onCopy = () => {
+			copyStartedAt = adapter.writes.length;
+			during = storage.saveComment(makeComment("a3"));
+		};
+
 		const queued = storage.saveComment(makeComment("a2"));
 		const held = storage.holdComments(OTHER);
-		const move = storage.moveTo(TARGET);
-		const during = storage.saveComment(makeComment("a3"));
-		await Promise.all([queued, held, move, during]);
+		await storage.moveTo(TARGET);
+		await Promise.all([queued, held, during]);
 
+		// A change asked for mid-copy waits for the switch, so it never writes the source.
+		expect(copyStartedAt).toBeGreaterThan(0);
+		expect(
+			adapter.writes.slice(copyStartedAt).filter((p) => p.startsWith(STORAGE_DIR)),
+		).toEqual([]);
 		expect(under(adapter, STORAGE_DIR)).toEqual([]);
 		expect((await idsIn(adapter, sidecarIn(TARGET, NOTE))).map(([id]) => id)).toEqual([
 			"a1",
@@ -170,6 +224,60 @@ describe("moving comments to another storage folder", () => {
 		]);
 		expect(await adapter.exists(heldIn(TARGET, OTHER))).toBe(true);
 		expect(await adapter.exists(sidecarIn(TARGET, OTHER))).toBe(false);
+	});
+
+	it("keeps a change that reaches the source after it was copied", async () => {
+		const source = sidecarIn(STORAGE_DIR, NOTE);
+		const adapter = new SyncDuringMove(() => [
+			source,
+			sidecarText(NOTE, [makeComment("a1"), makeComment("synced")]),
+		]);
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment("a1"));
+
+		const result = await storage.moveTo(TARGET);
+
+		expect((await idsIn(adapter, sidecarIn(TARGET, NOTE))).map(([id]) => id)).toEqual([
+			"a1",
+			"synced",
+		]);
+		expect(result.leftInSource).toEqual([]);
+		expect(await adapter.exists(STORAGE_DIR)).toBe(false);
+	});
+
+	it("leaves a source that keeps changing, and says so", async () => {
+		const source = sidecarIn(STORAGE_DIR, NOTE);
+		const adapter = new SyncDuringMove((n) => [
+			source,
+			sidecarText(NOTE, [makeComment("a1"), makeComment(`synced-${n}`)]),
+		]);
+		adapter.deliveries = Infinity;
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment("a1"));
+
+		const result = await storage.moveTo(TARGET);
+
+		expect(result.leftInSource).toEqual([source]);
+		expect(await adapter.exists(source)).toBe(true);
+		expect(storage.dir).toBe(TARGET);
+	});
+
+	it("resolves when the old folder cannot be removed, and reports it", async () => {
+		class StuckFolder extends MemoryAdapter {
+			async rmdir(): Promise<void> {
+				throw new Error("EBUSY");
+			}
+		}
+		const adapter = new StuckFolder();
+		const storage = new CommentStorage(adapter);
+		await storage.saveComment(makeComment("a1"));
+		await adapter.mkdir(STORAGE_DIR);
+
+		const result = await storage.moveTo(TARGET);
+
+		expect(result.leftInSource).toEqual([`${STORAGE_DIR}/`]);
+		expect(storage.dir).toBe(TARGET);
+		expect(await storage.getCommentsForFile(NOTE)).toHaveLength(1);
 	});
 
 	it.each([["a/b"], ["/a"], ["a/"], ["a\\b"], [""], [".."]])(
@@ -227,7 +335,12 @@ describe("moving comments to another storage folder", () => {
 		});
 		const storage = new CommentStorage(adapter);
 
-		expect(await storage.moveTo(TARGET)).toEqual({ moved: 0, merged: 1, keptBoth: 0 });
+		expect(await storage.moveTo(TARGET)).toEqual({
+			moved: 0,
+			merged: 1,
+			keptBoth: 0,
+			leftInSource: [],
+		});
 
 		expect(await idsIn(adapter, sidecarIn(TARGET, NOTE))).toEqual([
 			["c1", "target newer"],
@@ -248,7 +361,12 @@ describe("moving comments to another storage folder", () => {
 		});
 		const storage = new CommentStorage(adapter);
 
-		expect(await storage.moveTo(TARGET)).toEqual({ moved: 0, merged: 1, keptBoth: 0 });
+		expect(await storage.moveTo(TARGET)).toEqual({
+			moved: 0,
+			merged: 1,
+			keptBoth: 0,
+			leftInSource: [],
+		});
 
 		expect((await storage.releaseComments(NOTE))?.map((c) => c.id)).toEqual(["h1", "h3", "h2"]);
 		expect(await adapter.exists(STORAGE_DIR)).toBe(false);
@@ -285,7 +403,12 @@ describe("moving comments to another storage folder", () => {
 		});
 		const storage = new CommentStorage(adapter);
 
-		expect(await storage.moveTo(TARGET)).toEqual({ moved: 1, merged: 0, keptBoth: 1 });
+		expect(await storage.moveTo(TARGET)).toEqual({
+			moved: 1,
+			merged: 0,
+			keptBoth: 1,
+			leftInSource: [sidecarIn(STORAGE_DIR, NOTE)],
+		});
 
 		const after = adapter.snapshot();
 		expect(after[sidecarIn(newerIn, NOTE)]).toBe(newer);
@@ -300,7 +423,12 @@ describe("moving comments to another storage folder", () => {
 		const adapter = new MemoryAdapter({ [sidecarIn(STORAGE_DIR, NOTE)]: newer });
 		const storage = new CommentStorage(adapter);
 
-		expect(await storage.moveTo(TARGET)).toEqual({ moved: 1, merged: 0, keptBoth: 0 });
+		expect(await storage.moveTo(TARGET)).toEqual({
+			moved: 1,
+			merged: 0,
+			keptBoth: 0,
+			leftInSource: [],
+		});
 		expect(adapter.snapshot()).toEqual({ [sidecarIn(TARGET, NOTE)]: newer });
 	});
 
@@ -320,7 +448,12 @@ describe("moving comments to another storage folder", () => {
 		);
 		expect(await storage.getCommentsForFile(OTHER)).toHaveLength(1);
 
-		expect(await storage.moveTo(TARGET)).toEqual({ moved: 3, merged: 0, keptBoth: 0 });
+		expect(await storage.moveTo(TARGET)).toEqual({
+			moved: 3,
+			merged: 0,
+			keptBoth: 0,
+			leftInSource: [],
+		});
 		expect(under(adapter, STORAGE_DIR)).toEqual([]);
 		// The index is not among them: it is rebuilt on the next read.
 		expect(under(adapter, TARGET)).toHaveLength(3);
@@ -348,10 +481,11 @@ describe("moving comments to another storage folder", () => {
 		await first.saveComment(makeComment("c1", "notes/c.md"));
 		adapter.armed = true;
 
-		await expect(first.moveTo(TARGET)).rejects.toThrow("killed");
+		const cut = await first.moveTo(TARGET);
 		expect(first.dir).toBe(TARGET);
 		const leftover = under(adapter, STORAGE_DIR);
 		expect(leftover.length).toBeGreaterThan(0);
+		expect(cut.leftInSource).toEqual(expect.arrayContaining(leftover));
 		const target = adapter.snapshot();
 
 		// What Obsidian finds after a restart: the setting still names the source.
@@ -367,13 +501,16 @@ describe("moving comments to another storage folder", () => {
 		}
 	});
 
-	it("drops an unreadable target index, but keeps a newer plugin's", async () => {
+	it("drops an unreadable target index and its leftover .tmp, but keeps a newer plugin's index", async () => {
 		const newerIndex = JSON.stringify({ version: FORMAT_VERSION + 1, notes: {} });
 		const kept = new MemoryAdapter({ [`${TARGET}/${INDEX_FILE}`]: newerIndex });
 		await new CommentStorage(kept).moveTo(TARGET);
 		expect(kept.snapshot()[`${TARGET}/${INDEX_FILE}`]).toBe(newerIndex);
 
-		const dropped = new MemoryAdapter({ [`${TARGET}/${INDEX_FILE}`]: "{not json" });
+		const dropped = new MemoryAdapter({
+			[`${TARGET}/${INDEX_FILE}`]: "{not json",
+			[`${TARGET}/${INDEX_FILE}.tmp`]: "{half",
+		});
 		await new CommentStorage(dropped).moveTo(TARGET);
 		expect(dropped.snapshot()).toEqual({});
 	});

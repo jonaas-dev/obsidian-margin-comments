@@ -831,10 +831,12 @@ export class CommentStorage {
 	 * Waits for every queued change, and holds back new ones until it is done. Each
 	 * file is copied, then every copy is read back and compared, and only then does
 	 * the store switch folder and delete the source. Any failure before the switch
-	 * throws with the folder unchanged and the source untouched; a failure after it
-	 * rejects with `dir` already the target, and the leftover source is finished off
-	 * by a move from it again. Only adapter calls, no folder rename, because mobile
-	 * adapters have none that works across folders.
+	 * throws with the folder unchanged and the source untouched. After it, nothing
+	 * throws for the cleanup: what could not be removed is listed in `leftInSource`,
+	 * and a move from the source again finishes it. Callers persist `storage.dir`
+	 * rather than the target they asked for, and do so even when this rejects: once
+	 * `dir` is the target, that is where new comments are written. Only adapter calls,
+	 * no folder rename, because mobile adapters have none that works across folders.
 	 *
 	 * A target that already holds this plugin's files (Sync delivering another
 	 * device's) is merged per note by comment id. A sidecar either side holds in a
@@ -868,24 +870,24 @@ export class CommentStorage {
 			);
 		}
 
-		const result: MoveResult = { moved: 0, merged: 0, keptBoth: 0 };
+		const result: MoveResult = { moved: 0, merged: 0, keptBoth: 0, leftInSource: [] };
 		const copies: Array<[path: string, text: string]> = [];
-		const copied: string[] = [];
+		const copied: Array<[relative: string, kind: FileKind, text: string]> = [];
 		for (const relative of await this.contentsOf(from)) {
 			const kind = kindOf(relative);
 			// Left in place: someone else's file, which also keeps the source folder.
 			if (kind === null) continue;
+			let text = "";
 			if (kind !== "index") {
-				const text = await this.adapter.read(`${from}/${relative}`);
-				const path = `${to}/${relative}`;
-				const outcome =
-					kind === "raw"
-						? await this.copyRaw(path, text, copies)
-						: await this.copySidecar(path, text, copies);
+				text = await this.adapter.read(`${from}/${relative}`);
+				const outcome = await this.copy(kind, `${to}/${relative}`, text, copies);
 				result[outcome]++;
-				if (outcome === "keptBoth") continue;
+				if (outcome === "keptBoth") {
+					result.leftInSource.push(`${from}/${relative}`);
+					continue;
+				}
 			}
-			copied.push(relative);
+			copied.push([relative, kind, text]);
 		}
 
 		for (const [path, text] of copies) {
@@ -902,12 +904,72 @@ export class CommentStorage {
 		this.queues.clear();
 		this.index = null;
 		this.indexReadOnly = false;
-		await this.dropIndex();
+		// From here the comments are safe in the target, so a failure is reported, not thrown.
+		const warn = (error: unknown) =>
+			console.warn("margin-comments: could not clear the old storage folder", error);
+		await this.dropIndex().catch(warn);
 
-		for (const relative of copied) await this.adapter.remove(`${from}/${relative}`);
-		await this.removeIfEmpty(`${from}/${HELD_DIR}`);
-		await this.removeIfEmpty(from);
+		for (const [relative, kind, text] of copied) {
+			const path = `${from}/${relative}`;
+			const cleared = await this.clear(path, `${to}/${relative}`, kind, text).catch(
+				(error: unknown) => {
+					warn(error);
+					return false;
+				},
+			);
+			if (!cleared) result.leftInSource.push(path);
+		}
+		for (const folder of [`${from}/${HELD_DIR}`, from]) {
+			await this.removeIfEmpty(folder).catch((error: unknown) => {
+				warn(error);
+				result.leftInSource.push(`${folder}/`);
+			});
+		}
 		return result;
+	}
+
+	private copy(
+		kind: FileKind,
+		path: string,
+		text: string,
+		copies: Array<[string, string]>,
+	): Promise<keyof Omit<MoveResult, "leftInSource">> {
+		return kind === "raw"
+			? this.copyRaw(path, text, copies)
+			: this.copySidecar(path, text, copies);
+	}
+
+	/**
+	 * Removes a source file once it still holds what was copied; true when it is gone.
+	 *
+	 * Re-read first because Sync can deliver another device's change between the copy
+	 * and this delete, and deleting by the text read earlier dropped it. A changed file
+	 * is merged into the target again and verified; one that keeps changing is left.
+	 * A change landing between this read and the remove is still possible, but the
+	 * window is one adapter call rather than the whole move.
+	 */
+	private async clear(
+		path: string,
+		target: string,
+		kind: FileKind,
+		copiedText: string,
+	): Promise<boolean> {
+		let expected = copiedText;
+		for (let attempt = 0; attempt < 3; attempt++) {
+			const now = await this.readOrNull(path);
+			if (now === null) return true;
+			if (kind === "index" || now === expected) {
+				await this.adapter.remove(path);
+				return true;
+			}
+			const copies: Array<[string, string]> = [];
+			if ((await this.copy(kind, target, now, copies)) === "keptBoth") return false;
+			for (const [copy, text] of copies) {
+				if ((await this.adapter.read(copy)) !== text) return false;
+			}
+			expected = now;
+		}
+		return false;
 	}
 
 	/** The normalized target, or a StorageMoveError saying why it cannot be one. */
@@ -969,7 +1031,7 @@ export class CommentStorage {
 		path: string,
 		text: string,
 		copies: Array<[string, string]>,
-	): Promise<keyof MoveResult> {
+	): Promise<keyof Omit<MoveResult, "leftInSource">> {
 		const there = await this.readOrNull(path);
 		if (there === null) {
 			await this.writeCopy(path, text, copies);
@@ -1004,7 +1066,7 @@ export class CommentStorage {
 		path: string,
 		text: string,
 		copies: Array<[string, string]>,
-	): Promise<keyof MoveResult> {
+	): Promise<keyof Omit<MoveResult, "leftInSource">> {
 		for (let n = 0; ; n++) {
 			const candidate = n === 0 ? path : `${path}-${n}`;
 			const there = await this.readOrNull(candidate);
@@ -1022,6 +1084,8 @@ export class CommentStorage {
 	/** Removes the index the target held, so it is rebuilt from the merged sidecars. */
 	private async dropIndex(): Promise<void> {
 		const path = this.indexPath();
+		// A crash mid-write left it; recoverReplacement never looks at the index's.
+		if (await this.adapter.exists(`${path}.tmp`)) await this.adapter.remove(`${path}.tmp`);
 		const text = await this.readOrNull(path);
 		if (text === null) return;
 		let version: number | null = null;
@@ -1108,7 +1172,9 @@ export class CommentStorage {
  * What a file under a storage folder is, by its path relative to the folder; null for
  * anything this plugin never writes there.
  */
-function kindOf(relative: string): "index" | "sidecar" | "held" | "raw" | null {
+type FileKind = "index" | "sidecar" | "held" | "raw";
+
+function kindOf(relative: string): FileKind | null {
 	if (relative === INDEX_FILE || relative === `${INDEX_FILE}.tmp`) return "index";
 	if (/^[^/]+\.json$/.test(relative)) return "sidecar";
 	if (

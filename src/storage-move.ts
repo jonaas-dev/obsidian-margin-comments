@@ -23,6 +23,12 @@ export interface MoveResult {
 	merged: number;
 	/** Present on both sides and left as they were, because one side cannot be merged. */
 	keptBoth: number;
+	/**
+	 * Source paths still there after the switch: kept both, changed while the move ran,
+	 * or not removable (a folder is listed with a trailing slash). Their comments are
+	 * in the target too, except for a kept-both newer-format or unreadable sidecar.
+	 */
+	leftInSource: string[];
 }
 
 function keyOf(comment: unknown): string {
