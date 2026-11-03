@@ -1,7 +1,7 @@
 {
 	"name": "obsidian-margin-comments",
 	"version": "1.0.3",
-	"description": "Comment on your notes like in Google Docs: select text, reply in threads, resolve, and review every thread in a side panel. Comments live in a hidden folder, never in your Markdown, and follow the text as you edit.",
+	"description": "Comment on your notes like in Google Docs: reply in threads, resolve and review every thread in a side panel. Comments live in a hidden folder, never in your Markdown, and follow the text as you edit.",
 	"main": "main.js",
 	"scripts": {
 		"dev": "node esbuild.config.mjs",
