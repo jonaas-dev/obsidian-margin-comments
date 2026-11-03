@@ -6,6 +6,7 @@ import {
 	toHighlightColor,
 	toOrphanedBehavior,
 	toPanelPosition,
+	toStorageFolder,
 } from "../../src/settings-values";
 import { DEFAULT_SETTINGS, FUZZY_THRESHOLD_MAX, FUZZY_THRESHOLD_MIN } from "../../src/types";
 
@@ -100,5 +101,42 @@ describe("describeFuzzy", () => {
 
 	it("describes the shipped default as balanced", () => {
 		expect(describeFuzzy(DEFAULT_SETTINGS.fuzzyThreshold)).toContain("Balanced");
+	});
+});
+
+describe("toStorageFolder", () => {
+	const fallback = ".margin-comments";
+	const read = (v: unknown, configDir = ".obsidian") => toStorageFolder(v, fallback, configDir);
+
+	it.each([
+		undefined,
+		42,
+		"",
+		"  ",
+		"a/b",
+		"a/b/c",
+		"/a",
+		"a/",
+		"..",
+		".",
+		".obsidian",
+		".trash",
+		"a:b",
+		"a\\b",
+	])("keeps the default for %j", (v) => {
+		expect(read(v)).toBe(fallback);
+	});
+
+	it("rejects a custom config folder", () => {
+		expect(read(".config", ".config")).toBe(fallback);
+		expect(read(".obsidian", ".config")).toBe(".obsidian");
+	});
+
+	it.each([
+		["margin-comments", "margin-comments"],
+		[" Comments ", "Comments"],
+		[".margin-comments", ".margin-comments"],
+	])("accepts %j", (v, expected) => {
+		expect(read(v)).toBe(expected);
 	});
 });

@@ -18,6 +18,7 @@ import {
 	toHighlightColor,
 	toOrphanedBehavior,
 	toPanelPosition,
+	toStorageFolder,
 } from "./settings-values";
 import {
 	commentGutter,
@@ -127,6 +128,11 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			this.settings.panelPosition,
 			DEFAULT_SETTINGS.panelPosition,
 		);
+		this.settings.storageFolder = toStorageFolder(
+			this.settings.storageFolder,
+			DEFAULT_SETTINGS.storageFolder,
+			this.app.vault.configDir,
+		);
 	}
 
 	/**
@@ -136,6 +142,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	 */
 	private buildCore(): void {
 		this.storage = new CommentStorage(this.app.vault.adapter, {
+			dir: this.settings.storageFolder,
 			onUnreadable: (filePath, keptAt) => {
 				// No timeout: the path in the message is the only way back to those comments.
 				new Notice(describeUnreadableSidecar(filePath, keptAt), 0);

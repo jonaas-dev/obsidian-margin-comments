@@ -5,6 +5,7 @@ import {
 	type OrphanedBehavior,
 	type PanelPosition,
 } from "./types";
+import { normalizePath } from "obsidian";
 import { highlightOverride } from "./appearance";
 
 /**
@@ -41,6 +42,21 @@ export function toHighlightColor(value: unknown, fallback: HighlightColor): High
 /** Trimmed, because a name of spaces is stamped on comments as an empty one. */
 export function toAuthor(value: unknown, fallback: string): string {
 	return typeof value === "string" ? value.trim() : fallback;
+}
+
+/**
+ * A single folder name at the vault root (ADR 0001): nested paths are rejected,
+ * not split, because a move between them would have to create and clean up a tree.
+ * The slash test runs on the raw text, since normalizePath would hide "/a" and "a/".
+ */
+export function toStorageFolder(value: unknown, fallback: string, configDir: string): string {
+	if (typeof value !== "string") return fallback;
+	const trimmed = value.trim();
+	if (/[/\\:*?"<>|]/.test(trimmed)) return fallback;
+	const name = normalizePath(trimmed);
+	if (name === "" || name === "." || name === ".." || name === ".trash") return fallback;
+	if (name === normalizePath(configDir)) return fallback;
+	return name;
 }
 
 /** What the fuzzy slider is actually promising, in words rather than a number. */

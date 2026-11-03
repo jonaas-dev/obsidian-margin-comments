@@ -89,6 +89,8 @@ export interface PluginSettings {
 	panelFilter: ThreadFilter;
 	/** Persisted panel state, like panelFilter. */
 	panelScope: PanelScope;
+	/** A single folder name at the vault root that holds the comment sidecars. */
+	storageFolder: string;
 }
 
 export const FUZZY_THRESHOLD_MIN = 0.1;
@@ -110,4 +112,5 @@ export const DEFAULT_SETTINGS: PluginSettings = {
 	showCommentCount: true,
 	panelFilter: "all",
 	panelScope: "note",
+	storageFolder: ".margin-comments",
 };
