@@ -25,7 +25,7 @@ note by comment id: when both sides hold a comment, the newer `updatedAt` wins, 
 side only is kept. A sidecar in a newer format, or one that does not parse, is never rewritten.
 
 Vault events for files in the storage folder are ignored by `src/vault-events.ts`. A rename of the
-folder in the file explorer makes the setting follow it.
+folder in the file explorer makes the setting follow it when the new name is valid.
 
 ## Data model
 

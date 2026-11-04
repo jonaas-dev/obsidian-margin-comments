@@ -155,7 +155,7 @@ None has a default hotkey. Bind the ones you use in **Settings → Hotkeys**.
 <details>
 <summary><strong>How comments are stored</strong></summary>
 
-Comments live as JSON files in a folder at the root of your vault: one file per commented note, plus an index. The folder is `.margin-comments/` by default, which is hidden. You can choose a visible name under **Storage folder** in settings; **Move comments** copies the files there, merges them by comment id with anything already in the new folder, and removes the old folder. Your Markdown files are never modified.
+Comments live as JSON files in a folder at the root of your vault: one file per commented note, plus an index. The folder is `.margin-comments/` by default, which is hidden. You can choose a visible name under **Storage folder** in settings; **Move comments** copies the files there, merges them by comment id with anything already in the new folder, and removes the old folder once it is empty. Your Markdown files are never modified.
 
 Each comment remembers the words it was made on and the text around them, not a line number. It follows those words as you edit, and moves with the note when you rename it or move its folder. A comment whose words are gone is kept and shown as orphaned.
 
