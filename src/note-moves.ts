@@ -53,3 +53,23 @@ export function describeStrandedComments(paths: string[]): string {
 	const which = names.length === 1 ? names[0] : `${names.length} notes`;
 	return `Comments for ${which} could not follow the note and are still under the old path.`;
 }
+
+/** Whether `path` is the storage folder or anything under it. */
+export function inStorageFolder(path: string, dir: string): boolean {
+	return path === dir || path.startsWith(`${dir}/`);
+}
+
+/** Said when the user renamed the storage folder and the setting followed it. */
+export function describeStorageFollowed(dir: string): string {
+	return `Comments folder renamed to ${dir}; Margin Comments follows it.`;
+}
+
+/** Said when the storage folder went where the setting cannot follow (D1: one root folder). */
+export function describeStorageUnreachable(to: string, dir: string): string {
+	return `Comments folder moved to ${to}, which cannot hold comments. They are unreachable until it is renamed back to ${dir}.`;
+}
+
+/** Said when the user deleted the storage folder. */
+export function describeStorageDeleted(dir: string): string {
+	return `Comments folder ${dir} was deleted. Restore it from the trash to get its comments back; the next new comment creates it again.`;
+}

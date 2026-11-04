@@ -27,14 +27,22 @@ export function setIcon(_el: HTMLElement, _iconId: string): void {
  */
 export const noticeMessages: string[] = [];
 
+/** Every Notice since `clearNotices`, with its timeout: 0 is one that stays until dismissed. */
+export const notices: Array<{ message: string; duration: number | undefined }> = [];
+
 export function clearNotices(): void {
 	noticeMessages.length = 0;
+	notices.length = 0;
 }
 
 /** Records its message instead of drawing: there is no Obsidian here to draw into. */
 export class Notice {
-	constructor(readonly message: string) {
+	constructor(
+		readonly message: string,
+		readonly duration?: number,
+	) {
 		noticeMessages.push(message);
+		notices.push({ message, duration });
 	}
 
 	hide(): void {

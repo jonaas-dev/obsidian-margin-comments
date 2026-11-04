@@ -120,6 +120,9 @@ describe("a rename a note cannot follow", () => {
 			refresh: () => Promise.resolve(),
 			readNote: () => Promise.resolve(null),
 			fuzzyThreshold: () => 0.3,
+			storageDir: () => storage.dir,
+			onStorageFolderRenamed: () => Promise.resolve(),
+			onStorageFolderDeleted: () => Promise.resolve(),
 		});
 
 		await events.followRename("notes", "archive");

@@ -2,7 +2,15 @@ import { Notice, TFile, type TAbstractFile } from "obsidian";
 import type { CommentStorage } from "./storage";
 import type { Comment, OrphanedBehavior } from "./types";
 import { matchAnchor } from "./anchor";
-import { describeStrandedComments, movesFor } from "./note-moves";
+import {
+	describeStorageDeleted,
+	describeStorageFollowed,
+	describeStorageUnreachable,
+	describeStrandedComments,
+	inStorageFolder,
+	movesFor,
+} from "./note-moves";
+import { toStorageFolder } from "./settings-values";
 import { describeNoteDeletion, describeNoteMove, describeNoteRestore } from "./deleted-notes";
 
 /** What keeping comments with their notes needs from the plugin. */
@@ -14,6 +22,56 @@ interface NoteEventsHost {
 	readNote(filePath: string): Promise<string | null>;
 	/** The reader's fuzzy tolerance, so recognising a note matches what anchoring does. */
 	fuzzyThreshold(): number;
+	/** The storage folder now, which the Vault API sees when it is not a dotfolder. */
+	storageDir(): string;
+	/** The user renamed the storage folder to `to` (D4). */
+	onStorageFolderRenamed(to: string): Promise<void>;
+	/** The user deleted the storage folder (D5). */
+	onStorageFolderDeleted(): Promise<void>;
+}
+
+/**
+ * Point `storage` at the folder the user renamed it to, if it can live there.
+ *
+ * moveTo rather than a bare switch: it waits for queued writes and drops the caches
+ * and the index the old path keyed, and with the source already gone it copies
+ * nothing. `persist` gets `storage.dir`, which is what the store writes to from now
+ * on, even if moveTo rejected after switching. A name the setting would refuse (D1:
+ * one folder at the vault root) keeps the old setting and forgets the caches, so
+ * nothing on screen is edited back into a folder that is no longer there.
+ */
+export async function followStorageRename(
+	storage: CommentStorage,
+	to: string,
+	configDir: string,
+	persist: (dir: string) => Promise<void>,
+): Promise<void> {
+	const from = storage.dir;
+	const name = toStorageFolder(to, "", configDir);
+	if (name !== "") {
+		await storage.moveTo(name).catch((error: unknown) => {
+			console.error("margin-comments: could not follow the renamed storage folder", error);
+		});
+	}
+	if (name !== "" && storage.dir === name) {
+		await persist(name);
+		new Notice(describeStorageFollowed(name));
+		return;
+	}
+	storage.forget();
+	// No timeout: until the folder is renamed back, every comment in it is out of reach.
+	new Notice(describeStorageUnreachable(to, from), 0);
+}
+
+/**
+ * Forget the deleted storage folder without recreating it (D5).
+ *
+ * Nothing is written here: the folder comes back with the next comment saved, so a
+ * user restoring it from the trash first does not find a fresh one in the way.
+ */
+export function forgetDeletedStorage(storage: CommentStorage): void {
+	storage.forget();
+	new Notice(describeStorageDeleted(storage.dir), 0);
 }
 
 /**
@@ -104,6 +162,16 @@ export class NoteEvents {
 	 * read.
 	 */
 	async followRename(from: string, to: string): Promise<void> {
+		const dir = this.host.storageDir();
+		if (from === dir) {
+			await this.host.onStorageFolderRenamed(to);
+			await this.host.refresh();
+			return;
+		}
+		// The store's own writes land here with a visible folder: every save renames
+		// a .tmp into place, and treating it as a note read the index each time.
+		if (inStorageFolder(from, dir) || inStorageFolder(to, dir)) return;
+
 		const summaries = await this.host.storage.getCommentSummaries();
 		const moves = movesFor(
 			summaries.map((summary) => summary.filePath),
@@ -140,6 +208,13 @@ export class NoteEvents {
 	 * folder cascade where the rename handler does.
 	 */
 	async followDelete(file: TAbstractFile): Promise<void> {
+		const dir = this.host.storageDir();
+		if (file.path === dir) {
+			await this.host.onStorageFolderDeleted();
+			await this.host.refresh();
+			return;
+		}
+		if (inStorageFolder(file.path, dir)) return;
 		if (!(file instanceof TFile) || file.extension !== "md") return;
 		if (this.host.orphanedBehavior() === "keep") {
 			await this.host.refresh();
@@ -174,6 +249,7 @@ export class NoteEvents {
 	 */
 	async followCreate(file: TAbstractFile): Promise<void> {
 		if (!(file instanceof TFile) || file.extension !== "md") return;
+		if (inStorageFolder(file.path, this.host.storageDir())) return;
 
 		this.recentCreates.set(file.path, Date.now());
 

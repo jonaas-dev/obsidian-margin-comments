@@ -897,13 +897,8 @@ export class CommentStorage {
 		}
 
 		this.folder = to;
-		this.cache.clear();
-		this.known.clear();
-		this.unindexable.clear();
-		this.readOnly.clear();
+		this.forget();
 		this.queues.clear();
-		this.index = null;
-		this.indexReadOnly = false;
 		// From here the comments are safe in the target, so a failure is reported, not thrown.
 		const warn = (error: unknown) =>
 			console.warn("margin-comments: could not clear the old storage folder", error);
@@ -970,6 +965,22 @@ export class CommentStorage {
 			expected = now;
 		}
 		return false;
+	}
+
+	/**
+	 * Drop everything read from the folder, so the next read goes to disk.
+	 *
+	 * For when the folder went away under the store: the user deleted it, or renamed
+	 * it somewhere the store cannot follow. Without this the panel keeps showing the
+	 * cached comments, and editing one writes them back into a folder nobody restored.
+	 */
+	forget(): void {
+		this.cache.clear();
+		this.known.clear();
+		this.unindexable.clear();
+		this.readOnly.clear();
+		this.index = null;
+		this.indexReadOnly = false;
 	}
 
 	/** The normalized target, or a StorageMoveError saying why it cannot be one. */

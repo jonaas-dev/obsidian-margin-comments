@@ -47,6 +47,9 @@ const events = (storage: CommentStorage) =>
 		refresh: () => Promise.resolve(),
 		readNote: () => Promise.resolve(null),
 		fuzzyThreshold: () => 0.3,
+		storageDir: () => storage.dir,
+		onStorageFolderRenamed: () => Promise.resolve(),
+		onStorageFolderDeleted: () => Promise.resolve(),
 	});
 
 describe("comments held for a note that went away", () => {
@@ -162,6 +165,9 @@ describe("pairing a create and a delete that are really a move", () => {
 			refresh: () => Promise.resolve(),
 			readNote: (filePath) => Promise.resolve(files[filePath] ?? null),
 			fuzzyThreshold: () => 0.3,
+			storageDir: () => storage.dir,
+			onStorageFolderRenamed: () => Promise.resolve(),
+			onStorageFolderDeleted: () => Promise.resolve(),
 		});
 		return { storage, notes, adapter };
 	}

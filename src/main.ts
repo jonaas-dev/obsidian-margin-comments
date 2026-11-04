@@ -9,7 +9,7 @@ import {
 	describeNewerFormat,
 	describeUnreadableSidecar,
 } from "./storage";
-import { NoteEvents } from "./vault-events";
+import { NoteEvents, followStorageRename, forgetDeletedStorage } from "./vault-events";
 import { HIGHLIGHT_VARIABLE, highlightOverride } from "./appearance";
 import { InlineCommentsSettingTab, type SettingsHost } from "./settings";
 import {
@@ -384,6 +384,13 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 				return file instanceof TFile ? this.app.vault.cachedRead(file) : null;
 			},
 			fuzzyThreshold: () => this.settings.fuzzyThreshold,
+			storageDir: () => this.storage.dir,
+			onStorageFolderRenamed: (to) =>
+				followStorageRename(this.storage, to, this.app.vault.configDir, (dir) => {
+					this.settings.storageFolder = dir;
+					return this.save();
+				}),
+			onStorageFolderDeleted: async () => forgetDeletedStorage(this.storage),
 		});
 		// vault.on rather than a workspace event: a note can be renamed from the
 		// file explorer with nothing open, and the comments still have to follow.
