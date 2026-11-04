@@ -6,13 +6,26 @@
 src/
 ├── main.ts          entry point, plugin registration
 ├── types.ts         Comment, TextAnchor, PluginSettings
-├── storage.ts       sidecar CRUD over vault.adapter
+├── storage.ts       sidecar CRUD over vault.adapter in the configured folder
 ├── anchor.ts        content-based anchoring (hash → context → fuzzy → orphaned)
 ├── editor/          CodeMirror 6 extensions (gutter, highlights, floating editor)
 ├── ui/              sidebar panel, comment cards, modals
 ├── settings.ts      settings tab
 └── utils.ts         hashing, relative dates, ids
 ```
+
+## Storage folder
+
+The folder is the `storageFolder` setting: `.margin-comments` by default, or a single folder name
+at the vault root that may be visible so Obsidian Sync can carry it (ADR-0001). `CommentStorage.moveTo`
+changes it without losing a comment. It waits for queued writes, copies each file to the target and
+reads every copy back to compare it, switches the store to the target, and only then deletes the
+source. A target that already holds this plugin's files (synced from another device) is merged per
+note by comment id: when both sides hold a comment, the newer `updatedAt` wins, and a comment on one
+side only is kept. A sidecar in a newer format, or one that does not parse, is never rewritten.
+
+Vault events for files in the storage folder are ignored by `src/vault-events.ts`. A rename of the
+folder in the file explorer makes the setting follow it.
 
 ## Data model
 

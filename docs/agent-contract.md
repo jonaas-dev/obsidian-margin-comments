@@ -4,13 +4,28 @@ How a script or an AI agent (Claude Code, OpenCode, …) can read the comments i
 reply to them while Obsidian may be open. The source of truth is `src/storage.ts` and
 `src/types.ts`; this page only covers what an external writer needs.
 
+## Finding the folder
+
+`<storage>` below is the storage folder: `.margin-comments` by default, but the user can choose
+another single folder name at the vault root. Do not hard-code `.margin-comments`.
+
+1. Read `<configDir>/plugins/margin-comments/data.json`. `configDir` is `.obsidian` unless the
+   vault changed it (Obsidian exposes it as `app.vault.configDir`).
+2. Take its `storageFolder` value when it is a single folder name at the vault root: not empty,
+   none of `/ \ : * ? " < > |`, not `.`, `..` or `.trash`, and not the config folder. Otherwise,
+   or when the file or key is absent, use `.margin-comments`.
+3. Fallback, when that folder holds no `_index.json` with a numeric `version`: use the root
+   folder that does.
+
+The rules in step 2 are `toStorageFolder` in `src/settings-values.ts`.
+
 ## Files
 
 | Path (vault-relative) | Content |
 |---|---|
-| `.margin-comments/_index.json` | `{ "version": 1, "notes": { "<note path>": { "hash", "threads", "open" } } }` |
-| `.margin-comments/<hash>.json` | One note's sidecar: `{ "version": 1, "filePath": "<note path>", "comments": [Comment] }` |
-| `.margin-comments/held/` | Comments of deleted notes waiting for them to come back. Do not touch |
+| `<storage>/_index.json` | `{ "version": 1, "notes": { "<note path>": { "hash", "threads", "open" } } }` |
+| `<storage>/<hash>.json` | One note's sidecar: `{ "version": 1, "filePath": "<note path>", "comments": [Comment] }` |
+| `<storage>/held/` | Comments of deleted notes waiting for them to come back. Do not touch |
 
 `<hash>` is `hashString(filePath)` from `src/utils.ts`: two FNV-1a 32-bit passes over the
 UTF-16 code units (both bytes of each one) with offset bases `2166136261` and `2166136830`,

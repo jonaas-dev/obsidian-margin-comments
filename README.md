@@ -155,13 +155,15 @@ None has a default hotkey. Bind the ones you use in **Settings → Hotkeys**.
 <details>
 <summary><strong>How comments are stored</strong></summary>
 
-Comments live as JSON files in `.margin-comments/` at the root of your vault: one file per commented note, plus an index. Your Markdown files are never modified.
+Comments live as JSON files in a folder at the root of your vault: one file per commented note, plus an index. The folder is `.margin-comments/` by default, which is hidden. You can choose a visible name under **Storage folder** in settings; **Move comments** copies the files there, merges them by comment id with anything already in the new folder, and removes the old folder. Your Markdown files are never modified.
 
 Each comment remembers the words it was made on and the text around them, not a line number. It follows those words as you edit, and moves with the note when you rename it or move its folder. A comment whose words are gone is kept and shown as orphaned.
 
 A damaged comment file is set aside and reported, never overwritten.
 
-**Syncing.** Git, iCloud and Dropbox sync the folder like any other. Obsidian Sync skips folders that start with a dot, so with Obsidian Sync your comments stay on the device where you wrote them.
+**Syncing.** Git, iCloud and Dropbox sync the folder like any other. Obsidian Sync skips folders that start with a dot, so with the default folder your comments stay on the device where you wrote them.
+
+Using Obsidian Sync? Set Storage folder to a visible folder on every device and turn on **Sync all other types** in Sync settings. Without it, comments may stay on the device where you wrote them. Enable it to be safe: whether the default Sync settings carry the folder is not verified. Use the same folder on every device, because the folder name is stored in each device's `data.json`, which may not sync. If two devices edit the same note's comments at once, the last save wins.
 
 **Large notes.** The panel draws every thread it shows. A note with a thousand comments takes about a quarter of a second to draw, and scrolling stays smooth.
 
@@ -178,7 +180,7 @@ Because the folder holds excerpts of your notes, treat it as part of your vault:
 - **Sharing a vault** shares every comment and author name in it.
 - **Deleting text** from a note does not remove it from a comment until the comment is deleted.
 
-To keep comments out of Git, add `.margin-comments/` to `.gitignore`.
+To keep comments out of Git, add your storage folder (`.margin-comments/` by default) to `.gitignore`.
 
 </details>
 
