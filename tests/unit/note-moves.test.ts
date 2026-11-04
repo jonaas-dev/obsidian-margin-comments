@@ -68,8 +68,8 @@ describe("describeStorageMove", () => {
 	});
 
 	it("is plain when nothing needed merging", () => {
-		expect(describeStorageMove("x", { moved: 3, merged: 0, keptBoth: 0, leftInSource: [] })).toBe(
-			"Moved 3 comment file(s) to x.",
-		);
+		expect(
+			describeStorageMove("x", { moved: 3, merged: 0, keptBoth: 0, leftInSource: [] }),
+		).toBe("Moved 3 comment file(s) to x.");
 	});
 });

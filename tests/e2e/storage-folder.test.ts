@@ -56,12 +56,15 @@ describe("moving the comments to another storage folder", () => {
 		JSON.parse(readFileSync(`${REPO}/data.json`, "utf8"));
 	const change = (to: string): Promise<void> =>
 		page.evaluate(
-			(target: string) => window.app.plugins.plugins["margin-comments"].changeStorageFolder(target),
+			(target: string) =>
+				window.app.plugins.plugins["margin-comments"].changeStorageFolder(target),
 			to,
 		);
 	const noticeTexts = (): Promise<string[]> =>
 		page.evaluate(() =>
-			Array.from(document.querySelectorAll(".notice")).map((n) => (n as HTMLElement).innerText),
+			Array.from(document.querySelectorAll(".notice")).map(
+				(n) => (n as HTMLElement).innerText,
+			),
 		);
 
 	beforeAll(async () => {
@@ -134,8 +137,8 @@ describe("moving the comments to another storage folder", () => {
 		expect(storedSettings().storageFolder).toBe("other");
 		expect(stored("other")).toHaveLength(3);
 		expect(existsSync(`${vault.path}/a`)).toBe(false);
-		expect((await noticeTexts()).some((t) => t.includes("a/b cannot be a storage folder"))).toBe(
-			true,
-		);
+		expect(
+			(await noticeTexts()).some((t) => t.includes("a/b cannot be a storage folder")),
+		).toBe(true);
 	});
 });

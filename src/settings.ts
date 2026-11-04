@@ -1,4 +1,11 @@
-import { App, Plugin, Setting, type ButtonComponent, PluginSettingTab, type SettingDefinitionItem } from "obsidian";
+import {
+	App,
+	Plugin,
+	Setting,
+	type ButtonComponent,
+	PluginSettingTab,
+	type SettingDefinitionItem,
+} from "obsidian";
 import { ConfirmModal } from "./ui/confirm-modal";
 import { FUZZY_THRESHOLD_MAX, FUZZY_THRESHOLD_MIN, type PluginSettings } from "./types";
 import { describeFuzzy, storageFolderProblem } from "./settings-values";
@@ -188,7 +195,9 @@ export class InlineCommentsSettingTab extends PluginSettingTab {
 		const unchanged = draft.trim() === current;
 		setting.setName("Storage folder").setDesc(STORAGE_FOLDER_DESC);
 
-		const problem = setting.descEl.createDiv({ cls: "mod-warning inline-comment-folder-problem" });
+		const problem = setting.descEl.createDiv({
+			cls: "mod-warning inline-comment-folder-problem",
+		});
 		problem.setText(reason);
 		problem.toggle(reason !== "");
 
@@ -202,7 +211,9 @@ export class InlineCommentsSettingTab extends PluginSettingTab {
 					const why = storageFolderProblem(value, configDir);
 					problem.setText(why);
 					problem.toggle(why !== "");
-					move?.setDisabled(why !== "" || value.trim() === this.host.settings.storageFolder);
+					move?.setDisabled(
+						why !== "" || value.trim() === this.host.settings.storageFolder,
+					);
 				}),
 		);
 		setting.addButton((button) => {
