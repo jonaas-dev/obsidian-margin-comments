@@ -153,6 +153,30 @@ describe("settings tab", () => {
 		expect(storedSettings().author).toBe("Ada");
 	});
 
+	it("shows the storage folder field and refuses a bad name inline without moving anything", async () => {
+		const row = settingNamed("Storage folder");
+		const desc = await row.locator(".setting-item-description").innerText();
+		expect(desc).toContain("turn on Sync all other types");
+		const input = row.locator("input[type=text]");
+		const button = row.locator("button", { hasText: "Move comments" });
+		expect(await input.getAttribute("placeholder")).toBe("margin-comments");
+		// Unchanged from the saved folder: nothing to move.
+		expect(await button.isDisabled()).toBe(true);
+
+		await input.fill("a/b");
+		await page.waitForTimeout(200);
+		expect(await button.isDisabled()).toBe(true);
+		expect(await row.locator(".inline-comment-folder-problem").isVisible()).toBe(true);
+
+		await input.fill("margin-comments");
+		await page.waitForTimeout(200);
+		expect(await button.isDisabled()).toBe(false);
+		expect(await row.locator(".inline-comment-folder-problem").isVisible()).toBe(false);
+		// Typing saved nothing: only the confirmed Move changes the setting.
+		expect(storedSettings().storageFolder).toBe(".margin-comments");
+		await input.fill("");
+	});
+
 	/**
 	 * Visible rather than present.
 	 *

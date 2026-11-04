@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
 	describeFuzzy,
+	storageFolderProblem,
 	toAuthor,
 	toFuzzyThreshold,
 	toHighlightColor,
@@ -138,5 +139,24 @@ describe("toStorageFolder", () => {
 		[".margin-comments", ".margin-comments"],
 	])("accepts %j", (v, expected) => {
 		expect(read(v)).toBe(expected);
+	});
+});
+
+describe("storageFolderProblem", () => {
+	it.each([
+		["", "Enter a folder name."],
+		["   ", "Enter a folder name."],
+		["a/b", "single folder"],
+		["/a", "single folder"],
+		[".trash", "reserved"],
+		[".obsidian", "reserved"],
+		["..", "reserved"],
+	])("explains %j", (value, text) => {
+		expect(storageFolderProblem(value, ".obsidian")).toContain(text);
+	});
+
+	it("accepts what toStorageFolder accepts", () => {
+		expect(storageFolderProblem("margin-comments", ".obsidian")).toBe("");
+		expect(storageFolderProblem(" .margin-comments ", ".obsidian")).toBe("");
 	});
 });

@@ -73,3 +73,20 @@ export function describeStorageUnreachable(to: string, dir: string): string {
 export function describeStorageDeleted(dir: string): string {
 	return `Comments folder ${dir} was deleted. Restore it from the trash to get its comments back; the next new comment creates it again.`;
 }
+
+/** Said when the user moved the comments to another folder, or when the move was refused. */
+export function describeStorageMove(
+	to: string,
+	result: { moved: number; merged: number; keptBoth: number; leftInSource: string[] },
+): string {
+	const parts = [`Moved ${result.moved} comment file(s) to ${to}`];
+	if (result.merged > 0) parts.push(`merged ${result.merged} with files already there`);
+	let text = `${parts.join(", ")}.`;
+	if (result.keptBoth > 0) {
+		text += ` ${result.keptBoth} could not be merged and stay in the old folder too.`;
+	}
+	if (result.leftInSource.length > 0) {
+		text += ` Left in the old folder: ${result.leftInSource.join(", ")}.`;
+	}
+	return text;
+}

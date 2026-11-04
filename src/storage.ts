@@ -1114,7 +1114,10 @@ export class CommentStorage {
 	private async removeIfEmpty(folder: string): Promise<void> {
 		if (!(await this.adapter.exists(folder))) return;
 		const { files, folders } = await this.adapter.list(folder);
-		if (files.length === 0 && folders.length === 0) await this.adapter.rmdir(folder, false);
+		// Recursive although just checked empty: measured on Obsidian 1.13.7 desktop,
+		// rmdir(path, false) rejects with EISDIR even on an empty folder, so the old
+		// folder was never removed.
+		if (files.length === 0 && folders.length === 0) await this.adapter.rmdir(folder, true);
 	}
 
 	/**

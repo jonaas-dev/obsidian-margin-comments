@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { movedPath, movesFor } from "../../src/note-moves";
+import { describeStorageMove, movedPath, movesFor } from "../../src/note-moves";
 
 describe("movedPath", () => {
 	it("takes the new path when the note itself was renamed", () => {
@@ -50,5 +50,26 @@ describe("movesFor", () => {
 		// A move onto itself writes the sidecar and then deletes the one it just
 		// wrote, so the comments would be gone.
 		expect(movesFor(["notes/a.md"], "notes/a.md", "notes/a.md")).toEqual([]);
+	});
+});
+
+describe("describeStorageMove", () => {
+	it("counts, and says what stayed behind", () => {
+		const text = describeStorageMove("x", {
+			moved: 2,
+			merged: 1,
+			keptBoth: 1,
+			leftInSource: [".margin-comments/a.json"],
+		});
+		expect(text).toContain("Moved 2");
+		expect(text).toContain("merged 1");
+		expect(text).toContain("stay in the old folder");
+		expect(text).toContain(".margin-comments/a.json");
+	});
+
+	it("is plain when nothing needed merging", () => {
+		expect(describeStorageMove("x", { moved: 3, merged: 0, keptBoth: 0, leftInSource: [] })).toBe(
+			"Moved 3 comment file(s) to x.",
+		);
 	});
 });

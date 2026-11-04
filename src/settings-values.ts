@@ -59,6 +59,16 @@ export function toStorageFolder(value: unknown, fallback: string, configDir: str
 	return name;
 }
 
+/** Why `value` cannot be a storage folder, or "" when it can. Same rules as toStorageFolder. */
+export function storageFolderProblem(value: string, configDir: string): string {
+	const trimmed = value.trim();
+	if (trimmed === "") return "Enter a folder name.";
+	if (/[/\\:*?"<>|]/.test(trimmed)) {
+		return 'Use a single folder name at the vault root, without / \\ : * ? " < > |.';
+	}
+	return toStorageFolder(trimmed, "", configDir) === "" ? "That name is reserved." : "";
+}
+
 /** What the fuzzy slider is actually promising, in words rather than a number. */
 export function describeFuzzy(threshold: number): string {
 	if (threshold <= 0.15) return "Strict: only near-identical text is recognized.";

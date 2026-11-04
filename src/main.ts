@@ -9,6 +9,8 @@ import {
 	describeNewerFormat,
 	describeUnreadableSidecar,
 } from "./storage";
+import { describeStorageMove } from "./note-moves";
+import { StorageMoveError } from "./storage";
 import { NoteEvents, followStorageRename, forgetDeletedStorage } from "./vault-events";
 import { HIGHLIGHT_VARIABLE, highlightOverride } from "./appearance";
 import { InlineCommentsSettingTab, type SettingsHost } from "./settings";
@@ -434,6 +436,36 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 	}
 
 	/** Persist the settings object as it now stands. Part of SettingsHost. */
+	/**
+	 * Move the comments to another storage folder (the settings field's Move button).
+	 *
+	 * The setting is saved whenever the store ended up in the target, even if moveTo
+	 * threw after switching: data.json must always name the folder the data is in.
+	 * A refusal switches nothing, so nothing is saved.
+	 */
+	async changeStorageFolder(to: string): Promise<void> {
+		const target = toStorageFolder(to, "", this.app.vault.configDir);
+		if (target === "") {
+			new Notice(`${to} cannot be a storage folder.`);
+			return;
+		}
+		let message: string;
+		try {
+			message = describeStorageMove(target, await this.storage.moveTo(target));
+		} catch (error) {
+			message =
+				error instanceof StorageMoveError
+					? `Comments not moved: ${error.message}`
+					: `Moving the comments failed: ${error instanceof Error ? error.message : String(error)}`;
+		}
+		if (this.storage.dir === target && this.settings.storageFolder !== target) {
+			this.settings.storageFolder = target;
+			await this.save();
+		}
+		await this.refresh();
+		new Notice(message, 8000);
+	}
+
 	save(): Promise<void> {
 		return this.saveData(this.settings);
 	}

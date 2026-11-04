@@ -1,7 +1,14 @@
-import { App, Plugin, PluginSettingTab, type SettingDefinitionItem } from "obsidian";
+import { App, Plugin, Setting, type ButtonComponent, PluginSettingTab, type SettingDefinitionItem } from "obsidian";
+import { ConfirmModal } from "./ui/confirm-modal";
 import { FUZZY_THRESHOLD_MAX, FUZZY_THRESHOLD_MIN, type PluginSettings } from "./types";
-import { describeFuzzy } from "./settings-values";
+import { describeFuzzy, storageFolderProblem } from "./settings-values";
 import { SORT_ORDERS, sortLabel } from "./ui/panel-sort";
+
+// A folder name, not UI prose, so the sentence-case rule has nothing to say about it.
+const FOLDER_PLACEHOLDER = "margin-comments";
+
+const STORAGE_FOLDER_DESC =
+	"Where comment files are kept. The default, .margin-comments, is hidden and is skipped by Obsidian Sync. To sync comments with Obsidian Sync, choose a visible folder, use the same folder on every device, and turn on Sync all other types in Sync settings.";
 
 /** Not a stored setting: the toggle that decides whether highlightColor is "theme". */
 const FOLLOW_THEME = "followThemeAccent";
@@ -23,6 +30,8 @@ export interface SettingsHost extends Plugin {
 	applyHighlightColour(): void;
 	/** Move an open panel to the configured side; a no-op when none is open. */
 	movePanel(): Promise<void>;
+	/** Move the comments to another storage folder and persist the setting if it worked. */
+	changeStorageFolder(to: string): Promise<void>;
 }
 
 /**
@@ -56,12 +65,21 @@ export class InlineCommentsSettingTab extends PluginSettingTab {
 	 * keyed by the settings field, so there is one place that knows how a change
 	 * is persisted and applied.
 	 */
+	/** What is typed in the storage folder field; applied only by the Move button. */
+	private folderDraft: string | null = null;
+
 	getSettingDefinitions(): SettingDefinitionItem[] {
 		return [
 			{
 				name: "Author name",
 				desc: "Stamped on comments you write from now on. Existing comments keep the name they were written under.",
 				control: { type: "text", key: "author", placeholder: "Unattributed" },
+			},
+			{
+				name: "Storage folder",
+				desc: STORAGE_FOLDER_DESC,
+				aliases: ["sync", "folder", "move"],
+				render: (setting) => this.renderStorageFolder(setting),
 			},
 			{
 				type: "group",
@@ -155,6 +173,61 @@ export class InlineCommentsSettingTab extends PluginSettingTab {
 				],
 			},
 		];
+	}
+
+	/**
+	 * A text field and a button rather than a text control: a control saves on every
+	 * keystroke, and a move on every keystroke would shuffle the folder through each
+	 * prefix of the name. The field only holds a draft until Move is pressed.
+	 */
+	private renderStorageFolder(setting: Setting): void {
+		const current = this.host.settings.storageFolder;
+		const draft = this.folderDraft ?? current;
+		const configDir = this.app.vault.configDir;
+		const reason = storageFolderProblem(draft, configDir);
+		const unchanged = draft.trim() === current;
+		setting.setName("Storage folder").setDesc(STORAGE_FOLDER_DESC);
+
+		const problem = setting.descEl.createDiv({ cls: "mod-warning inline-comment-folder-problem" });
+		problem.setText(reason);
+		problem.toggle(reason !== "");
+
+		let move: ButtonComponent | undefined;
+		setting.addText((text) =>
+			text
+				.setPlaceholder(FOLDER_PLACEHOLDER)
+				.setValue(draft)
+				.onChange((value) => {
+					this.folderDraft = value;
+					const why = storageFolderProblem(value, configDir);
+					problem.setText(why);
+					problem.toggle(why !== "");
+					move?.setDisabled(why !== "" || value.trim() === this.host.settings.storageFolder);
+				}),
+		);
+		setting.addButton((button) => {
+			move = button;
+			button
+				.setButtonText("Move comments")
+				.setDisabled(reason !== "" || unchanged)
+				.onClick(() => {
+					const name = (this.folderDraft ?? current).trim();
+					new ConfirmModal(
+						this.app,
+						`Move comments to ${name}?`,
+						async () => {
+							await this.host.changeStorageFolder(name);
+							this.folderDraft = null;
+							this.update();
+						},
+						{
+							confirmLabel: "Move comments",
+							note: "Comment files are copied to the new folder, merged by comment id with any already there, and the old folder is removed once empty.",
+							destructive: false,
+						},
+					).open();
+				});
+		});
 	}
 
 	getControlValue(key: string): unknown {
