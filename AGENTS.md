@@ -91,6 +91,10 @@ model: [docs/architecture.md](docs/architecture.md); external readers/writers:
 - Before merging anything rebased or force-pushed, confirm the CI run's `head_sha` is the commit you merge.
 - Commit or stash before `git reset --hard`, and check `git status` first.
 
+## Releases ([steps](docs/maintenance.md#releasing))
+
+- Tags carry no `v`; `release.yml` only creates a draft, and nothing reaches users until it is published with `gh release edit <x.y.z> --draft=false`. Run the full E2E suite before tagging.
+
 ## Code knowledge graph
 
 Explore with `code-review-graph` (MCP in `.mcp.json` and `.opencode/opencode.json`) before Grep/Read: `semantic_search_nodes` or `query_graph` to find code, `get_impact_radius` for blast radius, `detect_changes` plus `get_review_context` to review a diff.

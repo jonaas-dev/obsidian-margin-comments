@@ -1,6 +1,6 @@
-# Maintenance: hooks, identity, dependencies, git
+# Maintenance: hooks, identity, dependencies, git, releases
 
-Detail behind the hook, identity, dependency and git rules in [AGENTS.md](../AGENTS.md).
+Detail behind the hook, identity, dependency, git and release rules in [AGENTS.md](../AGENTS.md).
 
 ## Pre-commit hooks
 
@@ -96,3 +96,25 @@ both times cleaning up after a throwaway experiment, and both times it silently 
 a real fix that had not been committed yet — once caught only because the test that
 followed exercised the reverted code. Commit or stash before resetting, and when a reset
 follows an experiment, check `git status` first to see what else is riding along.
+
+## Releasing
+
+A release goes out in five steps. The tag push builds the assets, but nothing reaches users
+until the draft is published by hand.
+
+1. **Bump on a branch**: `npm version <x.y.z> --no-git-tag-version` updates `package.json`
+   and `package-lock.json`, and its `version` script runs `version-bump.mjs`, which writes
+   `manifest.json` and adds `versions.json` → current `minAppVersion`. Add the
+   `CHANGELOG.md` entry and its link at the bottom. Commit as `chore: release <x.y.z>`.
+2. **Verify**: CI green on the head, and a full `npm run test:e2e` on an idle machine
+   ([e2e.md](e2e.md)); CI never runs the E2E suite, so a release without it ships untested
+   against a real Obsidian.
+3. **Merge** by fast-forward push of the reviewed head, as for any PR.
+4. **Tag without a `v`**: `git tag <x.y.z> <sha> && git push origin <x.y.z>`. The community
+   directory looks a release up by the bare version, and `release.yml` only matches
+   `[0-9]+.[0-9]+.[0-9]+`; it checks the tag against `manifest.json` and `versions.json`,
+   attests `main.js` and `styles.css`, and creates a **draft** release with the assets.
+5. **Publish the draft**: `gh release edit <x.y.z> --draft=false --latest --notes-file <notes>`,
+   with the version's changelog section as notes. Until then the directory reports
+   "No release matches your manifest version", because `manifest.json` on `main` already
+   names a version with no public release (1.1.0 sat in draft for this reason).
