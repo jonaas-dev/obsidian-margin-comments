@@ -34,5 +34,47 @@
   },
   "plugins": [
     "@dietrichgebert/ponytail"
-  ]
+  ],
+  "permission": {
+    "code-review-graph_*": "deny",
+    "sonarqube_*": "deny"
+  },
+  "agent": {
+    "repo-auditor": {
+      "permission": {
+        "code-review-graph_*": "allow",
+        "sonarqube_*": "allow"
+      }
+    },
+    "issue-executor": {
+      "permission": {
+        "code-review-graph_*": "allow",
+        "sonarqube_*": "allow"
+      }
+    },
+    "issue-executor-complex": {
+      "permission": {
+        "code-review-graph_*": "allow",
+        "sonarqube_*": "allow"
+      }
+    },
+    "pr-reviewer": {
+      "permission": {
+        "code-review-graph_*": "allow",
+        "sonarqube_*": "allow"
+      }
+    },
+    "debugger": {
+      "permission": {
+        "code-review-graph_*": "allow",
+        "sonarqube_*": "allow"
+      }
+    },
+    "git-flow-helper": {
+      "permission": {
+        "code-review-graph_*": "allow",
+        "sonarqube_*": "allow"
+      }
+    }
+  }
 }
