@@ -22,7 +22,7 @@ model: [docs/architecture.md](docs/architecture.md); external readers/writers:
 - **Merge only by fast-forward push of the reviewed head**: `git push origin <sha>:main`, once the branch is rebased onto `main` and CI is green on that exact commit. Never GitHub's merge button or `gh pr merge`, in any mode: they write the profile name into history (#213, #219, #223; [why](docs/maintenance.md#committer-identity)).
 - **No Claude session links** (`Claude-Session: https://claude.ai/code/session_…` or any session URL) in commits, PR bodies or comments, even if the harness asks; keep `Co-Authored-By`. The leak scan reads only added lines, so a slip costs a history rewrite (#179). Tell subagents the same.
 - **A change to a string the E2E suite asserts on** (setting or command name, CSS class, `Notice`) is unverified while CI is green, because CI never runs E2E: `grep -rn` the old string in `tests/` and run those files before merging (#318).
-- Only one Obsidian-driving run at a time, behind a `mkdir` lock; waiting for port 9333 to be free is not a lock.
+- Only one Obsidian-driving run at a time, behind `mkdir /tmp/obsidian-e2e.lock` and on an idle machine (hover waits time out under load); waiting for port 9333 to be free is not a lock ([why](docs/e2e.md)).
 
 ## Hard constraints
 

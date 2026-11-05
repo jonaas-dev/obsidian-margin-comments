@@ -23,6 +23,16 @@ port to be free before it spawns, waits for a window after it attaches, and ever
 that kills Obsidian waits for it to exit. A run whose files fail in well under a second
 each is not testing the plugin: look for a second Obsidian on the port.
 
+**Take the lock, and run on an idle machine.** Waiting for the port only orders launches
+within one run; two runs (two sessions, two worktrees) still interleave. Take the lock with
+`mkdir /tmp/obsidian-e2e.lock` before `npm run test:e2e` and `rmdir` it afterwards; if
+`mkdir` fails, another run holds it. Check `uptime` first as well: the suite waits a few
+seconds for hover-driven UI such as `.inline-comment-marker`, and on 1.1.0, with the load
+average around 20 from parallel jest runs, four files (`delete-note`, `panel-sort`,
+`gutter-marker`, `storage-folder-events`) timed out there and passed 27/27 once the load
+dropped below 10. A failure on those waits under load is the machine, not the plugin:
+re-run the files before debugging.
+
 **Obsidian's settings modal never attaches here either.** `app.setting.open()` runs and
 `app.setting.openTabById()` accepts the id, the tab's `containerEl` exists and reports
 `isConnected`, and no `.modal` ever reaches the DOM. `tests/e2e/settings-tab.test.ts`
