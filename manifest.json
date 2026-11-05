@@ -1,7 +1,7 @@
 {
 	"id": "margin-comments",
 	"name": "Margin Comments",
-	"version": "1.0.3",
+	"version": "1.1.0",
 	"minAppVersion": "1.13.4",
 	"description": "Comment on your notes like in Google Docs: reply in threads, resolve and review every thread in a side panel. Comments live in a hidden folder, never in your Markdown, and follow the text as you edit.",
 	"author": "jonaas-dev",

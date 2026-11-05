@@ -4,6 +4,24 @@ All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Release tags carry no `v` prefix.
 
+## [1.1.0] - 2026-11-05
+
+### Added
+
+- A **Storage folder** setting chooses where comments are kept. The default stays the hidden
+  `.margin-comments/`; a visible name lets Obsidian Sync carry comments between devices
+  (#401, #404).
+- **Move comments** copies every comment file to the new folder, merges it by comment id with
+  anything already there, and removes the old folder once it is empty. A move that stops
+  halfway can be run again and loses nothing (#402).
+- Settings explain what Obsidian Sync needs to carry a visible storage folder (#404).
+
+### Changed
+
+- When the storage folder is visible, the plugin ignores it in vault events, and follows it
+  when you rename or move it from the file explorer (#403).
+- A shorter listing description that leads with what sets the plugin apart.
+
 ## [1.0.3] - 2026-10-23
 
 ### Fixed
@@ -70,6 +88,7 @@ First public release.
 - Comments that follow their note through renames and moves, including a rename made outside Obsidian, and come back whenever a deleted note does — they are held on disk, so a restart does not lose them.
 - Damaged storage is never overwritten: an unreadable sidecar or an invalid comment is set aside in a kept file, and a notice says where.
 
+[1.1.0]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.1.0
 [1.0.3]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.0.3
 [1.0.2]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.0.2
 [1.0.1]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.0.1
