@@ -1,5 +1,5 @@
 import { Notice, TFile, type TAbstractFile } from "obsidian";
-import type { CommentStorage } from "./storage";
+import { basename, type CommentStorage } from "./storage";
 import type { Comment, OrphanedBehavior } from "./types";
 import { matchAnchor } from "./anchor";
 import {
@@ -92,26 +92,19 @@ export class NoteEvents {
 	constructor(private readonly host: NoteEventsHost) {}
 
 	/**
-	 * Whether `comments` belong to the note now at `filePath`.
+	 * How many of `comments` find their place in the note now at `filePath`.
 	 *
-	 * Every one of them has to find its place in the text, using the same
-	 * matcher that decides whether a comment is orphaned — so this brings no
-	 * second notion of "the same note" to disagree with the first. All of them
-	 * rather than most: a note renamed outside Obsidian is unchanged, so its
-	 * comments all fit, and anything less lets an unrelated file that happens to
-	 * share a sentence take them (#289).
-	 *
-	 * An empty list never recognises anything: nothing fitting nowhere is not a
-	 * match, it is an absence of evidence.
+	 * The same matcher that decides whether a comment is orphaned, so this brings
+	 * no second notion of "the same note" to disagree with the first. Null when the
+	 * note cannot be read.
 	 */
-	private async recognises(filePath: string, comments: Comment[]): Promise<boolean> {
-		if (comments.length === 0) return false;
+	private async fitting(filePath: string, comments: Comment[]): Promise<number | null> {
 		const doc = await this.host.readNote(filePath);
-		if (doc === null) return false;
+		if (doc === null) return null;
 		const threshold = this.host.fuzzyThreshold();
-		return comments.every(
+		return comments.filter(
 			(comment) => matchAnchor(doc, comment.anchor, { fuzzy: true, threshold }) !== null,
-		);
+		).length;
 	}
 
 	/** Paths created within the pairing window, newest first, pruned as it goes. */
@@ -124,18 +117,32 @@ export class NoteEvents {
 
 	/**
 	 * Hand a held note's comments to the note it was moved to, if exactly one
-	 * candidate recognises them.
+	 * candidate is that note.
 	 *
-	 * Exactly one: with two files that both fit, there is no way to tell which
+	 * First a candidate every comment fits. All of them rather than most: a note
+	 * renamed outside Obsidian is unchanged, and anything less lets an unrelated
+	 * file that happens to share a sentence take them (#289). Failing that, the
+	 * one candidate with the note's own file name that fits some: a note edited
+	 * between two moves loses an anchor or two, and holding every comment for it
+	 * left them where nothing brings them back (#431). The rest show as orphans,
+	 * as text changed in place does.
+	 *
+	 * Exactly one either way: with two that fit, there is no way to tell which
 	 * is the move, and leaving the comments held is recoverable where guessing
 	 * is not.
 	 */
 	private async reattach(from: string, comments: Comment[], to: string[]): Promise<boolean> {
-		const fits: string[] = [];
+		if (comments.length === 0) return false;
+		const whole: string[] = [];
+		const partial: string[] = [];
+		const name = basename(from);
 		for (const candidate of to) {
 			if (candidate === from) continue;
-			if (await this.recognises(candidate, comments)) fits.push(candidate);
+			const fit = await this.fitting(candidate, comments);
+			if (fit === comments.length) whole.push(candidate);
+			else if (fit && basename(candidate) === name) partial.push(candidate);
 		}
+		const fits = whole.length > 0 ? whole : partial;
 		if (fits.length !== 1) return false;
 
 		const target = fits[0];

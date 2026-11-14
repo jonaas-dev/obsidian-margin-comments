@@ -228,6 +228,72 @@ describe("pairing a create and a delete that are really a move", () => {
 		expect(await storage.releaseComments(NOTE)).toHaveLength(1);
 	});
 
+	/**
+	 * #431: a note edited between two moves outside Obsidian no longer fits every
+	 * anchor, and all of its comments stayed held with nothing to bring them back.
+	 */
+	describe("when the moved note's text changed", () => {
+		const MOVED = "other/ext.md";
+		/** Two comments: "hello" survives the edit, "gone words" does not. */
+		async function editedVault(files: Record<string, string>) {
+			const made = await vaultWith(files, NOTE);
+			const second = makeComment(NOTE, "c2");
+			second.anchor = {
+				...second.anchor,
+				selectedText: "gone words",
+				textHash: hashString("gone words"),
+				contextBefore: "these are ",
+				contextAfter: " entirely",
+			};
+			await made.storage.saveComment(second);
+			return made;
+		}
+		const edited = "hello there, this line was rewritten from scratch";
+
+		it("hands every comment to the one same-named note that fits some of them", async () => {
+			const { storage, notes } = await editedVault({ [MOVED]: edited });
+
+			await notes.followCreate(file(MOVED));
+			await notes.followDelete(file(NOTE));
+
+			const moved = await storage.getCommentsForFile(MOVED);
+			expect(moved.map((c) => c.id).sort()).toEqual(["c1", "c2"]);
+			expect(moved.every((c) => c.filePath === MOVED)).toBe(true);
+			expect(await storage.releaseComments(NOTE)).toBeNull();
+		});
+
+		it("keeps them held when the note that fits some has another name", async () => {
+			const { storage, notes } = await editedVault({ "other/renamed.md": edited });
+
+			await notes.followCreate(file("other/renamed.md"));
+			await notes.followDelete(file(NOTE));
+
+			expect(await storage.releaseComments(NOTE)).toHaveLength(2);
+		});
+
+		it("keeps them held when two same-named notes fit some", async () => {
+			const { storage, notes } = await editedVault({
+				[MOVED]: edited,
+				"third/ext.md": edited,
+			});
+
+			await notes.followCreate(file(MOVED));
+			await notes.followCreate(file("third/ext.md"));
+			await notes.followDelete(file(NOTE));
+
+			expect(await storage.releaseComments(NOTE)).toHaveLength(2);
+		});
+
+		it("keeps them held when the same-named note fits none", async () => {
+			const { storage, notes } = await editedVault({ [MOVED]: "nothing alike here" });
+
+			await notes.followCreate(file(MOVED));
+			await notes.followDelete(file(NOTE));
+
+			expect(await storage.releaseComments(NOTE)).toHaveLength(2);
+		});
+	});
+
 	it("does not pair with a note created long before", async () => {
 		const text = "hello there, this is the note's only line";
 		const { storage, notes } = await vaultWith({ [RENAMED]: text }, NOTE);

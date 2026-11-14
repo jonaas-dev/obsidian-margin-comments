@@ -5,7 +5,7 @@ import { mergeComments, StorageMoveError, type MoveResult } from "./storage-move
 
 export { StorageMoveError, type MoveResult, type MoveRefusal } from "./storage-move";
 
-function basename(path: string): string {
+export function basename(path: string): string {
 	const parts = path.split("/");
 	return parts[parts.length - 1] ?? path;
 }
