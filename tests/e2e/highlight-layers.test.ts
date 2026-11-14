@@ -12,6 +12,7 @@ const BODY = [
 	"Un párrafo con la palabra objetivo en medio de la frase.",
 	"Una línea entera que se comenta sin seleccionar nada.",
 	"Una tercera línea con dos palabras: alfa y omega, comentadas.",
+	"Una cuarta línea con ==texto resaltado== de Obsidian.",
 ].join("\n");
 
 /**
@@ -150,6 +151,56 @@ describe("the editor's highlight layers", () => {
 		});
 		expect(stacked).toEqual({ count: 1, nested: false });
 	});
+
+	it("refuses an invalid span and stores nothing (#423)", async () => {
+		const stored = await page.evaluate(async () => {
+			const plugin = window.app.plugins.plugins["margin-comments"];
+			const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
+			const cm = (
+				leaf.view.editor as unknown as { cm: { state: { doc: { length: number } } } }
+			).cm;
+			const path = leaf.view.file.path;
+			const count = async () => (await plugin.storage.getCommentsForFile(path)).length;
+			const before = await count();
+			const len = cm.state.doc.length;
+			for (const [from, to] of [
+				[-1, 3],
+				[5, 2],
+				[len - 2, len + 5],
+			]) {
+				await plugin.routing.createComment(cm, path, from, to, "invalid");
+			}
+			return (await count()) - before;
+		});
+		expect(stored).toBe(0);
+	});
+
+	for (const theme of ["theme-light", "theme-dark"]) {
+		it(`draws no tint over an Obsidian highlight, ${theme} (#423)`, async () => {
+			await commentOn("resaltado", 4, "Sobre texto resaltado.");
+			const seen = await page.evaluate(async (t: string) => {
+				document.body.classList.remove("theme-light", "theme-dark");
+				document.body.classList.add(t);
+				// Past the colour transitions before reading computed values.
+				await new Promise((r) => setTimeout(r, 800));
+				const marks = Array.from(
+					document.querySelectorAll(".inline-comment-active-range"),
+				) as HTMLElement[];
+				const inside = marks.filter(
+					(m) => m.closest(".cm-highlight") || m.querySelector(".cm-highlight"),
+				);
+				return inside.map((m) => ({
+					bg: getComputedStyle(m).backgroundColor,
+					shadow: getComputedStyle(m).boxShadow,
+				}));
+			}, theme);
+			expect(seen.length).toBeGreaterThan(0);
+			for (const m of seen) {
+				expect(m.bg).toBe("rgba(0, 0, 0, 0)");
+				expect(m.shadow).not.toBe("none");
+			}
+		});
+	}
 
 	it("clears both layers when the setting is switched off", async () => {
 		await page.evaluate(async () => {

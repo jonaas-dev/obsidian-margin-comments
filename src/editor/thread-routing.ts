@@ -205,6 +205,8 @@ export class ThreadRouting {
 		to: number,
 		content: string,
 	): Promise<boolean> {
+		// A span outside the document would be saved already orphaned.
+		if (from < 0 || to < from || to > view.state.doc.length) return false;
 		const now = Date.now();
 		const comment: Comment = {
 			id: crypto.randomUUID(),

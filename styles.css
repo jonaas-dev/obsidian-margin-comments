@@ -1080,3 +1080,14 @@
 		background-color: color-mix(in srgb, var(--text-accent) 10%, transparent);
 	}
 }
+
+/* Over Obsidian's ==highlight== the violet tint blends with the yellow into a
+   muddy brown (#423): inside one, only the underline marks the comment. Last in
+   the file so it outranks the theme and color-mix rules above. */
+.inline-comment-active-range:is(.cm-highlight *),
+.inline-comment-active-range:has(.cm-highlight),
+.inline-comment-active-range:is(.theme-dark *):is(.cm-highlight *),
+.inline-comment-active-range:is(.theme-dark *):has(.cm-highlight) {
+	background-color: transparent;
+	box-shadow: inset 0 -2px 0 0 var(--ic-highlight, var(--text-accent));
+}
