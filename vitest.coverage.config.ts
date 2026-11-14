@@ -24,6 +24,7 @@ const OBSIDIAN_BOUND_FILES = [
 	"src/ui/comment-panel.ts",
 	"src/ui/render-comment-body.ts",
 	"src/ui/confirm-modal.ts",
+	"src/ui/held-modal.ts",
 	"src/ui/thread-card.ts",
 	"src/ui/thread-popover.ts",
 ];

@@ -62,6 +62,8 @@ import {
 	withResolved,
 } from "./ui/comment-actions";
 import { ConfirmModal } from "./ui/confirm-modal";
+import { HeldEntryModal } from "./ui/held-modal";
+import { describeNoteRestore } from "./deleted-notes";
 import { Navigation } from "./navigation";
 import { inBackground } from "./background";
 
@@ -98,6 +100,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 		this.app.workspace.onLayoutReady(() => {
 			inBackground("refresh the markers and the panel", this.refresh());
 			inBackground("check for orphaned comments", this.checkOrphans());
+			inBackground("look for held comments", this.storage.listHeld());
 		});
 	}
 
@@ -342,6 +345,49 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			name: "Resolve all comments in this note",
 			editorCallback: (_editor, ctx) => this.confirmResolveAll(ctx as MarkdownView),
 		});
+
+		this.addCommand({
+			id: "restore-held-comments",
+			name: "Restore held comments to this note…",
+			// Answered from a cached flag: the palette asks on every keystroke.
+			editorCheckCallback: (checking, _editor, ctx) => {
+				if (!this.storage.heldAny || !(ctx as MarkdownView).file) return false;
+				if (!checking) this.chooseHeldEntry(ctx as MarkdownView);
+				return true;
+			},
+		});
+	}
+
+	private chooseHeldEntry(view: MarkdownView): void {
+		inBackground(
+			"choose held comments to restore",
+			(async () => {
+				const target = view.file?.path;
+				if (!target) return;
+				const entries = await this.storage.listHeld();
+				if (entries.length === 0) {
+					new Notice("No comments are being held.");
+					return;
+				}
+				new HeldEntryModal(this.app, entries, (entry) =>
+					inBackground(
+						"restore held comments",
+						this.restoreHeldTo(entry.filePath, target),
+					),
+				).open();
+			})(),
+		);
+	}
+
+	/** The part of the command behind the picker, so a test can drive it without the modal. */
+	async restoreHeldTo(from: string, target: string): Promise<void> {
+		const count = await this.storage.restoreHeld(from, target);
+		if (count === 0) {
+			new Notice("Those comments are no longer held.");
+			return;
+		}
+		new Notice(describeNoteRestore(target, count));
+		await this.refresh();
 	}
 
 	/**

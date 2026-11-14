@@ -29,3 +29,13 @@ export function describeNoteRestore(filePath: string, count: number): string {
 export function describeNoteMove(from: string, to: string, count: number): string {
 	return `${count} ${plural(count)} moved with ${noteName(from)}, now ${noteName(to)}.`;
 }
+
+/** How the restore picker names an entry: where it was, how much, and when it last changed. */
+export function describeHeldEntry(
+	filePath: string,
+	openThreads: number,
+	updatedAt: number,
+): string {
+	const threads = `${openThreads} open ${openThreads === 1 ? "thread" : "threads"}`;
+	return `${filePath} (${threads}, last changed ${new Date(updatedAt).toISOString().slice(0, 10)})`;
+}

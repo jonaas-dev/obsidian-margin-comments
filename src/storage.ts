@@ -240,7 +240,20 @@ const byCodeUnit = (a: string, b: string): number => {
 	return a > b ? 1 : 0;
 };
 
+/** One note's worth of held comments, as the restore command offers it. */
+export interface HeldEntry {
+	filePath: string;
+	openThreads: number;
+	updatedAt: number;
+}
+
 export class CommentStorage {
+	/**
+	 * Whether held/ had anything the last time it was listed, so the command
+	 * palette can ask without touching disk. Optimistic until the first listing:
+	 * showing a command that then says "nothing held" beats hiding one that works.
+	 */
+	heldAny = true;
 	private readonly cache = new Map<string, Comment[]>();
 	private index: Index | null = null;
 	/**
@@ -607,6 +620,7 @@ export class CommentStorage {
 			const sidecar: Sidecar = { version: FORMAT_VERSION, filePath, comments: merged };
 			await this.adapter.write(path, JSON.stringify(sidecar, null, 2));
 			await this.writeComments(filePath, []);
+			this.heldAny = true;
 			return taken;
 		});
 	}
@@ -620,6 +634,45 @@ export class CommentStorage {
 			await this.adapter.remove(path);
 			return held.length === 0 ? null : held;
 		});
+	}
+
+	/**
+	 * What is held, one entry per old note path. Reads only held/, never a note's
+	 * sidecar, so listing it cannot cost more than the held files themselves.
+	 */
+	async listHeld(): Promise<HeldEntry[]> {
+		const dir = normalizePath(`${this.dir}/${HELD_DIR}`);
+		const entries: HeldEntry[] = [];
+		if (await this.adapter.exists(dir)) {
+			for (const path of (await this.adapter.list(dir)).files) {
+				const held = await this.readHeld(path);
+				if (held.length === 0) continue;
+				entries.push({
+					filePath: held[0].filePath,
+					openThreads: held.filter((c) => c.parentId === null && !c.resolved).length,
+					updatedAt: Math.max(...held.map((c) => c.updatedAt)),
+				});
+			}
+		}
+		this.heldAny = entries.length > 0;
+		return entries;
+	}
+
+	/**
+	 * Move a held entry onto another note. The held file goes last, so a failed
+	 * write leaves the comments held rather than nowhere; restoreComments keeps
+	 * ids already present, so a retry does not duplicate them.
+	 */
+	async restoreHeld(from: string, to: string): Promise<number> {
+		const held = await this.exclusive([from], () => this.readHeld(this.heldPath(from)));
+		if (held.length === 0) return 0;
+		await this.restoreComments(
+			to,
+			held.map((comment) => ({ ...comment, filePath: to })),
+		);
+		await this.releaseComments(from);
+		await this.listHeld();
+		return held.length;
 	}
 
 	private async readHeld(path: string): Promise<Comment[]> {

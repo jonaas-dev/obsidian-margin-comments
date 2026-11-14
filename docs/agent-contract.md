@@ -25,7 +25,7 @@ The rules in step 2 are `toStorageFolder` in `src/settings-values.ts`.
 |---|---|
 | `<storage>/_index.json` | `{ "version": 1, "notes": { "<note path>": { "hash", "threads", "open" } } }` |
 | `<storage>/<hash>.json` | One note's sidecar: `{ "version": 1, "filePath": "<note path>", "comments": [Comment] }` |
-| `<storage>/held/` | Comments of deleted notes waiting for them to come back. Do not touch |
+| `<storage>/held/` | Comments of deleted notes waiting for them to come back. **Read-only for agents**: see [Held comments](#held-comments) |
 
 `<hash>` is `hashString(filePath)` from `src/utils.ts`: two FNV-1a 32-bit passes over the
 UTF-16 code units (both bytes of each one) with offset bases `2166136261` and `2166136830`,
@@ -33,6 +33,14 @@ each printed as 8 hex digits. Prefer reading it from `_index.json` over recomput
 
 A sidecar whose `version` is higher than the one you understand must not be rewritten: the
 plugin shows it read-only for the same reason.
+
+## Held comments
+
+`<storage>/held/<hash>.json` has the same shape as a sidecar, and its `filePath` names the note the
+comments were held for. To tell whether a note has held comments, read the files in `held/` and
+compare each `filePath` with the note's path. Never write, move or delete anything in `held/`, and
+never copy its comments into a sidecar: the plugin re-claims them when the note comes back, and the
+reader restores them to a different note through the command **Restore held comments to this note…**.
 
 ## Comment
 
