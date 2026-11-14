@@ -1,5 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { highlightRanges, markedRanges } from "../../src/editor/line-highlight";
+import { EditorState, type TransactionSpec } from "@codemirror/state";
+import type { EditorView } from "@codemirror/view";
+import {
+	highlightRanges,
+	lineHighlights,
+	markedRanges,
+	threadSpansField,
+	updateHighlights,
+} from "../../src/editor/line-highlight";
 import { createAnchor } from "../../src/anchor";
 import type { Comment } from "../../src/types";
 
@@ -120,5 +128,47 @@ describe("markedRanges, the selection layer", () => {
 		expect(ranges.map((r) => r.from)).toEqual(
 			[...ranges.map((r) => r.from)].sort((x, y) => x - y),
 		);
+	});
+});
+
+/**
+ * #419: the spans rendered widgets are painted from. They must follow edits
+ * until the next pass replaces them, or a widget repainted on a keystroke marks
+ * the wrong words.
+ */
+describe("threadSpansField", () => {
+	function editor(doc: string) {
+		let state = EditorState.create({ doc, extensions: lineHighlights() });
+		const view = {
+			get state() {
+				return state;
+			},
+			dispatch(spec: TransactionSpec) {
+				state = state.update(spec).state;
+			},
+		};
+		return view as typeof view & EditorView;
+	}
+
+	const span = { id: "a", from: 6, to: 11, line: false };
+
+	it("holds what the pass hands it", () => {
+		const view = editor("hello world");
+		updateHighlights(view, { lines: [], ranges: [], spans: [span] });
+		expect(view.state.field(threadSpansField)).toEqual([span]);
+	});
+
+	it("follows the words through an edit before them", () => {
+		const view = editor("hello world");
+		updateHighlights(view, { lines: [], ranges: [], spans: [span] });
+		view.dispatch({ changes: { from: 0, insert: "oh, " } });
+		expect(view.state.field(threadSpansField)).toEqual([{ ...span, from: 10, to: 15 }]);
+	});
+
+	it("is replaced, not merged, by the next pass", () => {
+		const view = editor("hello world");
+		updateHighlights(view, { lines: [], ranges: [], spans: [span] });
+		updateHighlights(view, { lines: [], ranges: [], spans: [] });
+		expect(view.state.field(threadSpansField)).toEqual([]);
 	});
 });

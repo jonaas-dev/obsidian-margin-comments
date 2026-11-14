@@ -1,6 +1,6 @@
 import { Decoration, EditorView, type DecorationSet } from "@codemirror/view";
 import { StateEffect, StateField, type Extension } from "@codemirror/state";
-import { resolveMarkers, type LineRange } from "./marker-pass";
+import { resolveMarkers, type LineRange, type ThreadSpan } from "./marker-pass";
 import type { Comment } from "../types";
 
 export type { LineRange } from "./marker-pass";
@@ -24,6 +24,8 @@ interface Highlights {
 	lines: LineRange[];
 	/** Anchored spans to mark, for comments made on a selection. */
 	ranges: LineRange[];
+	/** Every open thread's span, for the rendered widgets decorations cannot reach. */
+	spans: ThreadSpan[];
 }
 
 const setHighlights = StateEffect.define<Highlights>();
@@ -68,8 +70,29 @@ const highlightField = StateField.define<DecorationSet>({
 	provide: (field) => EditorView.decorations.from(field),
 });
 
+/**
+ * The same spans with their thread ids, for widgetHighlights.
+ *
+ * Mapped through edits like the decorations, so a widget repainted before the
+ * next pass still finds its words.
+ */
+export const threadSpansField = StateField.define<readonly ThreadSpan[]>({
+	create: () => [],
+	update(spans, tr) {
+		for (const effect of tr.effects) {
+			if (effect.is(setHighlights)) return effect.value.spans;
+		}
+		if (!tr.docChanged || spans.length === 0) return spans;
+		return spans.map((span) => ({
+			...span,
+			from: tr.changes.mapPos(span.from, 1),
+			to: tr.changes.mapPos(span.to, -1),
+		}));
+	},
+});
+
 export function lineHighlights(): Extension {
-	return [highlightField];
+	return [highlightField, threadSpansField];
 }
 
 export function updateHighlights(view: EditorView, highlights: Highlights): void {

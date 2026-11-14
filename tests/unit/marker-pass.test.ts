@@ -145,6 +145,23 @@ describe("resolveMarkers", () => {
 		expect(resolveMarkers(doc, [resolved, reply]).counts.size).toBe(0);
 	});
 
+	it("keeps each open root's own span and id, unmerged, for rendered widgets (#419)", () => {
+		const at = doc.indexOf("second");
+		const spans = resolveMarkers(doc, [
+			comment(doc, at, 6, { id: "b" }),
+			comment(doc, at, 6, { id: "a" }),
+			lineComment(doc, doc.indexOf("fourth"), { id: "l" }),
+			comment(doc, at, 6, { id: "r", resolved: true }),
+			comment(doc, at, 6, { id: "p", parentId: "a" }),
+		]).spans;
+		const fourth = doc.indexOf("fourth");
+		expect(spans).toEqual([
+			{ id: "b", from: at, to: at + 6, line: false },
+			{ id: "a", from: at, to: at + 6, line: false },
+			{ id: "l", from: fourth, to: doc.length, line: true },
+		]);
+	});
+
 	it("follows a rewritten line by its surviving context", () => {
 		// Stage 2's whole job. The text is gone but the lines either side are not,
 		// so the comment belongs on the line that replaced it rather than nowhere.
@@ -236,6 +253,7 @@ describe("one match per comment", () => {
 		// Both halves consumed, which is what the editor does with them.
 		expect(pass.counts.size).toBe(3);
 		expect(pass.ranges).toHaveLength(3);
+		expect(pass.spans).toHaveLength(3);
 		// Three open comments, three matches. Six would mean the gutter and the
 		// highlights are each paying for the whole set; five would mean the
 		// resolved root and the reply are being matched to be thrown away.

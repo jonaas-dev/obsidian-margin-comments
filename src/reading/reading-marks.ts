@@ -16,6 +16,23 @@ export function unmarkBlock(el: HTMLElement): void {
 }
 
 /**
+ * Undo paintReadingMarks, leaving the text nodes as they were.
+ *
+ * Live preview keeps a rendered table or callout across edits, so it is
+ * repainted in place (#419) and must not collect a second layer of marks.
+ */
+export function clearReadingMarks(el: HTMLElement): void {
+	// Only the marks' parents are normalised: the whole block may hold a cell's
+	// nested editor, whose text nodes are CodeMirror's to manage.
+	const parents = new Set<Node>();
+	for (const mark of Array.from(el.querySelectorAll(`.${READING_MARK_CLASS}`))) {
+		if (mark.parentNode) parents.add(mark.parentNode);
+		mark.replaceWith(...Array.from(mark.childNodes));
+	}
+	for (const parent of parents) parent.normalize();
+}
+
+/**
  * Mark the commented stretches of a rendered block.
  *
  * Returns how many highlights were placed, which is how the caller learns that
@@ -79,10 +96,14 @@ export function threadIdsAt(target: Element): string[] {
 }
 
 function textNodesIn(root: HTMLElement): Text[] {
+	// Not into an editor nested in the block: live preview edits a table cell in
+	// a CodeMirror of its own, and splitting its text would corrupt it (#419).
+	// Reading mode's blocks hold no editor, so there both sides are null.
+	const editor = root.closest(".cm-editor");
 	const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
 	const nodes: Text[] = [];
 	for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-		nodes.push(node as Text);
+		if (node.parentElement?.closest(".cm-editor") === editor) nodes.push(node as Text);
 	}
 	return nodes;
 }

@@ -18,6 +18,7 @@ const OBSIDIAN_BOUND_FILES = [
 	"src/editor/floating-comment.ts",
 	"src/editor/hover-gutter.ts",
 	"src/editor/thread-routing.ts",
+	"src/editor/widget-highlights.ts",
 	"src/reading/reading-marks.ts",
 	"src/reading/reading-mode.ts",
 	"src/ui/comment-panel.ts",

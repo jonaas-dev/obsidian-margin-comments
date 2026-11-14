@@ -88,7 +88,7 @@ function offsetOfLine(doc: string, line: number): number {
  * `locateAcrossSegments` compares and counts them, overlaps included, so that
  * the nth appearance in the source is the nth it looks for.
  */
-function appearances(text: string, needle: string): number {
+export function appearances(text: string, needle: string): number {
 	const wanted = normalise([needle]).text;
 	const haystack = normalise([text]).text;
 	let count = 0;

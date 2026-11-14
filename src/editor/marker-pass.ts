@@ -34,6 +34,21 @@ interface MarkerPass {
 	 * reason the line spans are keyed by line.
 	 */
 	ranges: LineRange[];
+	/**
+	 * Every open root's own span, unmerged and with its thread id, in document
+	 * order.
+	 *
+	 * For rendered tables and callouts, where decorations reach no DOM and the
+	 * reading-mode painter marks the widget instead (#419): it needs the id to
+	 * make a mark open its thread, which the merged ranges have lost.
+	 */
+	spans: ThreadSpan[];
+}
+
+export interface ThreadSpan extends LineRange {
+	id: string;
+	/** A whole-line comment, which marks the block rather than words. */
+	line: boolean;
 }
 
 /** Spans in document order, with anything overlapping or touching joined. */
@@ -96,6 +111,7 @@ export function resolveMarkers(doc: string, comments: Comment[]): MarkerPass {
 	// comments.
 	const lines = new Map<number, LineRange>();
 	const ranges: LineRange[] = [];
+	const spans: ThreadSpan[] = [];
 
 	for (const comment of comments) {
 		if (comment.resolved || comment.parentId !== null) continue;
@@ -110,8 +126,10 @@ export function resolveMarkers(doc: string, comments: Comment[]): MarkerPass {
 			const from = starts[index];
 			const to = index + 1 < starts.length ? starts[index + 1] - 1 : doc.length;
 			lines.set(from, { from, to });
+			spans.push({ id: comment.id, from, to, line: true });
 		} else {
 			ranges.push({ from: match.from, to: match.to });
+			spans.push({ id: comment.id, from: match.from, to: match.to, line: false });
 		}
 	}
 
@@ -120,5 +138,6 @@ export function resolveMarkers(doc: string, comments: Comment[]): MarkerPass {
 		// CodeMirror requires ranges in document order.
 		lines: [...lines.values()].sort((a, b) => a.from - b.from),
 		ranges: mergeRanges(ranges),
+		spans: spans.sort((a, b) => a.from - b.from || a.to - b.to),
 	};
 }

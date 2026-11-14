@@ -30,6 +30,7 @@ import {
 } from "./editor/hover-gutter";
 import { resolveMarkers } from "./editor/marker-pass";
 import { lineHighlights, updateHighlights } from "./editor/line-highlight";
+import { widgetHighlights } from "./editor/widget-highlights";
 import { ThreadRouting } from "./editor/thread-routing";
 import type { Binding } from "./ui/hotkey";
 
@@ -288,6 +289,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			inBackground("open a thread from reading mode", this.reading.openFrom(event));
 		});
 		this.registerEditorExtension(lineHighlights());
+		this.registerEditorExtension(widgetHighlights());
 		this.registerEditorExtension(
 			commentGutter({
 				touch: () => this.touch,
@@ -905,8 +907,8 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			updateHighlights(
 				view,
 				this.settings.showLineHighlights
-					? { lines: markers.lines, ranges: markers.ranges }
-					: { lines: [], ranges: [] },
+					? { lines: markers.lines, ranges: markers.ranges, spans: markers.spans }
+					: { lines: [], ranges: [], spans: [] },
 			);
 		}
 	}
