@@ -61,4 +61,30 @@ describe("displayQuote", () => {
 	it("returns plain text unchanged", () => {
 		expect(displayQuote("nothing to take out here")).toBe("nothing to take out here");
 	});
+
+	describe("table rows (#422)", () => {
+		it("shows a row as its cells joined with a middle dot", () => {
+			expect(displayQuote("| Beta | pending | second row |")).toBe(
+				"Beta · pending · second row",
+			);
+		});
+
+		it("keeps an escaped pipe inside its cell", () => {
+			expect(displayQuote("| a \\| b | c |")).toBe("a | b · c");
+		});
+
+		it("drops a delimiter row", () => {
+			expect(displayQuote("|---|:--:|")).toBe("|---|:--:|");
+			expect(displayQuote("| H | I |\n|---|:--:|\n| a | b |")).toBe("H · I\na · b");
+		});
+
+		it("handles a multi-row selection", () => {
+			expect(displayQuote("| a | b |\n| c | d |")).toBe("a · b\nc · d");
+		});
+
+		it("leaves a pipe in prose alone", () => {
+			expect(displayQuote("either this | or that")).toBe("either this | or that");
+			expect(displayQuote("|")).toBe("|");
+		});
+	});
 });

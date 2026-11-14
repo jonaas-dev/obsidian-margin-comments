@@ -21,10 +21,15 @@ export function displayQuote(source: string): string {
 	// Code spans first, and their content kept verbatim: `a*b*c` is code, not
 	// emphasis. Parked behind private-use characters, which no note text carries.
 	const code: string[] = [];
-	let text = source.replace(/`([^`]+)`/g, (_match, inner: string) => {
-		code.push(inner);
-		return `\uE000${code.length - 1}\uE001`;
-	});
+	let text = source
+		.split("\n")
+		.map(tableRow)
+		.filter((line) => line !== null)
+		.join("\n")
+		.replace(/`([^`]+)`/g, (_match, inner: string) => {
+			code.push(inner);
+			return `\uE000${code.length - 1}\uE001`;
+		});
 
 	text = text
 		// Embeds and wikilinks: the alias when there is one, the target otherwise.
@@ -55,4 +60,19 @@ export function displayQuote(source: string): string {
 
 	// Syntax alone, such as a bare "- ", is still what the comment was made on.
 	return text.trim() === "" ? source : text;
+}
+
+// A table row becomes its trimmed cells; a delimiter row becomes null (dropped).
+// `\|` is a pipe inside a cell, parked so the split cannot see it.
+function tableRow(line: string): string | null {
+	const row = line.trim();
+	if (row.length < 2 || !row.startsWith("|") || !row.endsWith("|")) return line;
+	if (/^[|:\-\s]+$/.test(row) && row.includes("-")) return null;
+	return row
+		.slice(1, -1)
+		.replace(/\\\|/g, "\uE003")
+		.split("|")
+		.map((cell) => cell.trim())
+		.join(" · ")
+		.replace(/\uE003/g, "|");
 }
