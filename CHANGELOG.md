@@ -4,6 +4,29 @@ All notable changes to this plugin are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html). Release tags carry no `v` prefix.
 
+## [1.2.0] - 2026-11-14
+
+### Added
+
+- **Restore held comments to this note...** lists the comments set aside for notes that went
+  missing (old path, open threads, last update) and restores the chosen set to the active
+  note. Nothing is removed until the note holds them (#432).
+
+### Fixed
+
+- A note edited between two moves made outside Obsidian keeps its comments: when it is the
+  only candidate with the same file name, it gets them all, and the ones whose text changed
+  show as orphaned threads instead of staying held (#431).
+- Comment highlights show inside rendered tables and callouts in live preview, and clicking
+  them opens the thread (#419).
+- The comment gutter no longer appears inside a table cell being edited, nor shifts its text (#418).
+- The composer and popover open next to a selection inside a rendered table, not at the
+  window's edge (#420).
+- "Add comment to selection" comments the words selected in a rendered callout instead of the
+  whole line.
+- Inside `==highlight==` only the underline is drawn, so the colours no longer blend into brown.
+- Quotes from table rows show their cells without the pipe syntax in the panel (#422).
+
 ## [1.1.0] - 2026-11-05
 
 ### Added
@@ -88,6 +111,7 @@ First public release.
 - Comments that follow their note through renames and moves, including a rename made outside Obsidian, and come back whenever a deleted note does — they are held on disk, so a restart does not lose them.
 - Damaged storage is never overwritten: an unreadable sidecar or an invalid comment is set aside in a kept file, and a notice says where.
 
+[1.2.0]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.2.0
 [1.1.0]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.1.0
 [1.0.3]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.0.3
 [1.0.2]: https://github.com/jonaas-dev/obsidian-margin-comments/releases/tag/1.0.2
