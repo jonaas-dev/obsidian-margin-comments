@@ -143,9 +143,33 @@ export class ThreadRouting {
 
 	/** Screen rect of a line, for anchoring the popover. */
 	private lineRect(view: EditorView, line: number): AnchorRect {
-		const coords = view.coordsAtPos(view.state.doc.line(line).from);
-		return coords
-			? { left: coords.left, right: coords.right, top: coords.top, bottom: coords.bottom }
+		const from = view.state.doc.line(line).from;
+		// Only a selection in the same block: a gutter press elsewhere must not
+		// anchor to a selection the reader made on another line.
+		const block = view.lineBlockAt(from);
+		const head = view.state.selection.main.head;
+		const here = head >= block.from && head <= block.to;
+		return (here ? this.selectionRect(view) : null) ?? this.rectOf(view.coordsAtPos(from));
+	}
+
+	/**
+	 * Screen rect of the window's selection when it sits inside the editor.
+	 *
+	 * Inside a rendered block (a table cell) CodeMirror has no box for a position
+	 * and `coordsAtPos` answers with the widget's edge, so the DOM range is the
+	 * only honest anchor (#420).
+	 */
+	private selectionRect(view: EditorView): AnchorRect | null {
+		const selection = view.dom.ownerDocument.getSelection();
+		if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+		const range = selection.getRangeAt(0);
+		if (!view.dom.contains(range.commonAncestorContainer)) return null;
+		return this.rectOf(range.getBoundingClientRect());
+	}
+
+	private rectOf(rect: AnchorRect | null): AnchorRect {
+		return rect
+			? { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom }
 			: { left: 0, right: 0, top: 0, bottom: 0 };
 	}
 
@@ -158,10 +182,7 @@ export class ThreadRouting {
 	 * selection (#81).
 	 */
 	private compose(view: EditorView, filePath: string, from: number, to: number): void {
-		const coords = view.coordsAtPos(from);
-		const anchorRect = coords
-			? { left: coords.left, right: coords.right, top: coords.top, bottom: coords.bottom }
-			: { left: 0, right: 0, top: 0, bottom: 0 };
+		const anchorRect = this.selectionRect(view) ?? this.rectOf(view.coordsAtPos(from));
 
 		this.composer?.close();
 		this.composer = new FloatingComposer({
