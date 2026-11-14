@@ -165,6 +165,7 @@ describe("styles.css theme awareness", () => {
 		// and Obsidian's own. Descendants and modifiers are fine —
 		// `.inline-comment-quote-icon .svg-icon` and `.inline-comment-filter
 		// .is-active` both start from us — but a bare `.is-active` does not.
+		// Nor does `.cm-gutters`, unless a `:has()` ties it to an element of ours.
 		const selectors = [...rules.matchAll(/([^{}@;]+)\{/g)]
 			.flatMap((match) => match[1].split(","))
 			.map((selector) => selector.trim())
@@ -172,6 +173,7 @@ describe("styles.css theme awareness", () => {
 
 		const unrooted = selectors.filter((selector) => {
 			const first = selector.split(/[\s>+~]+/)[0];
+			if (/:has\(\.inline-comment/.test(first)) return false;
 			return !first.split(/(?=[.:#[])/).some((part) => part.startsWith(".inline-comment"));
 		});
 		expect(unrooted).toEqual([]);

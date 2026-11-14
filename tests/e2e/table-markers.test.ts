@@ -144,4 +144,103 @@ describe("comments inside a rendered table", () => {
 		);
 		expect(quotes).toEqual(["cell one", "cell four"]);
 	});
+
+	/**
+	 * #418: Obsidian edits a cell in an editor of its own, nested in the table
+	 * widget, and every registered extension reaches it. The gutter mounted
+	 * there pushed the cell text right and offered a marker that commented the
+	 * whole row.
+	 */
+	describe("while a cell is being edited", () => {
+		/** The left edge of the text "cell two", wherever the table draws it. */
+		const cellTextLeft = (): Promise<number | null> =>
+			page.evaluate(() => {
+				const table = document.querySelector(".workspace-leaf.mod-active .cm-table-widget");
+				if (!table) return null;
+				const walker = document.createTreeWalker(table, NodeFilter.SHOW_TEXT);
+				for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+					const at = node.textContent?.indexOf("cell two") ?? -1;
+					if (at < 0) continue;
+					const range = document.createRange();
+					range.setStart(node, at);
+					range.setEnd(node, at + 1);
+					const rect = range.getBoundingClientRect();
+					// Obsidian keeps the rendered cell, hidden, beside the cell's editor.
+					if (rect.width > 0) return rect.left;
+				}
+				return null;
+			});
+
+		/** Those that take room on screen: Obsidian mounts the gutter wherever it likes. */
+		const nestedGutterParts = (): Promise<number> =>
+			page.evaluate(
+				() =>
+					Array.from(
+						document.querySelectorAll(
+							".cm-table-widget .inline-comment-gutter, .cm-table-widget .inline-comment-marker, .cm-table-widget .cm-gutters",
+						),
+					).filter((el) => el.getBoundingClientRect().width > 0).length,
+			);
+
+		let before: number | null = null;
+
+		beforeAll(async () => {
+			// Close the popover the previous test opened, then enter the cell.
+			await page.keyboard.press("Escape");
+			await page.waitForTimeout(300);
+			before = await cellTextLeft();
+			const left = before ?? 0;
+			const box = await page.evaluate(() => {
+				const cell = Array.from(
+					document.querySelectorAll(".workspace-leaf.mod-active .cm-table-widget td"),
+				).find((td) => td.textContent?.includes("cell two"));
+				const r = cell?.getBoundingClientRect();
+				return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : null;
+			});
+			expect(box, `no cell to click (text at ${left})`).not.toBeNull();
+			await page.mouse.click(box.x, box.y);
+			await page.waitForTimeout(600);
+			// Hover the cell's left edge, where the nested marker used to appear.
+			await page.mouse.move(box.x - 40, box.y);
+			await page.waitForTimeout(400);
+		});
+
+		it("is editing the cell in a nested editor, so the tests below can fail", async () => {
+			const nested = await page.evaluate(
+				() => document.querySelectorAll(".cm-table-widget .cm-editor").length,
+			);
+			expect(nested).toBeGreaterThan(0);
+			expect(before).not.toBeNull();
+		});
+
+		it("shows no comment gutter or marker inside the cell", async () => {
+			expect(await nestedGutterParts()).toBe(0);
+		});
+
+		it("leaves the cell text where it was", async () => {
+			const during = await cellTextLeft();
+			expect(during).not.toBeNull();
+			expect(Math.abs((during as number) - (before as number))).toBeLessThan(4);
+		});
+
+		it("leaves the cell text where it was after leaving the cell", async () => {
+			await page.evaluate(() => {
+				const leaf = window.app.workspace.getLeavesOfType("markdown")[0];
+				const cm = (leaf.view.editor as unknown as { cm: EditorViewLike }).cm;
+				cm.dispatch({ selection: { anchor: cm.state.doc.toString().length } });
+				(cm as unknown as { focus(): void }).focus();
+			});
+			await page.mouse.move(900, 500);
+			await page.waitForTimeout(600);
+			const after = await cellTextLeft();
+			expect(after).not.toBeNull();
+			expect(Math.abs((after as number) - (before as number))).toBeLessThan(4);
+			expect(await nestedGutterParts()).toBe(0);
+		});
+
+		it("still marks the table in the note's own gutter (#140)", async () => {
+			const markers = await tableMarkers();
+			expect(markers.map((m) => m.title)).toEqual(["2 comments on this line"]);
+		});
+	});
 });

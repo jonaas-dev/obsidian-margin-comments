@@ -6,6 +6,21 @@
 	cursor: pointer;
 }
 
+/* Obsidian edits a table cell in a nested editor that gets every registered
+   extension, ours included; a gutter there shifts the cell text and offers a
+   marker that comments the whole row (#418). The note's own gutter already
+   marks the table. CodeMirror's base theme sets `.cm-gutter` to
+   `display: flex !important`, so only another `!important` hides it. */
+.inline-comment-gutter:is(.cm-table-widget *) {
+	display: none !important;
+}
+
+/* With ours its only gutter, Obsidian's margin on `.cm-gutters` still pushes
+   the cell text 24px right. */
+.cm-gutters:has(.inline-comment-gutter:only-child):is(.cm-table-widget *) {
+	display: none;
+}
+
 /* Fixed width, and the count laid over it rather than beside it: the badge
    changes as threads are opened and resolved, and a marker that grew with it
    would push the note's text sideways while it is being read (#68).
