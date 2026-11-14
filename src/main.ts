@@ -312,11 +312,7 @@ export default class InlineCommentsPlugin extends Plugin implements SettingsHost
 			// it, the panel's empty state names the command instead (#122).
 			editorCallback: (_editor, ctx) => {
 				const view = (ctx as MarkdownView).editor as unknown as { cm?: EditorView };
-				if (view.cm)
-					this.routing.open(
-						view.cm,
-						view.cm.state.doc.lineAt(view.cm.state.selection.main.head).number,
-					);
+				if (view.cm) this.routing.openFromCommand(view.cm);
 			},
 		});
 

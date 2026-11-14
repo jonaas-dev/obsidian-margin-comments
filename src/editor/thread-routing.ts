@@ -9,6 +9,7 @@ import { commentIntent } from "./comment-intent";
 import { FloatingComposer } from "./floating-comment";
 import type { AnchorRect } from "./floating-position";
 import { inBackground } from "../background";
+import { widgetSelection } from "./widget-selection";
 
 /** What routing a comment request needs from the plugin. */
 interface ThreadRoutingHost {
@@ -48,14 +49,61 @@ export class ThreadRouting {
 	 * The anchor is built from the document as it stands now, so what gets stored
 	 * is the text the author was actually looking at.
 	 */
-	open(view: EditorView, line: number, lastLine = line): void {
+	open(
+		view: EditorView,
+		line: number,
+		lastLine = line,
+		selected?: { from: number; to: number },
+	): void {
 		const file = this.host.app.workspace.getActiveFile();
 		if (!file) return;
 
 		inBackground(
 			"open a thread from its marker",
-			this.showExistingOrCompose(view, line, file.path, lastLine),
+			this.showExistingOrCompose(view, line, file.path, lastLine, selected),
 		);
+	}
+
+	/**
+	 * The add-comment command: like `open` on the caret's line, except that words
+	 * selected inside a rendered widget count as the selection (#421).
+	 */
+	openFromCommand(view: EditorView): void {
+		const mapped = view.state.selection.main.empty ? this.widgetSelectionRange(view) : null;
+		if (!mapped) {
+			this.open(view, view.state.doc.lineAt(view.state.selection.main.head).number);
+			return;
+		}
+		const doc = view.state.doc;
+		this.open(view, doc.lineAt(mapped.from).number, doc.lineAt(mapped.to).number, mapped);
+	}
+
+	/**
+	 * The source range of words selected in a rendered block, or null.
+	 *
+	 * CodeMirror's own selection stays empty there, so only the window's selection
+	 * knows what was picked; null keeps the whole-line behaviour (#421).
+	 */
+	private widgetSelectionRange(view: EditorView): { from: number; to: number } | null {
+		const selection = view.dom.ownerDocument.getSelection();
+		if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+		const range = selection.getRangeAt(0);
+		const node = range.commonAncestorContainer;
+		const element = node.instanceOf(Element) ? node : node.parentElement;
+		const widget = element?.closest(".cm-embed-block");
+		if (!widget || !view.dom.contains(widget)) return null;
+
+		const block = view.lineBlockAt(view.posAtDOM(widget));
+		const before = range.cloneRange();
+		before.selectNodeContents(widget);
+		before.setEnd(range.startContainer, range.startOffset);
+		const found = widgetSelection(
+			view.state.sliceDoc(block.from, block.to),
+			widget.textContent ?? "",
+			before.toString(),
+			selection.toString(),
+		);
+		return found ? { from: block.from + found.from, to: block.from + found.to } : null;
 	}
 
 	/**
@@ -70,6 +118,7 @@ export class ThreadRouting {
 		line: number,
 		filePath: string,
 		lastLine = line,
+		picked?: { from: number; to: number },
 	): Promise<void> {
 		const comments = await this.host.storage.getCommentsForFile(filePath);
 		const threads = buildThreads(view.state.doc.toString(), comments, {
@@ -91,7 +140,7 @@ export class ThreadRouting {
 					!thread.root.resolved && thread.position !== null && thread.end !== null,
 			)
 			.map((thread) => ({ id: thread.root.id, from: thread.position!, to: thread.end! }));
-		const selection = view.state.selection.main;
+		const selection = picked ?? view.state.selection.main;
 
 		// The whole block the reader acted on: a rendered table's marker stands for
 		// every row, so its threads have to be found on every row (#140).
