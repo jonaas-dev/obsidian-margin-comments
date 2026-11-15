@@ -93,7 +93,7 @@ model: [docs/architecture.md](docs/architecture.md); external readers/writers:
 
 ## Releases ([steps](docs/maintenance.md#releasing))
 
-- Tags carry no `v`; `release.yml` only creates a draft, and nothing reaches users until it is published with `gh release edit <x.y.z> --draft=false`. Run the full E2E suite before tagging.
+- Tags carry no `v`; `release.yml` only creates a draft, and nothing reaches users until it is published with `gh release edit <x.y.z> --draft=false`. Run `npm run gate:release` (full E2E included) on the release commit before tagging; agents run it via the workflow-orchestrator `release_gate.py run`, whose hook blocks the tag push and the publish without it.
 
 ## Code knowledge graph
 

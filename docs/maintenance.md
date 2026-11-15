@@ -106,9 +106,12 @@ until the draft is published by hand.
    and `package-lock.json`, and its `version` script runs `version-bump.mjs`, which writes
    `manifest.json` and adds `versions.json` → current `minAppVersion`. Add the
    `CHANGELOG.md` entry and its link at the bottom. Commit as `chore: release <x.y.z>`.
-2. **Verify**: CI green on the head, and a full `npm run test:e2e` on an idle machine
-   ([e2e.md](e2e.md)); CI never runs the E2E suite, so a release without it ships untested
-   against a real Obsidian.
+2. **Verify**: CI green on the head, and `npm run gate:release` (lint, typecheck, unit, build
+   and the full E2E suite under the Obsidian lock) on an idle machine ([e2e.md](e2e.md)); CI
+   never runs the E2E suite, so a release without it ships untested against a real Obsidian.
+   Agents run it through the workflow-orchestrator plugin's `release_gate.py run`, which
+   records a release mark for the tree; its hook refuses the tag push, `gh release create`
+   and `gh release edit --draft=false` without that mark, and any `--draft` release.
 3. **Merge** by fast-forward push of the reviewed head, as for any PR.
 4. **Tag without a `v`**: `git tag <x.y.z> <sha> && git push origin <x.y.z>`. The community
    directory looks a release up by the bare version, and `release.yml` only matches
