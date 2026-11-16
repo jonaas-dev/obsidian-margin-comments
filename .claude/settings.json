@@ -1,7 +1,5 @@
 {
   "enabledPlugins": {
-    "code-graph@jonaas-dev": true,
-    "code-hygiene@jonaas-dev": true,
     "ponytail@ponytail": true
   },
   "extraKnownMarketplaces": {
@@ -11,5 +9,30 @@
         "repo": "DietrichGebert/ponytail"
       }
     }
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/graph_hook.py\" update || exit 0",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/graph_hook.py\" status || exit 0",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
   }
 }
